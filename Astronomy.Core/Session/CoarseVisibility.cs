@@ -3,6 +3,7 @@ using Astronomy.Core.Horizons;
 using Astronomy.Core.Locations;
 using Astronomy.Core.Night;
 using Astronomy.Core.Targets;
+using Astronomy.Core.Time;
 
 namespace Astronomy.Core.Session
 {
@@ -14,17 +15,25 @@ namespace Astronomy.Core.Session
     public static class CoarseVisibility
     {
         /// <summary>
-        /// Returns <see langword="true"/> if <paramref name="target"/> clears the mathematical
-        /// horizon (0&#176;) at any point during <paramref name="night"/>. Convenience wrapper for
-        /// the common "is this target visible at all tonight?" question that doesn't require
-        /// the caller to build an <see cref="IHorizonProfile"/> when the answer only depends
-        /// on whether the target rises during the night window.
+        /// Returns <see langword="true"/> if <paramref name="target"/> is above altitude
+        /// 0&#176; at any moment during <paramref name="night"/>'s astronomical
+        /// dusk-to-dawn window at <paramref name="location"/>. Takes no horizon profile:
+        /// the question is "visible tonight?", not "clears an obstructed horizon?".
         /// </summary>
         /// <remarks>
-        /// Equivalent to <see cref="IsEverAboveHorizon"/> with a zero-altitude
-        /// <see cref="Horizons.ScalarHorizonProfile"/>. Use <see cref="IsEverAboveHorizon"/>
-        /// when you have a real horizon profile (trees, ridges, imaging minimums); use this
-        /// overload when the caller-facing semantic is just "visible or not".
+        /// <para>
+        /// Circumpolar targets (continuously above 0&#176; for the entire night) and
+        /// transient-visibility targets (briefly above 0&#176; at any point between dusk and
+        /// dawn) both return <see langword="true"/>. Targets that never rise at
+        /// <paramref name="location"/> (declination too far south of the observer's
+        /// latitude) return <see langword="false"/>, as do targets whose above-horizon arc
+        /// falls entirely outside the night window.
+        /// </para>
+        /// <para>
+        /// Closed-form; same underlying LST / hour-angle math as
+        /// <see cref="IsEverAboveHorizon"/>, just with the altitude threshold fixed at
+        /// 0&#176; so no <see cref="IHorizonProfile"/> is required at the call site.
+        /// </para>
         /// </remarks>
         /// <exception cref="ArgumentNullException">
         /// <paramref name="target"/> or <paramref name="location"/> is <see langword="null"/>.
@@ -36,9 +45,33 @@ namespace Astronomy.Core.Session
 
             if (!night.IsValid) return false;
 
-            return VisibilityWindows.For(
-                target, location, night,
-                new Horizons.ScalarHorizonProfile(0.0)).Count > 0;
+            double latDeg    = location.North ?  location.Latitude  : -location.Latitude;
+            double decDeg    = target.North   ?  target.Declination : -target.Declination;
+            double lonDegE   = location.West  ? -location.Longitude :  location.Longitude;
+            double raHours   = target.RightAscension;
+
+            // Hour angle where the target sits on the 0 deg horizon. NaN => never rises
+            // at this latitude; +Infinity => circumpolar above (always up).
+            double haHorizon = TargetGeometry.HourAngleAtAltitude(latDeg, decDeg, 0.0);
+            if (double.IsNaN(haHorizon)) return false;
+            if (double.IsPositiveInfinity(haHorizon)) return true;
+
+            // Convert the night window to sidereal hours (linearized so dawn > dusk).
+            double lstDusk = SiderealTime.Local(night.AstronomicalDusk, lonDegE);
+            double lstDawn = SiderealTime.Local(night.AstronomicalDawn, lonDegE);
+            if (lstDawn < lstDusk) lstDawn += 24.0;
+
+            // The target is above 0 deg when LST is within [RA - haHorizon, RA + haHorizon]
+            // (mod 24). Check the three relevant wraps (k = -1, 0, +1) for intersection
+            // with the night window.
+            for (int k = -1; k <= 1; k++)
+            {
+                double center   = raHours + 24.0 * k;
+                double arcStart = center - haHorizon;
+                double arcEnd   = center + haHorizon;
+                if (Math.Max(lstDusk, arcStart) < Math.Min(lstDawn, arcEnd)) return true;
+            }
+            return false;
         }
 
         /// <summary>
