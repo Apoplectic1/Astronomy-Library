@@ -14,6 +14,34 @@ namespace Astronomy.Core.Session
     public static class CoarseVisibility
     {
         /// <summary>
+        /// Returns <see langword="true"/> if <paramref name="target"/> clears the mathematical
+        /// horizon (0&#176;) at any point during <paramref name="night"/>. Convenience wrapper for
+        /// the common "is this target visible at all tonight?" question that doesn't require
+        /// the caller to build an <see cref="IHorizonProfile"/> when the answer only depends
+        /// on whether the target rises during the night window.
+        /// </summary>
+        /// <remarks>
+        /// Equivalent to <see cref="IsEverAboveHorizon"/> with a zero-altitude
+        /// <see cref="Horizons.ScalarHorizonProfile"/>. Use <see cref="IsEverAboveHorizon"/>
+        /// when you have a real horizon profile (trees, ridges, imaging minimums); use this
+        /// overload when the caller-facing semantic is just "visible or not".
+        /// </remarks>
+        /// <exception cref="ArgumentNullException">
+        /// <paramref name="target"/> or <paramref name="location"/> is <see langword="null"/>.
+        /// </exception>
+        public static bool IsEverVisible(Target target, Location location, NightWindow night)
+        {
+            if (target == null) throw new ArgumentNullException(nameof(target));
+            if (location == null) throw new ArgumentNullException(nameof(location));
+
+            if (!night.IsValid) return false;
+
+            return VisibilityWindows.For(
+                target, location, night,
+                new Horizons.ScalarHorizonProfile(0.0)).Count > 0;
+        }
+
+        /// <summary>
         /// Returns <see langword="true"/> if <paramref name="target"/> rises above
         /// <paramref name="horizon"/>'s <see cref="IHorizonProfile.MinAltitude"/> at any point
         /// between <paramref name="night"/>'s <see cref="NightWindow.AstronomicalDusk"/> and
