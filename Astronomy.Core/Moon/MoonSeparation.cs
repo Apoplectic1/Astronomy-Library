@@ -32,6 +32,26 @@ namespace Astronomy.Core.Moon
         /// <paramref name="target"/> or <paramref name="location"/> is <see langword="null"/>.
         /// </exception>
         public static double DegreesAt(Target target, Location location, DateTime utc)
+            => ObserveAt(target, location, utc).SeparationDeg;
+
+        /// <summary>
+        /// Topocentric target-moon separation (degrees) and topocentric moon altitude
+        /// (degrees) at the given UTC instant. Computes both from one CoordinateSharp call
+        /// so moon-avoidance evaluation paths don't pay the gate-lock twice.
+        /// </summary>
+        /// <remarks>
+        /// Same separation math as <see cref="DegreesAt"/>; <see cref="DegreesAt"/> is now
+        /// a thin wrapper around this method. <c>MoonAltDeg</c> is the topocentric
+        /// altitude for the observer location at <paramref name="utc"/>.
+        /// </remarks>
+        /// <param name="target">Target RA/Dec. Non-null.</param>
+        /// <param name="location">Observer position. Non-null.</param>
+        /// <param name="utc">Instant to evaluate at. Must be UTC.</param>
+        /// <exception cref="ArgumentNullException">
+        /// <paramref name="target"/> or <paramref name="location"/> is <see langword="null"/>.
+        /// </exception>
+        public static (double SeparationDeg, double MoonAltDeg) ObserveAt(
+            Target target, Location location, DateTime utc)
         {
             if (target == null) throw new ArgumentNullException(nameof(target));
             if (location == null) throw new ArgumentNullException(nameof(location));
@@ -61,7 +81,9 @@ namespace Astronomy.Core.Moon
             double cosSep = Math.Sin(t1) * Math.Sin(t2) + Math.Cos(t1) * Math.Cos(t2) * Math.Cos(da);
             if (cosSep >  1.0) cosSep =  1.0;
             if (cosSep < -1.0) cosSep = -1.0;
-            return Math.Acos(cosSep) * 180.0 / Math.PI;
+            double sepDeg = Math.Acos(cosSep) * 180.0 / Math.PI;
+
+            return (sepDeg, mAlt);
         }
 
         /// <summary>

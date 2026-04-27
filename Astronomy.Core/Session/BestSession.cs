@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using Astronomy.Core.Horizons;
 using Astronomy.Core.Locations;
+using Astronomy.Core.Moon;
 using Astronomy.Core.Night;
 using Astronomy.Core.Targets;
 
@@ -30,6 +32,14 @@ namespace Astronomy.Core.Session
         /// will pick up the azimuth-aware horizon-profile refinement automatically once
         /// <see cref="VisibilityWindows"/> gains it.
         /// </para>
+        /// <para>
+        /// When <paramref name="profile"/> is non-<see langword="null"/> and enabled, the
+        /// candidate windows are intersected with moon-clear sub-intervals (per the
+        /// ACP/TS Lorentzian, sampled at 10-minute resolution) before placement. When
+        /// <paramref name="profile"/> is <see langword="null"/> or
+        /// <see cref="MoonAvoidanceProfile.Disabled"/>, the moon-aware path short-circuits
+        /// and the result is byte-identical to the legacy moon-blind output.
+        /// </para>
         /// </remarks>
         /// <returns>
         /// A <c>(Start, End, Quality)</c> tuple (times are <see cref="DateTimeKind.Utc"/>)
@@ -47,7 +57,8 @@ namespace Astronomy.Core.Session
         public static (DateTime Start, DateTime End, double Quality)? For(
             Target target, Location location, NightWindow night, IHorizonProfile horizon,
             TimeSpan minDuration, TimeSpan maxDuration,
-            Func<double, double> altitudeQuality)
+            Func<double, double> altitudeQuality,
+            MoonAvoidanceProfile profile = null)
         {
             if (target == null) throw new ArgumentNullException(nameof(target));
             if (location == null) throw new ArgumentNullException(nameof(location));
@@ -58,9 +69,35 @@ namespace Astronomy.Core.Session
             if (minDuration > maxDuration)
                 throw new ArgumentException("minDuration must be <= maxDuration");
 
-            var windows = VisibilityWindows.For(target, location, night, horizon);
-            if (windows.Count == 0) return null;
+            var visibility = VisibilityWindows.For(target, location, night, horizon);
+            if (visibility.Count == 0) return null;
 
+            // Moon-aware path: intersect each visibility window with moon-clear sub-
+            // intervals. Profile-null and profile-Disabled short-circuit to the legacy
+            // path -- the byte-identical guarantee for the v1 default.
+            IReadOnlyList<(DateTime Start, DateTime End)> candidates = visibility;
+            if (profile != null && profile.Enabled)
+            {
+                candidates = MoonClearIntersect(target, location, visibility, profile);
+                if (candidates.Count == 0) return null;
+            }
+
+            return PlaceBest(target, location, candidates, minDuration, maxDuration, altitudeQuality);
+        }
+
+        // ====================================================================
+        // Helpers
+        // ====================================================================
+
+        // Existing transit-centered-or-wall-pushed placement, factored out so the legacy
+        // and moon-aware code paths share it. Behavior is preserved exactly relative to
+        // the pre-refactor body.
+        private static (DateTime Start, DateTime End, double Quality)? PlaceBest(
+            Target target, Location location,
+            IReadOnlyList<(DateTime Start, DateTime End)> windows,
+            TimeSpan minDuration, TimeSpan maxDuration,
+            Func<double, double> altitudeQuality)
+        {
             double minHrs = minDuration.TotalHours;
             double maxHrs = maxDuration.TotalHours;
 
@@ -104,6 +141,86 @@ namespace Astronomy.Core.Session
             }
 
             return best;
+        }
+
+        // Walks each visibility window at 10-minute resolution, samples (separation,
+        // moonAlt, age), evaluates MoonAvoidance.IsRejected, and emits contiguous
+        // (Start, End) sub-intervals where avoidance accepts. Boundary crossings are
+        // located by linear interpolation on (actualSep - requiredSep), so the result is
+        // accurate to about 1 minute regardless of how the threshold itself ramps with
+        // moon altitude inside the relaxation zone.
+        private static IReadOnlyList<(DateTime Start, DateTime End)> MoonClearIntersect(
+            Target target, Location location,
+            IReadOnlyList<(DateTime Start, DateTime End)> visibility,
+            MoonAvoidanceProfile profile)
+        {
+            var result = new List<(DateTime Start, DateTime End)>();
+            TimeSpan sampleSize = TimeSpan.FromMinutes(10);
+
+            foreach (var win in visibility)
+            {
+                DateTime tPrev = win.Start;
+                var (sepPrev, moonAltPrev) = MoonSeparation.ObserveAt(target, location, tPrev);
+                double agePrev = LunarAge.DaysAt(tPrev);
+                double reqPrev = MoonAvoidance.RequiredSepWithRelax(agePrev, moonAltPrev, profile);
+                double deltaPrev = sepPrev - reqPrev;       // > 0 => clear, < 0 => rejected
+                bool clearPrev = !(reqPrev > 0.0 && deltaPrev < 0.0);
+                DateTime? clearStart = clearPrev ? (DateTime?)tPrev : null;
+
+                DateTime tCur = win.Start.Add(sampleSize);
+                while (tCur <= win.End)
+                {
+                    var (sepCur, moonAltCur) = MoonSeparation.ObserveAt(target, location, tCur);
+                    double ageCur = LunarAge.DaysAt(tCur);
+                    double reqCur = MoonAvoidance.RequiredSepWithRelax(ageCur, moonAltCur, profile);
+                    double deltaCur = sepCur - reqCur;
+                    bool clearCur = !(reqCur > 0.0 && deltaCur < 0.0);
+
+                    if (clearPrev != clearCur)
+                    {
+                        // Linear interpolation on delta to locate the boundary. Falls back
+                        // to the half-step midpoint if the deltas don't straddle zero
+                        // (can happen when one side has reqPrev/Cur == 0 -- avoidance was
+                        // off there -- and the other side flipped on with reqCur > sepCur).
+                        DateTime crossing;
+                        double denom = deltaPrev - deltaCur;
+                        if (denom != 0.0 && Math.Sign(deltaPrev) != Math.Sign(deltaCur))
+                        {
+                            double frac = deltaPrev / denom;
+                            crossing = tPrev.AddTicks((long)(frac * (tCur - tPrev).Ticks));
+                        }
+                        else
+                        {
+                            crossing = tPrev.AddTicks((tCur - tPrev).Ticks / 2);
+                        }
+
+                        if (clearCur)
+                        {
+                            // Was rejected, now clear: open a new sub-interval at the crossing.
+                            clearStart = crossing;
+                        }
+                        else if (clearStart.HasValue)
+                        {
+                            // Was clear, now rejected: close the open sub-interval at the crossing.
+                            result.Add((clearStart.Value, crossing));
+                            clearStart = null;
+                        }
+                    }
+
+                    tPrev = tCur;
+                    sepPrev = sepCur;
+                    moonAltPrev = moonAltCur;
+                    agePrev = ageCur;
+                    reqPrev = reqCur;
+                    deltaPrev = deltaCur;
+                    clearPrev = clearCur;
+                    tCur = tCur.Add(sampleSize);
+                }
+
+                if (clearStart.HasValue) result.Add((clearStart.Value, win.End));
+            }
+
+            return result;
         }
     }
 }
