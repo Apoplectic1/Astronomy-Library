@@ -154,7 +154,7 @@ These were touched on in discussion but do not need to be settled before the fir
 
 - **In-process (DLL) vs. out-of-process (CLI tool).** For batch operations (load 100 XISF files), the existing xisf binary called via `Process.Start` is a viable MVP — it requires zero binding work. In-process via `Astronomy.PCL` is required only for fine-grained calls.
 - **Wrap-on-demand vs. comprehensive coverage.** Wrap-on-demand is the right starting strategy: bind functions as you need them, grow organically. Comprehensive upfront is more work for less early benefit.
-- **Static vs. dynamic linking of PCL.** Static is the default and simplest — PCL on Windows ships primarily as `.lib` static libs, and the `src-pcl-windows-vc17` build flavor is set up for it. Static linking gives you one fat `Astronomy.PCL.Native.dll` with PCL baked in.
+- **Static vs. dynamic linking of PCL.** Static is the default and simplest — PCL on Windows ships primarily as `.lib` static libs (built via the main `PCL.sln` under `Library\PCL\src\pcl\windows\vc18\`; the 3rd-party libs still use `vc17/` as a directory name but their toolset is also `v145`). Static linking gives you one fat `Astronomy.PCL.Native.dll` with PCL baked in.
 - **Astronomy.Core long-term form.** Stay managed unless C++ apps genuinely need its algorithms. Most likely "stay managed forever" given C++ apps are mostly PCL-driven.
 - **Naming / sub-namespacing.** Single `Astronomy.PCL` vs. multiple sub-namespaces (`Astronomy.PCL.Xisf`, `Astronomy.PCL.Astrometry`, etc.) — decide when the wrapper grows large enough to need it.
 - **Versioning and packaging.** Local `ProjectReference` is fine for first iteration. NuGet packaging with `runtimes\win-x64\native\` layout becomes useful once the wrapper is consumed by code outside this solution.
@@ -196,6 +196,8 @@ PCL snapshot pinned at `PCL\PCL-master.zip` from 2025-02-22. Re-snapshot only wh
 ## Status
 
 **First surface implemented: XISF read.** `Astronomy.PCL.Native` (vcxproj, statically links PCL `.lib`s from `Library\PCL\lib\x64\$(Configuration)\`) plus `Astronomy.PCL` (net8.0 P/Invoke wrapper) are in `Astronomy.sln`. Public C# surface: `XisfFile : IDisposable` with `Open` / `SelectImage` / `ReadImageF32`. Tests live in `Astronomy.Core.Tests/Tests/PCL/`. The C ABI surface is in `Astronomy.PCL.Native\include\Astronomy\PCL\XisfCApi.h` — extension is wrap-on-demand per the strategy in this doc.
+
+**PCL itself was bumped to `v145` post-implementation** (matches the wrapper's toolset). The seven PCL projects we link against — `PCL.vcxproj` plus the six 3rd-party libs (`cminpack`, `lcms`, `lz4`, `RFC6234`, `zlib`, `zstd`) — are also listed in `Astronomy.sln` under a `PCL` Solution Folder for source visibility, but with `Build.0` omitted: they show in Solution Explorer with full IntelliSense / F12, and `Build Solution` does not build them. PCL rebuilds remain a manual step via `Library\PCL\src\pcl\windows\vc18\PCL.sln`.
 
 ### Two findings worth carrying forward
 
