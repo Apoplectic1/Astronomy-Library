@@ -26,6 +26,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "zlib", "PCL\src\3rdparty\zl
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "zstd", "PCL\src\3rdparty\zstd\windows\vc17\zstd.vcxproj", "{352F94DD-9680-42C8-B4CB-F9577F1FF13B}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "xisf", "PCL\src\utils\xisf\xisf.vcxproj", "{FB83C9D0-EB83-70C1-D7CE-6DD1B32F3F51}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -62,6 +64,8 @@ Global
 		{0FC70B79-74DE-422B-99E1-43C8684E700C}.Release|x64.ActiveCfg = Release|x64
 		{352F94DD-9680-42C8-B4CB-F9577F1FF13B}.Debug|x64.ActiveCfg = Debug|x64
 		{352F94DD-9680-42C8-B4CB-F9577F1FF13B}.Release|x64.ActiveCfg = Release|x64
+		{FB83C9D0-EB83-70C1-D7CE-6DD1B32F3F51}.Debug|x64.ActiveCfg = Debug|x64
+		{FB83C9D0-EB83-70C1-D7CE-6DD1B32F3F51}.Release|x64.ActiveCfg = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -74,5 +78,6 @@ Global
 		{58108755-3C67-4DA4-9A0F-B6F076A4F714} = {B0E0C501-00B0-4F1C-A0E0-7A1FBFCE0FED}
 		{0FC70B79-74DE-422B-99E1-43C8684E700C} = {B0E0C501-00B0-4F1C-A0E0-7A1FBFCE0FED}
 		{352F94DD-9680-42C8-B4CB-F9577F1FF13B} = {B0E0C501-00B0-4F1C-A0E0-7A1FBFCE0FED}
+		{FB83C9D0-EB83-70C1-D7CE-6DD1B32F3F51} = {B0E0C501-00B0-4F1C-A0E0-7A1FBFCE0FED}
 	EndGlobalSection
 EndGlobal
