@@ -15,6 +15,7 @@
          via `dotnet run -c Release` to produce meaningful numbers, and the runtime
          check there is enough. -->
     <NoWarn>$(NoWarn);BDN0001</NoWarn>
+    <Platforms>x64</Platforms>
   </PropertyGroup>
 
   <ItemGroup>
