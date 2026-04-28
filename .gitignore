@@ -4,6 +4,10 @@
 *.pdb
 *.dll.config
 
+# Vendored PixInsight Class Library — ~10 GB of source + prebuilt libs.
+# Canonical snapshot pinned at PCL\PCL-master.zip (2025-02-22) per PCL InterOp.md.
+/PCL/
+
 # Visual Studio IDE state
 .vs/
 *.suo

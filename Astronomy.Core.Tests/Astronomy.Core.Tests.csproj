@@ -29,6 +29,14 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Astronomy.Core\Astronomy.Core.csproj" />
+    <ProjectReference Include="..\Astronomy.PCL\Astronomy.PCL.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\PCL\src\utils\xisf\TestData\test.xisf">
+      <Link>TestData\test.xisf</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>

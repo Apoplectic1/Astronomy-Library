@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Astronomy.PCL</RootNamespace>
+    <AssemblyName>Astronomy.PCL</AssemblyName>
+    <Deterministic>true</Deterministic>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Platforms>x64</Platforms>
+    <ProjectGuid>{E1F0A847-9D31-4F26-B5C7-8E2D6A3F1B04}</ProjectGuid>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Astronomy.Core.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Astronomy.Core\Astronomy.Core.csproj" />
+    <ProjectReference Include="..\Astronomy.PCL.Native\Astronomy.PCL.Native.vcxproj">
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+      <SkipGetTargetFrameworkProperties>true</SkipGetTargetFrameworkProperties>
+      <UndefineProperties>TargetFramework</UndefineProperties>
+    </ProjectReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="..\Astronomy.PCL.Native\bin\x64\$(Configuration)\Astronomy.PCL.Native.dll">
+      <Link>Astronomy.PCL.Native.dll</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Pack>true</Pack>
+      <PackagePath>runtimes\win-x64\native</PackagePath>
+      <Visible>false</Visible>
+    </Content>
+  </ItemGroup>
+
+</Project>

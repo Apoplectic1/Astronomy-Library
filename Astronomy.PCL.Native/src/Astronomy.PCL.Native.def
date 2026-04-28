@@ -1,0 +1,9 @@
+EXPORTS
+    AstronomyXisf_Open
+    AstronomyXisf_Close
+    AstronomyXisf_NumberOfImages
+    AstronomyXisf_SelectImage
+    AstronomyXisf_GetImageInfo
+    AstronomyXisf_ReadImageF32
+    AstronomyXisf_GetLastErrorMessage
+    AstronomyXisf_Add
