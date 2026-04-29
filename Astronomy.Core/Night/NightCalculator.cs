@@ -1,56 +1,41 @@
-using CoordinateSharp;
 using System;
+using Astronomy.Core.Astrometry;
+using Astronomy.Core.Astrometry.Meeus;
 using Astronomy.Core.Locations;
+using Astronomy.Core.Time;
 
 namespace Astronomy.Core.Night
 {
     /// <summary>
     /// Computes the astronomical night window (sun at or below -18&#176;) bracketing
-    /// <see cref="Location.DateTime"/>, plus the lunar illumination fraction. Pure; no
-    /// static mutable state; safe to call from concurrent background tasks.
+    /// <see cref="Location.DateTime"/>, plus the lunar illumination fraction. Pure;
+    /// no static mutable state; safe to call from concurrent background tasks.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Call <see cref="TwilightCalculator.ComputeNight"/> for nautical (-12&#176;) or civil
-    /// (-6&#176;) thresholds. Arbitrary thresholds are not yet supported -- CoordinateSharp
-    /// only exposes the three fixed bands through its <c>SolarTimes</c> property. A direct
-    /// solar-altitude solve would lift that restriction.
+    /// Backed by <see cref="SunPosition.RiseSet"/> (Meeus chapter 15) and
+    /// <see cref="MoonIllumination.Fraction"/> (Meeus chapter 48). Call
+    /// <see cref="TwilightCalculator.ComputeNight"/> for nautical (-12&#176;) or civil
+    /// (-6&#176;) thresholds; the implementation is shared.
     /// </para>
     /// <para>
-    /// The returned <see cref="NightWindow.AstronomicalDawn"/> and
-    /// <see cref="NightWindow.AstronomicalDusk"/> are <see cref="DateTimeKind.Utc"/> --
-    /// absolute UTC instants. Consumers who want local wall-clock values call
-    /// <c>.ToLocalTime()</c> at the display site.
-    /// </para>
-    /// <para>
-    /// Implementation note on DST: CoordinateSharp is called in the "local frame" form
-    /// (<see cref="Location.DateTime"/> passed with the observer's local UTC offset) so the
-    /// returned solar events key to the local calendar day the observer experiences. Those
-    /// returns are <see cref="DateTimeKind.Unspecified"/> wall-clock times "at that
-    /// offset"; we recover true UTC via
-    /// <c>new DateTimeOffset(value, offset).UtcDateTime</c>, which undoes the same fixed
-    /// offset we handed in. Using <c>.ToUniversalTime()</c> here would re-derive the offset
-    /// from Windows DST rules for each returned instant and get a different answer on
-    /// DST-transition nights -- the ~1 h LST error that produced the OptimalFloor spike on
-    /// 2026-11-01.
+    /// The returned <see cref="NightWindow.AstronomicalDawn"/> /
+    /// <see cref="NightWindow.AstronomicalDusk"/> are <see cref="DateTimeKind.Utc"/>.
     /// </para>
     /// </remarks>
     public static class NightCalculator
     {
-        private static readonly EagerLoad mEagerLoad = EagerLoad.Create(EagerLoadType.Celestial);
-
         /// <summary>
-        /// Returns the astronomical night window bracketing <paramref name="location"/>'s
-        /// moment, rolled forward (to tomorrow's dawn) if the observer is already past
-        /// today's dawn or back (to yesterday's dusk) if before it.
+        /// Returns the astronomical-twilight night window bracketing
+        /// <paramref name="location"/>'s moment.
         /// </summary>
         /// <param name="location">Observer position and local moment. Non-null.</param>
         /// <returns>
         /// A <see cref="NightWindow"/> with <see cref="DateTimeKind.Utc"/> dusk/dawn
-        /// instants. If the location is in polar day / polar night (no dusk or no dawn on
-        /// either the today/yesterday/tomorrow queries), the missing field falls back to
-        /// <see cref="DateTime.MinValue"/> and <see cref="NightWindow.IsValid"/> will
-        /// report false.
+        /// instants. If the location is in polar day / polar night (no -18&#176;
+        /// crossing within the bracketing 3-day window), the missing field is
+        /// <see cref="DateTime.MinValue"/> and <see cref="NightWindow.IsValid"/>
+        /// reports false.
         /// </returns>
         /// <exception cref="ArgumentNullException">
         /// <paramref name="location"/> is <see langword="null"/>.
@@ -58,58 +43,81 @@ namespace Astronomy.Core.Night
         public static NightWindow ComputeNight(Location location)
         {
             if (location == null) throw new ArgumentNullException(nameof(location));
-
-            double LatSign  = location.North ?  1.0 : -1.0;
-            double LongSign = location.West  ? -1.0 :  1.0;
-            TimeSpan utcOffset = TimeZoneInfo.Local.GetUtcOffset(location.DateTime);
-
-            Celestial today = CoordinateSharpGate.Calculate(
-                LatSign  * location.Latitude,
-                LongSign * location.Longitude,
-                location.DateTime, mEagerLoad, utcOffset.Hours);
-
-            DateTime? dawnToday = today.AdditionalSolarTimes.AstronomicalDawn;
-            DateTime? duskToday = today.AdditionalSolarTimes.AstronomicalDusk;
-            double illum = today.MoonIllum.Fraction;
-
-            // Bracketing comparison is in the local frame: both sides are wall-clock at the
-            // same offset, so the compare is well-defined without touching UTC.
-            if (dawnToday.HasValue && location.DateTime >= dawnToday.Value)
-            {
-                Celestial tomorrow = CoordinateSharpGate.Calculate(
-                    LatSign  * location.Latitude,
-                    LongSign * location.Longitude,
-                    location.DateTime.AddDays(1), mEagerLoad, utcOffset.Hours);
-                return new NightWindow
-                {
-                    AstronomicalDawn = ToUtc(tomorrow.AdditionalSolarTimes.AstronomicalDawn, utcOffset),
-                    AstronomicalDusk = ToUtc(duskToday,                                      utcOffset),
-                    LunarIlluminationFraction = illum,
-                };
-            }
-            else
-            {
-                Celestial yesterday = CoordinateSharpGate.Calculate(
-                    LatSign  * location.Latitude,
-                    LongSign * location.Longitude,
-                    location.DateTime.AddDays(-1), mEagerLoad, utcOffset.Hours);
-                return new NightWindow
-                {
-                    AstronomicalDawn = ToUtc(dawnToday,                                       utcOffset),
-                    AstronomicalDusk = ToUtc(yesterday.AdditionalSolarTimes.AstronomicalDusk, utcOffset),
-                    LunarIlluminationFraction = illum,
-                };
-            }
+            return Compute(location, -18.0);
         }
 
-        // Convert a CoordinateSharp "wall-clock at utcOffset" DateTime to absolute UTC by
-        // undoing the same offset we handed in. DateTimeOffset with Kind=Unspecified accepts
-        // any offset verbatim (no Windows DST re-derivation), which is the whole point.
-        private static DateTime ToUtc(DateTime? maybe, TimeSpan offset)
+        // Shared helper: bracket the night around location.DateTime where the sun
+        // crosses sunAltBelowDeg. Used by TwilightCalculator for the parameterised
+        // threshold variants. Operating in pure UTC (no local-frame offset trick)
+        // avoids the DST-transition trap the old CoordinateSharp path had to dodge.
+        internal static NightWindow Compute(Location location, double sunAltBelowDeg)
         {
-            if (!maybe.HasValue) return DateTime.MinValue;
-            DateTime asUnspec = DateTime.SpecifyKind(maybe.Value, DateTimeKind.Unspecified);
-            return new DateTimeOffset(asUnspec, offset).UtcDateTime;
+            double latSigned = location.North ?  location.Latitude  : -location.Latitude;
+            double lonEast   = location.West  ? -location.Longitude :  location.Longitude;
+
+            DateTime locUtc = AsUtc(location.DateTime);
+
+            // The night that wraps locUtc could have its dusk on the prior UTC day and
+            // its dawn on the next UTC day; sample three consecutive days to cover all
+            // alignments without any offset gymnastics.
+            (DateTime? endingDawn, DateTime? startingDusk) = BracketingPair(
+                locUtc, latSigned, lonEast, sunAltBelowDeg);
+
+            double illum = AstroUtil.GetMoonIllumination(locUtc);
+
+            return new NightWindow
+            {
+                AstronomicalDawn          = endingDawn   ?? DateTime.MinValue,
+                AstronomicalDusk          = startingDusk ?? DateTime.MinValue,
+                LunarIlluminationFraction = illum,
+            };
+        }
+
+        private static (DateTime? Dawn, DateTime? Dusk) BracketingPair(
+            DateTime locUtc, double latSigned, double lonEast, double sunAltDeg)
+        {
+            // Build the candidate event lists across day-1 / day / day+1.
+            DateTime[] days = { locUtc.AddDays(-1), locUtc, locUtc.AddDays(1) };
+
+            DateTime? endingDawn = null;
+            for (int i = 0; i < days.Length; i++)
+            {
+                (DateTime? rise, _) = SunPosition.RiseSet(days[i], latSigned, lonEast, sunAltDeg);
+                if (rise.HasValue && rise.Value >= locUtc
+                    && (!endingDawn.HasValue || rise.Value < endingDawn.Value))
+                {
+                    endingDawn = rise;
+                }
+            }
+
+            DateTime? startingDusk = null;
+            if (endingDawn.HasValue)
+            {
+                for (int i = 0; i < days.Length; i++)
+                {
+                    (_, DateTime? set) = SunPosition.RiseSet(days[i], latSigned, lonEast, sunAltDeg);
+                    if (set.HasValue && set.Value < endingDawn.Value
+                        && (!startingDusk.HasValue || set.Value > startingDusk.Value))
+                    {
+                        startingDusk = set;
+                    }
+                }
+            }
+
+            return (endingDawn, startingDusk);
+        }
+
+        // Resolve location.DateTime to a true UTC instant per the Location contract:
+        // Kind=Utc passes through; Kind=Local converts; Kind=Unspecified is treated
+        // as Local (per Location.DateTime XML doc).
+        private static DateTime AsUtc(DateTime dt)
+        {
+            switch (dt.Kind)
+            {
+                case DateTimeKind.Utc:   return dt;
+                case DateTimeKind.Local: return dt.ToUniversalTime();
+                default:                 return DateTime.SpecifyKind(dt, DateTimeKind.Local).ToUniversalTime();
+            }
         }
     }
 }

@@ -15,8 +15,7 @@ namespace Astronomy.Core.Night
     /// UTC offset -- it does not depend on the target being observed. When multiple targets are
     /// graphed against the same <see cref="Location"/> (the multi-target Graph path), each
     /// target's year build otherwise re-derives the same 365-day NightWindow series
-    /// independently, paying the process-wide <c>CoordinateSharpGate</c> lock N times where one
-    /// would suffice.
+    /// independently. This cache amortizes the work across targets.
     /// </para>
     /// <para>
     /// This type amortizes that cost: build it once per Graph click, hand it to every target's
@@ -25,9 +24,9 @@ namespace Astronomy.Core.Night
     /// </para>
     /// <para>
     /// <b>Thread-safety:</b> the instance is immutable after construction; concurrent readers are
-    /// safe. The <em>construction</em> itself serializes on CoordinateSharp's gate (unavoidable
-    /// on library version 3.4.1.1), which is why it's meant to run once on a background task
-    /// before per-target work begins.
+    /// safe. The <em>construction</em> itself runs sequentially across the year-day loop, but the
+    /// underlying <see cref="NightCalculator"/> is now stateless / lock-free (Meeus-backed), so
+    /// callers can build several caches in parallel for different locations if useful.
     /// </para>
     /// </remarks>
     public sealed class NightCache

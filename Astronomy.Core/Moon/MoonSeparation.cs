@@ -1,6 +1,6 @@
-using CoordinateSharp;
 using System;
 using System.Collections.Generic;
+using Astronomy.Core.Astrometry;
 using Astronomy.Core.Locations;
 using Astronomy.Core.Night;
 using Astronomy.Core.Targets;
@@ -13,8 +13,6 @@ namespace Astronomy.Core.Moon
     /// </summary>
     public static class MoonSeparation
     {
-        private static readonly EagerLoad mEagerLoad = EagerLoad.Create(EagerLoadType.Celestial);
-
         /// <summary>
         /// Topocentric angular separation (degrees) between the target and the Moon at the
         /// given UTC instant, as seen from the observer location.
@@ -22,8 +20,8 @@ namespace Astronomy.Core.Moon
         /// <remarks>
         /// This is the number that actually governs moon-contamination in an image --
         /// geocentric separation is only a proxy. Composes Core's target Alt/Az with
-        /// CoordinateSharp's moon Alt/Az via the spherical law of cosines. Result is always
-        /// in <c>[0, 180]</c>.
+        /// <see cref="AstroUtil"/>'s moon Alt/Az via the spherical law of cosines.
+        /// Result is always in <c>[0, 180]</c>.
         /// </remarks>
         /// <param name="target">Target RA/Dec. Non-null.</param>
         /// <param name="location">Observer position. Non-null.</param>
@@ -36,8 +34,7 @@ namespace Astronomy.Core.Moon
 
         /// <summary>
         /// Topocentric target-moon separation (degrees) and topocentric moon altitude
-        /// (degrees) at the given UTC instant. Computes both from one CoordinateSharp call
-        /// so moon-avoidance evaluation paths don't pay the gate-lock twice.
+        /// (degrees) at the given UTC instant.
         /// </summary>
         /// <remarks>
         /// Same separation math as <see cref="DegreesAt"/>; <see cref="DegreesAt"/> is now
@@ -60,19 +57,12 @@ namespace Astronomy.Core.Moon
             double tAlt = targetAltAz.Altitude;
             double tAz  = targetAltAz.Azimuth;
 
-            double LatSign  = location.North ?  1.0 : -1.0;
-            double LongSign = location.West  ? -1.0 :  1.0;
+            double latSigned = location.North ?  location.Latitude  : -location.Latitude;
+            double lonEast   = location.West  ? -location.Longitude :  location.Longitude;
+            ObserverInfo observer = new ObserverInfo(latSigned, lonEast, 0.0);
 
-            // Pass the UTC instant straight through with utcOffset = 0 hours; CoordinateSharp
-            // treats the DateTime argument as local to the offset so this effectively asks for
-            // "celestial times at this UTC".
-            Celestial c = CoordinateSharpGate.Calculate(
-                LatSign  * location.Latitude,
-                LongSign * location.Longitude,
-                utc, mEagerLoad, 0.0);
-
-            double mAlt = c.MoonAltitude;
-            double mAz  = c.MoonAzimuth;
+            double mAlt = AstroUtil.GetMoonAltitude(utc, observer);
+            double mAz  = AstroUtil.GetMoonAzimuth (utc, observer);
 
             double t1  = tAlt * Math.PI / 180.0;
             double t2  = mAlt * Math.PI / 180.0;
@@ -115,8 +105,6 @@ namespace Astronomy.Core.Moon
             var result = new List<(DateTime Start, DateTime End)>();
             if (!night.IsValid) return result;
 
-            // NightWindow exposes AstronomicalDusk / AstronomicalDawn as Kind=Utc. See
-            // NightCalculator for the offset-recovery rationale.
             DateTime startUtc = night.AstronomicalDusk;
             DateTime endUtc   = night.AstronomicalDawn;
             TimeSpan sampleSize = TimeSpan.FromMinutes(10);
@@ -134,7 +122,6 @@ namespace Astronomy.Core.Moon
 
                 if (abovePrev != aboveCur)
                 {
-                    // Interpolate the exact crossing between tPrev and tCur.
                     double frac = (minSepDeg - sepPrev) / (sepCur - sepPrev);
                     DateTime crossing = tPrev.AddTicks((long)(frac * (tCur - tPrev).Ticks));
                     if (aboveCur)

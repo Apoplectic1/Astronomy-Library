@@ -15,10 +15,10 @@ namespace Astronomy.Core.Moon
     /// scheduling.
     /// </para>
     /// <para>
-    /// For a higher-accuracy lunar phase, consume CoordinateSharp's
-    /// <c>Celestial.MoonIllum</c>; this helper exists so Core can compute lunar age
-    /// without re-entering the CoordinateSharp gate per sample (a 10-minute sweep over a
-    /// night is ~70 samples, so amortizing the moon position separately matters).
+    /// For a higher-accuracy lunar phase, call
+    /// <see cref="Astronomy.Core.Astrometry.AstroUtil.GetMoonIllumination"/>; this helper
+    /// exists for Lorentzian moon-avoidance scheduling, where lunar age (rather than
+    /// illuminated fraction) is the natural axis of the avoidance formula.
     /// </para>
     /// </remarks>
     public static class LunarAge

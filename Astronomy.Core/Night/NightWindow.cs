@@ -15,9 +15,9 @@ namespace Astronomy.Core.Night
     /// </para>
     /// <para>
     /// <see cref="DateTime.MinValue"/> is used as a sentinel when the night window is not
-    /// well-defined (polar day / polar night / outside CoordinateSharp's valid range).
-    /// Consumers can short-circuit with <see cref="IsValid"/> instead of checking both
-    /// fields against <see cref="DateTime.MinValue"/> individually.
+    /// well-defined (polar day / polar night). Consumers can short-circuit with
+    /// <see cref="IsValid"/> instead of checking both fields against
+    /// <see cref="DateTime.MinValue"/> individually.
     /// </para>
     /// </remarks>
     public struct NightWindow
