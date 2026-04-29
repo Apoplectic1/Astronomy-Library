@@ -71,6 +71,27 @@ These are baked into the public API and must be respected when adding code:
 - `Session/` — higher-level analysis built on the primitives: `AltitudeCurve` (uniform-grid sampling via linear LST advance — ~2.6x faster than per-sample `AltAzCalculator.Of`), `RiseSet`, `TransitTime`, `VisibilityWindows`, `CoarseVisibility`, `IntegratedQuality`, `BestSession`, `TargetOrdering`.
 - `Moon/` — `MoonSeparation`.
 
+## PCL local build
+
+`Library\PCL\` is the vendored Pleiades PixInsight Class Library, locally pruned to **Windows-only** — the macOS and Linux build trees were stripped. The canonical pinned snapshot is `Library\PCL\PCL-master.zip` (2025-02-22 per `PCL InterOp.md`). Re-extract on a fresh clone, or to discard local edits.
+
+**Toolset.** All PCL projects (`PCL.vcxproj` + the six 3rd-party libs + `xisf.vcxproj`) are at `<PlatformToolset>v145</PlatformToolset>`, matching `Astronomy.PCL.Native`. The directory naming `vc17` under `src\3rdparty\*\windows\vc17\` and `src\modules\*\windows\vc17\` is historical PCL convention and was deliberately not renamed; only the main PCL solution moved from `src\pcl\windows\vc17\` → `src\pcl\windows\vc18\` to signal the VS2026 build flavor.
+
+**Main solution.** `Library\PCL\src\pcl\windows\vc18\PCL.sln`. Builds PCL plus the six 3rd-party static libs into `Library\PCL\lib\x64\{Debug,Release}\*-pxi.lib` and the xisf utility into `Library\PCL\bin\x64\{Debug,Release}\xisf.exe`. Astronomy.PCL.Native consumes the seven `.lib` outputs from `lib\x64\$(Configuration)\`.
+
+**Required environment variables** (consumed by PCL.vcxproj, the 3rd-party libs, and xisf.vcxproj — set as system env vars and reboot before opening the SLN; otherwise the C++ build fails to find headers and libraries):
+
+- `PCLINCDIR` = `E:\Projects\VisualStudio\Astronomy\Library\PCL\include`
+- `PCLSRCDIR` = `E:\Projects\VisualStudio\Astronomy\Library\PCL\src`
+- `PCLLIBDIR64` = `E:\Projects\VisualStudio\Astronomy\Library\PCL\lib\x64`
+- `PCLBINDIR64` = `E:\Projects\VisualStudio\Astronomy\Library\PCL\bin\x64`
+
+**xisf utility.** PCL's CLI test app at `Library\PCL\src\utils\xisf\`. Statically links the same seven `.libs` Astronomy.PCL.Native does (`PCL-pxi`, `lz4-pxi`, `zlib-pxi`, `zstd-pxi`, `lcms-pxi`, `cminpack-pxi`, `RFC6234-pxi`, plus `Userenv`). Built by PCL.sln (which lists xisf.vcxproj) or independently via `xisf.sln` in the same directory; both produce the same `xisf.exe`. **xisf.exe must be invoked from its solution directory** so its relative-path arguments resolve. `Test_GetXisfKeywords.bat` is a developer-convenience smoke that runs `xisf.exe --read-fits-keywords` against `TestData\test.xisf`. Both `xisf.vcxproj` and `xisf.sln` are x64-only — Win32/x86 was dropped because the v140_xp toolset isn't installed under VS2026.
+
+**Re-snapshot caveat.** Re-extracting `PCL-master.zip` clobbers all local edits — the `vc18` directory, the v143→v145 toolset bumps across PCL + 3rd-party + xisf, the Win32/x86 strip on xisf, anything else added under `Library\PCL\`. Plan to re-apply or keep a patch.
+
+**Upstream Pleiades docs.** `Library\PCL\README.md` (PCL overview), `CODING_STYLE.md` (Pleiades C++ conventions), `COPYING.md` + `LICENSE.txt` (PCLL license) are unmodified upstream content; left alone deliberately so re-snapshot doesn't churn them.
+
 ## PCL interop
 
 The hybrid architecture from `PCL InterOp.md` is **implemented** for the first surface (XISF read). Two projects:
