@@ -66,6 +66,13 @@ namespace Astronomy.Core.Locations
         /// <summary>Time zone the observer is in. Defaults to <see cref="TimeZoneInfo.Local"/>.</summary>
         public TimeZoneInfo  TimeZoneInfo { get; }
 
+        /// <summary>
+        /// Observer elevation above the geoid, meters. Defaults to 0 when omitted. Used by
+        /// <c>ObserverInfo</c> for moon parallax (Meeus 11.1 / 11.2) and -- once wired --
+        /// for elevation-corrected horizon dip in sun rise/set computations.
+        /// </summary>
+        public double        Elevation    { get; }
+
         /// <summary>Sexagesimal latitude components -- whole-degrees digit of the DMS breakdown (always non-negative; hemisphere in <see cref="North"/>).</summary>
         public double LatDegrees => Math.Truncate(Latitude);
         /// <summary>Whole-arcminutes component of the latitude DMS breakdown.</summary>
@@ -98,7 +105,8 @@ namespace Astronomy.Core.Locations
             double horizon,
             TimeSpan duration,
             DateTime dateTime,
-            TimeZoneInfo timeZoneInfo)
+            TimeZoneInfo timeZoneInfo,
+            double elevation = 0.0)
         {
             // Sign normalization: negative magnitude flips the hemisphere flag so the stored
             // state is always (non-negative magnitude, explicit hemisphere).
@@ -114,6 +122,7 @@ namespace Astronomy.Core.Locations
             Duration     = duration;
             DateTime     = dateTime;
             TimeZoneInfo = timeZoneInfo ?? TimeZoneInfo.Local;
+            Elevation    = elevation;
         }
 
         /// <summary>
@@ -129,7 +138,8 @@ namespace Astronomy.Core.Locations
             double? horizon = null,
             TimeSpan? duration = null,
             DateTime? dateTime = null,
-            TimeZoneInfo timeZoneInfo = null)
+            TimeZoneInfo timeZoneInfo = null,
+            double? elevation = null)
             => new Location(
                 name         ?? this.Name,
                 latitude     ?? this.Latitude,
@@ -139,7 +149,8 @@ namespace Astronomy.Core.Locations
                 horizon      ?? this.Horizon,
                 duration     ?? this.Duration,
                 dateTime     ?? this.DateTime,
-                timeZoneInfo ?? this.TimeZoneInfo);
+                timeZoneInfo ?? this.TimeZoneInfo,
+                elevation    ?? this.Elevation);
 
         /// <summary>
         /// Penns Park defaults, freshly instantiated on each access (<see cref="DateTime"/>
@@ -152,6 +163,7 @@ namespace Astronomy.Core.Locations
             horizon:      30,
             duration:     TimeSpan.FromMinutes(240),
             dateTime:     DateTime.Now,
-            timeZoneInfo: TimeZoneInfo.Local);
+            timeZoneInfo: TimeZoneInfo.Local,
+            elevation:    80.67);
     }
 }

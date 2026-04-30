@@ -59,7 +59,7 @@ namespace Astronomy.Core.Moon
 
             double latSigned = location.North ?  location.Latitude  : -location.Latitude;
             double lonEast   = location.West  ? -location.Longitude :  location.Longitude;
-            ObserverInfo observer = new ObserverInfo(latSigned, lonEast, 0.0);
+            ObserverInfo observer = new ObserverInfo(latSigned, lonEast, location.Elevation);
 
             double mAlt = AstroUtil.GetMoonAltitude(utc, observer);
             double mAz  = AstroUtil.GetMoonAzimuth (utc, observer);
