@@ -124,5 +124,27 @@ namespace Astronomy.Core.Astrometry.Meeus
             double rArcmin = 1.0 / Math.Tan(h * DegToRad);
             return rArcmin / 60.0;
         }
+
+        /// <summary>
+        /// Refracted horizon dip (degrees) at observer elevation
+        /// <paramref name="elevationM"/> meters above sea level. The standard nautical /
+        /// astronomical formula <c>1.76 * sqrt(h_m)</c> arcminutes already incorporates
+        /// mean atmospheric refraction along the line of sight to the horizon; this is
+        /// what users mean by "I'm 80 m up so the horizon dips a bit". Returns 0 for
+        /// non-positive elevations (no dip below sea level for our purposes).
+        /// </summary>
+        /// <remarks>
+        /// At 80 m: ~0.26&#176; (sunrise/moonrise shift ~25 sec). At 1000 m: ~0.93&#176;
+        /// (~3.5 min shift). At 10000 m: ~2.93&#176; (~11 min shift). Geocentric
+        /// twilight thresholds (-18, -12, -6) are by convention NOT elevation-corrected
+        /// -- they reference the celestial horizontal plane rather than the observer's
+        /// apparent horizon -- so callers should only subtract this from the
+        /// upper-limb-tangent thresholds (-0.833 for sun, +0.125 for moon).
+        /// </remarks>
+        public static double HorizonDipDeg(double elevationM)
+        {
+            if (elevationM <= 0.0) return 0.0;
+            return 1.76 * Math.Sqrt(elevationM) / 60.0;
+        }
     }
 }

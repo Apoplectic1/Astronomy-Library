@@ -32,20 +32,27 @@ namespace Astronomy.Core.Astrometry
         /// <summary>
         /// Sun rise / set on the UTC calendar day of <paramref name="dateUtc"/>.
         /// Threshold is the geometric altitude -0.833&#176; (refraction + solar disc
-        /// semi-diameter, the standard "official" sunrise/sunset definition).
+        /// semi-diameter, the standard "official" sunrise/sunset definition), lowered by
+        /// the refracted horizon dip <c>1.76 * sqrt(elevationM)</c> arcmin so an elevated
+        /// observer's earlier sunrise / later sunset matches reality (~25 s shift at
+        /// 80 m; ~11 min at 10000 m).
         /// </summary>
-        public static RiseAndSetEvent GetSunRiseAndSet(DateTime dateUtc, double latDeg, double lonEastDeg)
-            => RiseSetAt(dateUtc, latDeg, lonEastDeg, -0.833);
+        public static RiseAndSetEvent GetSunRiseAndSet(
+            DateTime dateUtc, double latDeg, double lonEastDeg, double elevationM = 0.0)
+            => RiseSetAt(dateUtc, latDeg, lonEastDeg, -0.833 - MeeusUtility.HorizonDipDeg(elevationM));
 
-        /// <summary>Civil twilight (sun centre at -6&#176;).</summary>
+        /// <summary>
+        /// Civil twilight (sun centre at -6&#176;). NOT elevation-corrected -- the
+        /// twilight thresholds reference the celestial horizontal plane by convention.
+        /// </summary>
         public static RiseAndSetEvent GetCivilNightTimes(DateTime dateUtc, double latDeg, double lonEastDeg)
             => RiseSetAt(dateUtc, latDeg, lonEastDeg, -6.0);
 
-        /// <summary>Nautical twilight (sun centre at -12&#176;).</summary>
+        /// <summary>Nautical twilight (sun centre at -12&#176;). NOT elevation-corrected.</summary>
         public static RiseAndSetEvent GetNauticalNightTimes(DateTime dateUtc, double latDeg, double lonEastDeg)
             => RiseSetAt(dateUtc, latDeg, lonEastDeg, -12.0);
 
-        /// <summary>Astronomical twilight (sun centre at -18&#176;).</summary>
+        /// <summary>Astronomical twilight (sun centre at -18&#176;). NOT elevation-corrected.</summary>
         public static RiseAndSetEvent GetNightTimes(DateTime dateUtc, double latDeg, double lonEastDeg)
             => RiseSetAt(dateUtc, latDeg, lonEastDeg, -18.0);
 
@@ -122,14 +129,18 @@ namespace Astronomy.Core.Astrometry
 
         /// <summary>
         /// Moon rise / set on the UTC calendar day of <paramref name="dateUtc"/> for an
-        /// observer at <paramref name="latDeg"/> / <paramref name="lonEastDeg"/>. Uses the
-        /// standard <c>h0 = 0.125&#176;</c> threshold (upper limb at the refraction-
-        /// adjusted horizon for a moon at typical distance). Either or both may be null
-        /// if the moon is circumpolar above / below the threshold for the whole day.
+        /// observer at <paramref name="latDeg"/> / <paramref name="lonEastDeg"/> at
+        /// <paramref name="elevationM"/> meters above sea level. Uses the standard
+        /// <c>h0 = 0.125&#176;</c> threshold (upper limb at the refraction-adjusted
+        /// sea-level horizon) lowered by the refracted horizon dip so an elevated
+        /// observer's earlier rise / later set matches reality. Either or both may be
+        /// null if the moon is circumpolar above / below the threshold for the whole day.
         /// </summary>
-        public static RiseAndSetEvent GetMoonRiseAndSet(DateTime dateUtc, double latDeg, double lonEastDeg)
+        public static RiseAndSetEvent GetMoonRiseAndSet(
+            DateTime dateUtc, double latDeg, double lonEastDeg, double elevationM = 0.0)
         {
-            (DateTime? rise, DateTime? set) = MoonPosition.RiseSet(dateUtc, latDeg, lonEastDeg, 0.125);
+            double h0 = 0.125 - MeeusUtility.HorizonDipDeg(elevationM);
+            (DateTime? rise, DateTime? set) = MoonPosition.RiseSet(dateUtc, latDeg, lonEastDeg, h0);
             return new RiseAndSetEvent(rise, set);
         }
 
