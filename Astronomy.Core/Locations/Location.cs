@@ -73,6 +73,22 @@ namespace Astronomy.Core.Locations
         /// </summary>
         public double        Elevation    { get; }
 
+        /// <summary>
+        /// Bortle dark-sky class for this site (1 = excellent dark, 9 = inner-city).
+        /// Used by the K-S sky-brightness model to derive the moonless zenith
+        /// brightness V₀ via <see cref="Astronomy.Core.Brightness.Bortle.DefaultZenithMag"/>.
+        /// Defaults to 5 (suburban) when omitted.
+        /// </summary>
+        public int           BortleClass  { get; }
+
+        /// <summary>
+        /// Atmospheric extinction coefficient k at 500 nm (mag/airmass) for this site.
+        /// Wavelength scaling for other bands is applied externally via
+        /// <see cref="Astronomy.Core.Brightness.SkyBrightness.ScaleK"/>. Defaults to
+        /// 0.28 (typical Bortle-5 sea-level) when omitted.
+        /// </summary>
+        public double        ExtinctionK  { get; }
+
         /// <summary>Sexagesimal latitude components -- whole-degrees digit of the DMS breakdown (always non-negative; hemisphere in <see cref="North"/>).</summary>
         public double LatDegrees => Math.Truncate(Latitude);
         /// <summary>Whole-arcminutes component of the latitude DMS breakdown.</summary>
@@ -106,7 +122,9 @@ namespace Astronomy.Core.Locations
             TimeSpan duration,
             DateTime dateTime,
             TimeZoneInfo timeZoneInfo,
-            double elevation = 0.0)
+            double elevation = 0.0,
+            int    bortleClass = 5,
+            double extinctionK = 0.28)
         {
             // Sign normalization: negative magnitude flips the hemisphere flag so the stored
             // state is always (non-negative magnitude, explicit hemisphere).
@@ -123,6 +141,8 @@ namespace Astronomy.Core.Locations
             DateTime     = dateTime;
             TimeZoneInfo = timeZoneInfo ?? TimeZoneInfo.Local;
             Elevation    = elevation;
+            BortleClass  = bortleClass;
+            ExtinctionK  = extinctionK;
         }
 
         /// <summary>
@@ -139,7 +159,9 @@ namespace Astronomy.Core.Locations
             TimeSpan? duration = null,
             DateTime? dateTime = null,
             TimeZoneInfo timeZoneInfo = null,
-            double? elevation = null)
+            double? elevation = null,
+            int?    bortleClass = null,
+            double? extinctionK = null)
             => new Location(
                 name         ?? this.Name,
                 latitude     ?? this.Latitude,
@@ -150,7 +172,9 @@ namespace Astronomy.Core.Locations
                 duration     ?? this.Duration,
                 dateTime     ?? this.DateTime,
                 timeZoneInfo ?? this.TimeZoneInfo,
-                elevation    ?? this.Elevation);
+                elevation    ?? this.Elevation,
+                bortleClass  ?? this.BortleClass,
+                extinctionK  ?? this.ExtinctionK);
 
         /// <summary>
         /// Penns Park defaults, freshly instantiated on each access (<see cref="DateTime"/>
@@ -164,6 +188,8 @@ namespace Astronomy.Core.Locations
             duration:     TimeSpan.FromMinutes(240),
             dateTime:     DateTime.Now,
             timeZoneInfo: TimeZoneInfo.Local,
-            elevation:    80.67);
+            elevation:    80.67,
+            bortleClass:  5,
+            extinctionK:  0.28);
     }
 }

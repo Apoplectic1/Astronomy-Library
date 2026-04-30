@@ -33,13 +33,16 @@ namespace Astronomy.Core.Moon
             => ObserveAt(target, location, utc).SeparationDeg;
 
         /// <summary>
-        /// Topocentric target-moon separation (degrees) and topocentric moon altitude
-        /// (degrees) at the given UTC instant.
+        /// Topocentric target-moon separation (degrees), topocentric moon altitude
+        /// (degrees), and topocentric moon azimuth (degrees from North, clockwise)
+        /// at the given UTC instant.
         /// </summary>
         /// <remarks>
         /// Same separation math as <see cref="DegreesAt"/>; <see cref="DegreesAt"/> is now
-        /// a thin wrapper around this method. <c>MoonAltDeg</c> is the topocentric
-        /// altitude for the observer location at <paramref name="utc"/>.
+        /// a thin wrapper around this method. Both moon altitude and azimuth are
+        /// topocentric for the observer location at <paramref name="utc"/>. Returning
+        /// azimuth too lets K-S sky-brightness callers (which need full moon alt/az)
+        /// use the same lookup that gives them the separation.
         /// </remarks>
         /// <param name="target">Target RA/Dec. Non-null.</param>
         /// <param name="location">Observer position. Non-null.</param>
@@ -47,7 +50,7 @@ namespace Astronomy.Core.Moon
         /// <exception cref="ArgumentNullException">
         /// <paramref name="target"/> or <paramref name="location"/> is <see langword="null"/>.
         /// </exception>
-        public static (double SeparationDeg, double MoonAltDeg) ObserveAt(
+        public static (double SeparationDeg, double MoonAltDeg, double MoonAzDeg) ObserveAt(
             Target target, Location location, DateTime utc)
         {
             if (target == null) throw new ArgumentNullException(nameof(target));
@@ -73,7 +76,7 @@ namespace Astronomy.Core.Moon
             if (cosSep < -1.0) cosSep = -1.0;
             double sepDeg = Math.Acos(cosSep) * 180.0 / Math.PI;
 
-            return (sepDeg, mAlt);
+            return (sepDeg, mAlt, mAz);
         }
 
         /// <summary>

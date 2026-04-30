@@ -160,7 +160,7 @@ namespace Astronomy.Core.Session
             foreach (var win in visibility)
             {
                 DateTime tPrev = win.Start;
-                var (sepPrev, moonAltPrev) = MoonSeparation.ObserveAt(target, location, tPrev);
+                var (sepPrev, moonAltPrev, _) = MoonSeparation.ObserveAt(target, location, tPrev);
                 double agePrev = LunarAge.DaysAt(tPrev);
                 double reqPrev = MoonAvoidance.RequiredSepWithRelax(agePrev, moonAltPrev, profile);
                 double deltaPrev = sepPrev - reqPrev;       // > 0 => clear, < 0 => rejected
@@ -170,7 +170,7 @@ namespace Astronomy.Core.Session
                 DateTime tCur = win.Start.Add(sampleSize);
                 while (tCur <= win.End)
                 {
-                    var (sepCur, moonAltCur) = MoonSeparation.ObserveAt(target, location, tCur);
+                    var (sepCur, moonAltCur, _) = MoonSeparation.ObserveAt(target, location, tCur);
                     double ageCur = LunarAge.DaysAt(tCur);
                     double reqCur = MoonAvoidance.RequiredSepWithRelax(ageCur, moonAltCur, profile);
                     double deltaCur = sepCur - reqCur;

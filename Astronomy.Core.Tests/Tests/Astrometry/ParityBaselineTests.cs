@@ -76,7 +76,7 @@ namespace Astronomy.Core.Tests.Tests.Astrometry
             ParityFixtures.Case c = FindCase(caseName);
             Location loc = MakeLocation(c);
 
-            (double sep, double moonAlt) = MoonSeparation.ObserveAt(Target.Default, loc, c.UtcMoment);
+            (double sep, double moonAlt, _) = MoonSeparation.ObserveAt(Target.Default, loc, c.UtcMoment);
 
             mLog.WriteLine($"[{c.Name}] sep={sep:F6} moonAlt={moonAlt:F6}");
 
