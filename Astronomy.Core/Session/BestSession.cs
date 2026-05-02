@@ -82,7 +82,148 @@ namespace Astronomy.Core.Session
                 if (candidates.Count == 0) return null;
             }
 
-            return PlaceBest(target, location, candidates, minDuration, maxDuration, altitudeQuality);
+            return PlaceBestInternal(target, location, candidates, minDuration, maxDuration, altitudeQuality);
+        }
+
+        /// <summary>
+        /// Picks the highest-quality D-hour session across a caller-supplied list of
+        /// candidate windows.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// Per-window placement: if the transit occurs inside the window, prefer a
+        /// transit-centered session (clamped to the window if it would spill past either
+        /// edge); otherwise push the session against the edge closer to transit
+        /// (altitude is monotone inside the window when transit is outside, so the far
+        /// edge is the low-altitude end). Session length is the lesser of
+        /// <paramref name="maxDuration"/> and the window length. Quality per candidate
+        /// is computed via <see cref="IntegratedQuality.OverSession"/> using the
+        /// caller-supplied <paramref name="altitudeQuality"/> function.
+        /// </para>
+        /// <para>
+        /// This is the placement primitive that <see cref="For"/> calls internally after
+        /// computing visibility windows (and optionally intersecting with moon-clear
+        /// sub-intervals). Exposed publicly so callers that already have resolved
+        /// candidate windows -- e.g. a chart that walks pre-cached moon samples and
+        /// produces moon-clear sub-intervals chart-side -- can skip <see cref="For"/>'s
+        /// internal moon sweep and pass them in directly.
+        /// </para>
+        /// </remarks>
+        /// <param name="target">Target RA/Dec. Non-null.</param>
+        /// <param name="location">Observer position. Non-null.</param>
+        /// <param name="windows">
+        /// Pre-resolved candidate windows (visibility, optionally already intersected with
+        /// any moon-mask the caller wants to apply). UTC instants. Iteration order doesn't
+        /// matter; the highest-quality candidate wins.
+        /// </param>
+        /// <param name="minDuration">
+        /// Minimum acceptable session length. Windows shorter than this are skipped.
+        /// Must be positive.
+        /// </param>
+        /// <param name="maxDuration">
+        /// Maximum session length. Sessions are capped to this even if the window is
+        /// wider. Must be &gt;= <paramref name="minDuration"/>.
+        /// </param>
+        /// <param name="altitudeQuality">
+        /// Maps altitude (degrees) to a dimensionless quality score. See
+        /// <see cref="IntegratedQuality.OverSession"/> for semantics. Non-null.
+        /// </param>
+        /// <returns>
+        /// A <c>(Start, End, Quality)</c> tuple (UTC) for the best candidate, or
+        /// <see langword="null"/> if no window accommodates <paramref name="minDuration"/>.
+        /// </returns>
+        /// <exception cref="ArgumentNullException">
+        /// Any of <paramref name="target"/>, <paramref name="location"/>,
+        /// <paramref name="windows"/>, or <paramref name="altitudeQuality"/> is
+        /// <see langword="null"/>.
+        /// </exception>
+        /// <exception cref="ArgumentException">
+        /// <paramref name="minDuration"/> is non-positive, or
+        /// <paramref name="minDuration"/> &gt; <paramref name="maxDuration"/>.
+        /// </exception>
+        public static (DateTime Start, DateTime End, double Quality)? PlaceBest(
+            Target target, Location location,
+            IReadOnlyList<(DateTime Start, DateTime End)> windows,
+            TimeSpan minDuration, TimeSpan maxDuration,
+            Func<double, double> altitudeQuality)
+        {
+            if (target == null) throw new ArgumentNullException(nameof(target));
+            if (location == null) throw new ArgumentNullException(nameof(location));
+            if (windows == null) throw new ArgumentNullException(nameof(windows));
+            if (altitudeQuality == null) throw new ArgumentNullException(nameof(altitudeQuality));
+            if (minDuration <= TimeSpan.Zero)
+                throw new ArgumentException("minDuration must be positive", nameof(minDuration));
+            if (minDuration > maxDuration)
+                throw new ArgumentException("minDuration must be <= maxDuration");
+
+            return PlaceBestInternal(target, location, windows, minDuration, maxDuration, altitudeQuality);
+        }
+
+        /// <summary>
+        /// Picks the strict transit-centered D-hour session that fits inside any of the
+        /// caller-supplied candidate windows.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// "Strict" means the session is exactly <c>[transit - duration/2, transit + duration/2]</c>
+        /// -- no clamping, no wall-pushing. If that interval doesn't lie entirely inside
+        /// any candidate window, returns <see langword="null"/>. This matches the chart's
+        /// "Symmetric" semantics: the session must be symmetric about the meridian.
+        /// </para>
+        /// <para>
+        /// For each window, the next transit at-or-after <c>window.Start</c> is consulted
+        /// (via <see cref="TransitTime.UtcAtOrAfter"/>). If that transit lies inside the
+        /// window AND the centered session fits, that placement is returned. Returns the
+        /// first successful fit; under typical "one transit per night" stellar use the
+        /// answer is unique anyway.
+        /// </para>
+        /// </remarks>
+        /// <param name="target">Target RA/Dec. Non-null.</param>
+        /// <param name="location">Observer position. Non-null.</param>
+        /// <param name="windows">
+        /// Pre-resolved candidate windows (visibility, optionally moon-mask-intersected).
+        /// UTC instants.
+        /// </param>
+        /// <param name="duration">
+        /// Strict-centered session length. Must be positive.
+        /// </param>
+        /// <returns>
+        /// A <c>(Start, End)</c> tuple (UTC) for the centered session, or
+        /// <see langword="null"/> if no window contains the centered placement.
+        /// </returns>
+        /// <exception cref="ArgumentNullException">
+        /// Any of <paramref name="target"/>, <paramref name="location"/>, or
+        /// <paramref name="windows"/> is <see langword="null"/>.
+        /// </exception>
+        /// <exception cref="ArgumentException">
+        /// <paramref name="duration"/> is non-positive.
+        /// </exception>
+        public static (DateTime Start, DateTime End)? PlaceCentered(
+            Target target, Location location,
+            IReadOnlyList<(DateTime Start, DateTime End)> windows,
+            TimeSpan duration)
+        {
+            if (target == null) throw new ArgumentNullException(nameof(target));
+            if (location == null) throw new ArgumentNullException(nameof(location));
+            if (windows == null) throw new ArgumentNullException(nameof(windows));
+            if (duration <= TimeSpan.Zero)
+                throw new ArgumentException("duration must be positive", nameof(duration));
+
+            long halfTicks = duration.Ticks / 2;
+            TimeSpan halfDuration = TimeSpan.FromTicks(halfTicks);
+
+            foreach (var win in windows)
+            {
+                DateTime transitUtc = TransitTime.UtcAtOrAfter(target, location, win.Start);
+                if (transitUtc > win.End) continue;
+
+                DateTime centeredStart = transitUtc - halfDuration;
+                DateTime centeredEnd = centeredStart + duration;
+                if (centeredStart >= win.Start && centeredEnd <= win.End)
+                    return (centeredStart, centeredEnd);
+            }
+
+            return null;
         }
 
         // ====================================================================
@@ -91,8 +232,9 @@ namespace Astronomy.Core.Session
 
         // Existing transit-centered-or-wall-pushed placement, factored out so the legacy
         // and moon-aware code paths share it. Behavior is preserved exactly relative to
-        // the pre-refactor body.
-        private static (DateTime Start, DateTime End, double Quality)? PlaceBest(
+        // the pre-refactor body. Internal so the public PlaceBest can do its own
+        // validation once and skip re-checking inside this loop.
+        private static (DateTime Start, DateTime End, double Quality)? PlaceBestInternal(
             Target target, Location location,
             IReadOnlyList<(DateTime Start, DateTime End)> windows,
             TimeSpan minDuration, TimeSpan maxDuration,
