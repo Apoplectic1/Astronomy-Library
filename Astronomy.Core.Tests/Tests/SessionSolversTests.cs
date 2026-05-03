@@ -256,5 +256,240 @@ namespace Astronomy.Core.Tests.Tests
             Assert.Throws<ArgumentException>(() =>
                 SessionSolvers.LowestHorizon(Target.Default, loc, night, dur, maxIterations: 0));
         }
+
+        // ====================================================================
+        // LongestDurationCenteredIn (pre-resolved, strict transit-centered)
+        // ====================================================================
+
+        // Window symmetric around transit: longest centered D ≈ full window length.
+        // Session straddles transit. The implementation re-resolves transit from
+        // window.Start (sidereal/solar conversion can drift by ~µs from a transit
+        // computed at a different searchFromUtc), so the test computes expected
+        // values via the same call path.
+        [Fact]
+        public void LongestDurationCenteredIn_WindowContainsTransit_ReturnsCenteredAroundTransit()
+        {
+            var loc = MakeLocation();
+            DateTime transitSeed = TransitTime.UtcAtOrAfter(
+                Target.Default, loc, new DateTime(2026, 11, 15, 0, 0, 0, DateTimeKind.Utc));
+            var window = (Start: transitSeed - TimeSpan.FromHours(2),
+                          End:   transitSeed + TimeSpan.FromHours(2));
+
+            DateTime transitForWindow = TransitTime.UtcAtOrAfter(Target.Default, loc, window.Start);
+            TimeSpan leftRoom = transitForWindow - window.Start;
+            TimeSpan rightRoom = window.End - transitForWindow;
+            TimeSpan expectedRoom = leftRoom < rightRoom ? leftRoom : rightRoom;
+            TimeSpan expectedDur = TimeSpan.FromTicks(expectedRoom.Ticks * 2);
+
+            var result = SessionSolvers.LongestDurationCenteredIn(Target.Default, loc, new[] { window });
+
+            Assert.NotNull(result);
+            Assert.Equal(expectedDur, result.Value.Duration);
+            Assert.Equal(transitForWindow - expectedRoom, result.Value.Start);
+            Assert.Equal(transitForWindow + expectedRoom, result.Value.End);
+            // Sanity: nominal symmetric 4h window should yield ~4h centered.
+            Assert.True(Math.Abs((expectedDur - TimeSpan.FromHours(4)).TotalMilliseconds) < 1.0,
+                $"Expected ~4h centered duration; got {expectedDur}");
+        }
+
+        // Window entirely before (or after) transit: cannot host a centered session.
+        [Fact]
+        public void LongestDurationCenteredIn_WindowDoesNotContainTransit_ReturnsNull()
+        {
+            var loc = MakeLocation();
+            DateTime transit = TransitTime.UtcAtOrAfter(
+                Target.Default, loc, new DateTime(2026, 11, 15, 0, 0, 0, DateTimeKind.Utc));
+            // Window 2-6 hours BEFORE transit -- entirely pre-transit.
+            var window = (Start: transit - TimeSpan.FromHours(6),
+                          End:   transit - TimeSpan.FromHours(2));
+            var windows = new[] { window };
+
+            var result = SessionSolvers.LongestDurationCenteredIn(Target.Default, loc, windows);
+
+            Assert.Null(result);
+        }
+
+        // Off-center transit in window: D_max = 2 * min(leftRoom, rightRoom), bounded
+        // by the closer wall. Validates the symmetric-expansion algorithm rather than
+        // returning the full window length.
+        [Fact]
+        public void LongestDurationCenteredIn_TransitOffCenterInWindow_LimitsByCloserWall()
+        {
+            var loc = MakeLocation();
+            DateTime transitSeed = TransitTime.UtcAtOrAfter(
+                Target.Default, loc, new DateTime(2026, 11, 15, 0, 0, 0, DateTimeKind.Utc));
+            // Window 1h before transit and 4h after -- closer wall is 1h (left),
+            // so longest centered D = 2 * 1h ≈ 2h.
+            var window = (Start: transitSeed - TimeSpan.FromHours(1),
+                          End:   transitSeed + TimeSpan.FromHours(4));
+
+            DateTime transitForWindow = TransitTime.UtcAtOrAfter(Target.Default, loc, window.Start);
+            TimeSpan leftRoom = transitForWindow - window.Start;
+            TimeSpan rightRoom = window.End - transitForWindow;
+            TimeSpan expectedRoom = leftRoom < rightRoom ? leftRoom : rightRoom;
+            TimeSpan expectedDur = TimeSpan.FromTicks(expectedRoom.Ticks * 2);
+
+            var result = SessionSolvers.LongestDurationCenteredIn(Target.Default, loc, new[] { window });
+
+            Assert.NotNull(result);
+            // The closer wall should be left (1h vs 4h) regardless of sub-µs drift.
+            Assert.True(leftRoom < rightRoom,
+                $"Test setup invariant: leftRoom should be smaller. leftRoom={leftRoom}, rightRoom={rightRoom}");
+            Assert.Equal(expectedDur, result.Value.Duration);
+            Assert.Equal(transitForWindow - expectedRoom, result.Value.Start);
+            Assert.Equal(transitForWindow + expectedRoom, result.Value.End);
+            // Sanity: nominal 1h-min closer wall yields ~2h centered.
+            Assert.True(Math.Abs((expectedDur - TimeSpan.FromHours(2)).TotalMilliseconds) < 1.0,
+                $"Expected ~2h centered duration; got {expectedDur}");
+        }
+
+        [Fact]
+        public void LongestDurationCenteredIn_Capped_ReturnsCap()
+        {
+            var loc = MakeLocation();
+            DateTime transitSeed = TransitTime.UtcAtOrAfter(
+                Target.Default, loc, new DateTime(2026, 11, 15, 0, 0, 0, DateTimeKind.Utc));
+            // Window allowing up to 6h centered; cap to 3h.
+            var window = (Start: transitSeed - TimeSpan.FromHours(3),
+                          End:   transitSeed + TimeSpan.FromHours(3));
+
+            DateTime transitForWindow = TransitTime.UtcAtOrAfter(Target.Default, loc, window.Start);
+            var cap = TimeSpan.FromHours(3);
+            TimeSpan halfCap = TimeSpan.FromTicks(cap.Ticks / 2);
+
+            var result = SessionSolvers.LongestDurationCenteredIn(Target.Default, loc, new[] { window }, cap);
+
+            Assert.NotNull(result);
+            Assert.Equal(cap, result.Value.Duration);
+            Assert.Equal(transitForWindow - halfCap, result.Value.Start);
+            Assert.Equal(transitForWindow + halfCap, result.Value.End);
+        }
+
+        [Fact]
+        public void LongestDurationCenteredIn_EmptyCandidates_ReturnsNull()
+        {
+            var loc = MakeLocation();
+            var windows = Array.Empty<(DateTime, DateTime)>();
+
+            var result = SessionSolvers.LongestDurationCenteredIn(Target.Default, loc, windows);
+
+            Assert.Null(result);
+        }
+
+        [Fact]
+        public void LongestDurationCenteredIn_NullArgs_Throws()
+        {
+            var loc = MakeLocation();
+            var windows = new[] { (Start: DateTime.UtcNow, End: DateTime.UtcNow.AddHours(2)) };
+
+            Assert.Throws<ArgumentNullException>(() =>
+                SessionSolvers.LongestDurationCenteredIn(null, loc, windows));
+            Assert.Throws<ArgumentNullException>(() =>
+                SessionSolvers.LongestDurationCenteredIn(Target.Default, null, windows));
+            Assert.Throws<ArgumentNullException>(() =>
+                SessionSolvers.LongestDurationCenteredIn(Target.Default, loc, null));
+            Assert.Throws<ArgumentException>(() =>
+                SessionSolvers.LongestDurationCenteredIn(Target.Default, loc, windows, TimeSpan.Zero));
+        }
+
+        // ====================================================================
+        // LongestDurationCentered (auto-resolve, strict transit-centered)
+        // ====================================================================
+
+        // Auto-resolve happy path: M31 transits during a Penns Park November night,
+        // so the visibility window contains transit and a centered session fits.
+        [Fact]
+        public void LongestDurationCentered_NullProfile_ReturnsResultMatchingTransitGeometry()
+        {
+            var loc = MakeLocation();
+            var night = NightCalculator.ComputeNight(loc);
+            var horizon = new ScalarHorizonProfile(20.0);
+
+            var result = SessionSolvers.LongestDurationCentered(
+                Target.Default, loc, night, horizon, profile: null);
+
+            Assert.NotNull(result);
+            Assert.True(result.Value.Duration > TimeSpan.Zero);
+            // The session is exactly centered on transit -- midpoint should equal transit
+            // (modulo Ticks/2 truncation when duration has odd Ticks).
+            DateTime midpoint = result.Value.Start.AddTicks((result.Value.End - result.Value.Start).Ticks / 2);
+            DateTime transit = TransitTime.UtcAtOrAfter(Target.Default, loc, result.Value.Start);
+            // Allow up to 1 tick of slack from the integer-half-ticks computation.
+            Assert.True(Math.Abs((midpoint - transit).Ticks) <= 2,
+                $"Midpoint {midpoint:O} should equal transit {transit:O}");
+        }
+
+        // Polar night: VisibilityWindows.For returns empty, no candidates.
+        [Fact]
+        public void LongestDurationCentered_PolarNight_ReturnsNull()
+        {
+            var loc = Location.Default.With(
+                latitude: 80.0, north: true,
+                longitude: 0.0, west: false,
+                dateTime: new DateTime(2026, 6, 21, 0, 0, 0, DateTimeKind.Utc));
+            var night = NightCalculator.ComputeNight(loc);
+            var horizon = new ScalarHorizonProfile(20.0);
+
+            var result = SessionSolvers.LongestDurationCentered(
+                Target.Default, loc, night, horizon);
+
+            Assert.Null(result);
+        }
+
+        // ====================================================================
+        // LowestHorizonCentered (bisection on strict-centered fit)
+        // ====================================================================
+
+        // M31 at Penns Park yields 2h centered easily; the largest H that still fits
+        // is well below meridian (~89°) and well above the test floor of 0°. For the
+        // transit-in-window case the centered-fit and wall-pushed-fit predicates
+        // coincide, so the returned H should be close to LowestHorizon's answer.
+        [Fact]
+        public void LowestHorizonCentered_TargetClearsHorizonComfortably_ReturnsLowAngle()
+        {
+            var loc = MakeLocation();
+            var night = NightCalculator.ComputeNight(loc);
+
+            var result = SessionSolvers.LowestHorizonCentered(
+                Target.Default, loc, night, TimeSpan.FromHours(2));
+
+            Assert.NotNull(result);
+            Assert.True(result.Value.HorizonDeg > 50.0,
+                $"Expected HorizonDeg > 50° (M31 fits 2h centered easily); got {result.Value.HorizonDeg:F2}°");
+            Assert.True(result.Value.HorizonDeg < 89.0,
+                $"Expected HorizonDeg < 89° (M31's meridian alt ~89°); got {result.Value.HorizonDeg:F2}°");
+            Assert.True(result.Value.End > result.Value.Start);
+        }
+
+        [Fact]
+        public void LowestHorizonCentered_DurationExceedsAvailableTime_ReturnsNull()
+        {
+            var loc = MakeLocation();
+            var night = NightCalculator.ComputeNight(loc);
+
+            var result = SessionSolvers.LowestHorizonCentered(
+                Target.Default, loc, night, TimeSpan.FromHours(48));
+
+            Assert.Null(result);
+        }
+
+        [Fact]
+        public void LowestHorizonCentered_NullArgs_Throws()
+        {
+            var loc = MakeLocation();
+            var night = NightCalculator.ComputeNight(loc);
+            var dur = TimeSpan.FromHours(2);
+
+            Assert.Throws<ArgumentNullException>(() =>
+                SessionSolvers.LowestHorizonCentered(null, loc, night, dur));
+            Assert.Throws<ArgumentNullException>(() =>
+                SessionSolvers.LowestHorizonCentered(Target.Default, null, night, dur));
+            Assert.Throws<ArgumentException>(() =>
+                SessionSolvers.LowestHorizonCentered(Target.Default, loc, night, TimeSpan.Zero));
+            Assert.Throws<ArgumentException>(() =>
+                SessionSolvers.LowestHorizonCentered(Target.Default, loc, night, dur, minHorizonDeg: -91.0));
+            Assert.Throws<ArgumentException>(() =>
+                SessionSolvers.LowestHorizonCentered(Target.Default, loc, night, dur, maxIterations: 0));
+        }
     }
 }

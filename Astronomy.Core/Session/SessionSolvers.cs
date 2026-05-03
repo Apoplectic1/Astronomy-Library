@@ -240,6 +240,145 @@ namespace Astronomy.Core.Session
             return (lo, session.Value.Start, session.Value.End);
         }
 
+        /// <summary>
+        /// Returns the longest strict transit-centered session that fits inside any of
+        /// the night's viable candidate windows, capped at <paramref name="cap"/> if
+        /// supplied. Companion to <see cref="LongestDuration"/> for the Symmetric-curve
+        /// semantics: session = <c>[transit - D/2, transit + D/2]</c> exactly, no wall-
+        /// pushing, no clamp.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// For a candidate window containing transit T, the longest centered session is
+        /// bounded by the closer wall: <c>D_max = 2 * min(T - winStart, winEnd - T)</c>.
+        /// Candidates that don't contain transit are skipped (a strict-centered session
+        /// can't span an above-horizon dip or moon-blocked gap on the way to transit).
+        /// </para>
+        /// <para>
+        /// Auto-resolve flavor: visibility windows and (optionally) moon-clear sub-
+        /// intervals are computed internally. Callers with pre-resolved candidates
+        /// should use <see cref="LongestDurationCenteredIn"/>.
+        /// </para>
+        /// </remarks>
+        /// <returns>
+        /// A <c>(Start, End, Duration)</c> tuple (UTC) for the longest fittable centered
+        /// session, or <see langword="null"/> if no candidate window contains transit
+        /// with positive room on both sides.
+        /// </returns>
+        /// <exception cref="ArgumentNullException">
+        /// Any of <paramref name="target"/>, <paramref name="location"/>, or
+        /// <paramref name="horizon"/> is <see langword="null"/>.
+        /// </exception>
+        /// <exception cref="ArgumentException">
+        /// <paramref name="cap"/> is non-positive when supplied.
+        /// </exception>
+        public static (DateTime Start, DateTime End, TimeSpan Duration)? LongestDurationCentered(
+            Target target, Location location, NightWindow night, IHorizonProfile horizon,
+            TimeSpan? cap = null,
+            MoonAvoidanceProfile profile = null)
+        {
+            if (target == null) throw new ArgumentNullException(nameof(target));
+            if (location == null) throw new ArgumentNullException(nameof(location));
+            if (horizon == null) throw new ArgumentNullException(nameof(horizon));
+            if (cap.HasValue && cap.Value <= TimeSpan.Zero)
+                throw new ArgumentException("cap must be positive when supplied", nameof(cap));
+
+            var candidates = ResolveCandidates(target, location, night, horizon, profile);
+            return LongestDurationCenteredInInternal(target, location, candidates, cap);
+        }
+
+        /// <summary>
+        /// Pre-resolved-windows variant of <see cref="LongestDurationCentered"/>. Caller
+        /// supplies the candidate windows directly.
+        /// </summary>
+        /// <remarks>
+        /// No <c>altitudeQuality</c> parameter — strict-centered placement has no
+        /// quality choice to make (each candidate window has at most one centered
+        /// placement, and the longest D wins outright).
+        /// </remarks>
+        /// <exception cref="ArgumentNullException">
+        /// Any of <paramref name="target"/>, <paramref name="location"/>, or
+        /// <paramref name="candidates"/> is <see langword="null"/>.
+        /// </exception>
+        /// <exception cref="ArgumentException">
+        /// <paramref name="cap"/> is non-positive when supplied.
+        /// </exception>
+        public static (DateTime Start, DateTime End, TimeSpan Duration)? LongestDurationCenteredIn(
+            Target target, Location location,
+            IReadOnlyList<(DateTime Start, DateTime End)> candidates,
+            TimeSpan? cap = null)
+        {
+            if (target == null) throw new ArgumentNullException(nameof(target));
+            if (location == null) throw new ArgumentNullException(nameof(location));
+            if (candidates == null) throw new ArgumentNullException(nameof(candidates));
+            if (cap.HasValue && cap.Value <= TimeSpan.Zero)
+                throw new ArgumentException("cap must be positive when supplied", nameof(cap));
+
+            return LongestDurationCenteredInInternal(target, location, candidates, cap);
+        }
+
+        /// <summary>
+        /// Returns the lowest scalar horizon (degrees) at which a strict transit-centered
+        /// <paramref name="duration"/>-long session still fits inside the night, optionally
+        /// subject to a moon-avoidance profile. Companion to <see cref="LowestHorizon"/>
+        /// for the Symmetric-curve semantics.
+        /// </summary>
+        /// <remarks>
+        /// Same bisection shape as <see cref="LowestHorizon"/>. The "fits" predicate uses
+        /// <see cref="BestSession.PlaceCentered"/>: a horizon allows the centered session
+        /// iff some candidate window contains transit with at least <c>duration / 2</c>
+        /// of room on each side.
+        /// </remarks>
+        /// <exception cref="ArgumentNullException">
+        /// <paramref name="target"/> or <paramref name="location"/> is <see langword="null"/>.
+        /// </exception>
+        /// <exception cref="ArgumentException">
+        /// <paramref name="duration"/> is non-positive,
+        /// <paramref name="minHorizonDeg"/> is outside [-90, 90], or
+        /// <paramref name="maxIterations"/> is non-positive.
+        /// </exception>
+        public static (double HorizonDeg, DateTime Start, DateTime End)? LowestHorizonCentered(
+            Target target, Location location, NightWindow night,
+            TimeSpan duration,
+            double minHorizonDeg = 0.0,
+            MoonAvoidanceProfile profile = null,
+            int maxIterations = 20)
+        {
+            if (target == null) throw new ArgumentNullException(nameof(target));
+            if (location == null) throw new ArgumentNullException(nameof(location));
+            if (duration <= TimeSpan.Zero)
+                throw new ArgumentException("duration must be positive", nameof(duration));
+            if (minHorizonDeg < -90.0 || minHorizonDeg > 90.0)
+                throw new ArgumentException("minHorizonDeg must be in [-90, 90]", nameof(minHorizonDeg));
+            if (maxIterations <= 0)
+                throw new ArgumentException("maxIterations must be positive", nameof(maxIterations));
+
+            double latSigned = location.North ? location.Latitude : -location.Latitude;
+            double decSigned = target.North ? target.Declination : -target.Declination;
+            double meridianAlt = TargetGeometry.MeridianAltitude(latSigned, decSigned);
+            if (meridianAlt <= minHorizonDeg) return null;
+
+            if (!FitsCenteredAt(target, location, night, minHorizonDeg, duration, profile))
+                return null;
+
+            double lo = minHorizonDeg;
+            double hi = meridianAlt;
+            for (int i = 0; i < maxIterations; i++)
+            {
+                double mid = 0.5 * (lo + hi);
+                if (FitsCenteredAt(target, location, night, mid, duration, profile))
+                    lo = mid;
+                else
+                    hi = mid;
+            }
+
+            var horizonProfile = new ScalarHorizonProfile(lo);
+            var candidates = ResolveCandidates(target, location, night, horizonProfile, profile);
+            var session = BestSession.PlaceCentered(target, location, candidates, duration);
+            if (session == null) return null;
+            return (lo, session.Value.Start, session.Value.End);
+        }
+
         // ====================================================================
         // Helpers
         // ====================================================================
@@ -291,6 +430,50 @@ namespace Astronomy.Core.Session
                 if ((c.End - c.Start) >= duration) return true;
             }
             return false;
+        }
+
+        // Internal LongestDurationCentered worker. Per-candidate: find the transit, skip
+        // if it's not in this window, otherwise compute the symmetric room (twice the
+        // closer wall distance) and track the largest across windows.
+        private static (DateTime Start, DateTime End, TimeSpan Duration)? LongestDurationCenteredInInternal(
+            Target target, Location location,
+            IReadOnlyList<(DateTime Start, DateTime End)> candidates,
+            TimeSpan? cap)
+        {
+            TimeSpan maxD = TimeSpan.Zero;
+            DateTime bestTransit = default;
+            foreach (var c in candidates)
+            {
+                DateTime transit = TransitTime.UtcAtOrAfter(target, location, c.Start);
+                if (transit > c.End) continue;  // transit not in this window
+                TimeSpan leftRoom  = transit - c.Start;
+                TimeSpan rightRoom = c.End - transit;
+                TimeSpan room = leftRoom < rightRoom ? leftRoom : rightRoom;
+                TimeSpan dWindow = TimeSpan.FromTicks(room.Ticks * 2);
+                if (dWindow > maxD)
+                {
+                    maxD = dWindow;
+                    bestTransit = transit;
+                }
+            }
+            if (maxD <= TimeSpan.Zero) return null;
+
+            TimeSpan finalDur = (cap.HasValue && maxD > cap.Value) ? cap.Value : maxD;
+            TimeSpan half = TimeSpan.FromTicks(finalDur.Ticks / 2);
+            return (bestTransit - half, bestTransit + half, finalDur);
+        }
+
+        // Does a duration-long strict-centered session fit at the given trial horizon?
+        // Mirror of FitsAt, but uses BestSession.PlaceCentered's return-non-null as the
+        // predicate instead of a window-length scan.
+        private static bool FitsCenteredAt(
+            Target target, Location location, NightWindow night,
+            double horizonDeg, TimeSpan duration,
+            MoonAvoidanceProfile profile)
+        {
+            var horizonProfile = new ScalarHorizonProfile(horizonDeg);
+            var candidates = ResolveCandidates(target, location, night, horizonProfile, profile);
+            return BestSession.PlaceCentered(target, location, candidates, duration) != null;
         }
     }
 }
