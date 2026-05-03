@@ -1,0 +1,260 @@
+using System;
+using Astronomy.Core.Horizons;
+using Astronomy.Core.Locations;
+using Astronomy.Core.Moon;
+using Astronomy.Core.Night;
+using Astronomy.Core.Session;
+using Astronomy.Core.Targets;
+using Xunit;
+
+namespace Astronomy.Core.Tests.Tests
+{
+    // Tests for the parameter-iteration solvers in SessionSolvers. Fixtures match the
+    // BestSessionTests pattern: M31 at Penns Park on 2026-11-15.
+    public class SessionSolversTests
+    {
+        private static readonly Func<double, double> SinAltQuality =
+            alt => Math.Sin(alt * Math.PI / 180.0);
+
+        private static Location MakeLocation(int year = 2026, int month = 11, int day = 15)
+            => Location.Default.With(
+                dateTime: new DateTime(year, month, day, 0, 0, 0, DateTimeKind.Utc));
+
+        // ====================================================================
+        // LongestDurationIn (pre-resolved flavor)
+        // ====================================================================
+
+        // One window of length L; longest D = L (uncapped). Session occupies the whole
+        // window since min=max=L leaves no slack for wall-pushing.
+        [Fact]
+        public void LongestDurationIn_SingleWindow_ReturnsWindowLength()
+        {
+            var loc = MakeLocation();
+            DateTime t0 = new DateTime(2026, 11, 15, 2, 0, 0, DateTimeKind.Utc);
+            var window = (Start: t0, End: t0.AddHours(5));
+            var windows = new[] { window };
+
+            var result = SessionSolvers.LongestDurationIn(Target.Default, loc, windows);
+
+            Assert.NotNull(result);
+            Assert.Equal(TimeSpan.FromHours(5), result.Value.Duration);
+            Assert.Equal(window.Start, result.Value.Start);
+            Assert.Equal(window.End, result.Value.End);
+        }
+
+        // Two windows of different lengths; the longer wins.
+        [Fact]
+        public void LongestDurationIn_MultipleWindows_ReturnsLongestLength()
+        {
+            var loc = MakeLocation();
+            DateTime t0 = new DateTime(2026, 11, 15, 2, 0, 0, DateTimeKind.Utc);
+            var shortWin = (Start: t0,                           End: t0.AddHours(2));
+            var longWin  = (Start: t0.AddHours(3),               End: t0.AddHours(8));
+            var windows = new[] { shortWin, longWin };
+
+            var result = SessionSolvers.LongestDurationIn(Target.Default, loc, windows);
+
+            Assert.NotNull(result);
+            Assert.Equal(TimeSpan.FromHours(5), result.Value.Duration);
+            Assert.True(result.Value.Start >= longWin.Start && result.Value.End <= longWin.End);
+        }
+
+        // Cap shorter than longest window: returned duration matches cap, placement
+        // chooses transit-centered or wall-pushed within the longest window.
+        [Fact]
+        public void LongestDurationIn_Capped_ReturnsCap()
+        {
+            var loc = MakeLocation();
+            DateTime t0 = new DateTime(2026, 11, 15, 2, 0, 0, DateTimeKind.Utc);
+            var window = (Start: t0, End: t0.AddHours(8));
+            var windows = new[] { window };
+
+            var cap = TimeSpan.FromHours(3);
+            var result = SessionSolvers.LongestDurationIn(Target.Default, loc, windows, cap);
+
+            Assert.NotNull(result);
+            Assert.Equal(cap, result.Value.Duration);
+            Assert.Equal(cap, result.Value.End - result.Value.Start);
+        }
+
+        [Fact]
+        public void LongestDurationIn_EmptyCandidates_ReturnsNull()
+        {
+            var loc = MakeLocation();
+            var windows = Array.Empty<(DateTime, DateTime)>();
+
+            var result = SessionSolvers.LongestDurationIn(Target.Default, loc, windows);
+
+            Assert.Null(result);
+        }
+
+        [Fact]
+        public void LongestDurationIn_NullArgs_Throws()
+        {
+            var loc = MakeLocation();
+            var windows = new[] { (Start: DateTime.UtcNow, End: DateTime.UtcNow.AddHours(2)) };
+
+            Assert.Throws<ArgumentNullException>(() =>
+                SessionSolvers.LongestDurationIn(null, loc, windows));
+            Assert.Throws<ArgumentNullException>(() =>
+                SessionSolvers.LongestDurationIn(Target.Default, null, windows));
+            Assert.Throws<ArgumentNullException>(() =>
+                SessionSolvers.LongestDurationIn(Target.Default, loc, null));
+            Assert.Throws<ArgumentException>(() =>
+                SessionSolvers.LongestDurationIn(Target.Default, loc, windows, TimeSpan.Zero));
+        }
+
+        // ====================================================================
+        // LongestDuration (auto-resolve flavor)
+        // ====================================================================
+
+        // Auto-resolve with null profile must agree with feeding visibility windows
+        // directly into LongestDurationIn -- the moon-blind paths are byte-identical.
+        [Fact]
+        public void LongestDuration_NullProfile_MatchesVisibilityLongestArm()
+        {
+            var loc = MakeLocation();
+            var night = NightCalculator.ComputeNight(loc);
+            var horizon = new ScalarHorizonProfile(20.0);
+
+            var auto = SessionSolvers.LongestDuration(
+                Target.Default, loc, night, horizon, profile: null);
+
+            var visibility = VisibilityWindows.For(Target.Default, loc, night, horizon);
+            var manual = SessionSolvers.LongestDurationIn(Target.Default, loc, visibility);
+
+            Assert.Equal(auto.HasValue, manual.HasValue);
+            if (auto.HasValue)
+            {
+                Assert.Equal(auto.Value.Duration, manual.Value.Duration);
+                Assert.Equal(auto.Value.Start, manual.Value.Start);
+                Assert.Equal(auto.Value.End, manual.Value.End);
+            }
+        }
+
+        // M31 well-placed; even with the Narrowband profile some night should yield
+        // a positive-length moon-clear session (mirrors the existing
+        // For_EnabledProfile_ReturnsResultWhenTargetMoonClear precedent).
+        [Fact]
+        public void LongestDuration_EnabledProfile_ReturnsResultWhenMoonClear()
+        {
+            var loc = MakeLocation();
+            var night = NightCalculator.ComputeNight(loc);
+            var horizon = new ScalarHorizonProfile(20.0);
+
+            var result = SessionSolvers.LongestDuration(
+                Target.Default, loc, night, horizon,
+                profile: MoonAvoidanceProfile.Narrowband);
+
+            Assert.NotNull(result);
+            Assert.True(result.Value.Duration > TimeSpan.Zero);
+        }
+
+        // Polar night: NightCalculator returns IsValid=false, VisibilityWindows.For
+        // returns empty. LongestDuration must propagate as null without throwing.
+        [Fact]
+        public void LongestDuration_PolarNight_ReturnsNull()
+        {
+            // Northern polar location in summer where the sun never sets.
+            var loc = Location.Default.With(
+                latitude: 80.0, north: true,
+                longitude: 0.0, west: false,
+                dateTime: new DateTime(2026, 6, 21, 0, 0, 0, DateTimeKind.Utc));
+            var night = NightCalculator.ComputeNight(loc);
+            var horizon = new ScalarHorizonProfile(20.0);
+
+            var result = SessionSolvers.LongestDuration(
+                Target.Default, loc, night, horizon);
+
+            Assert.Null(result);
+        }
+
+        // ====================================================================
+        // LowestHorizon (bisection)
+        // ====================================================================
+
+        // M31 at Penns Park yields 2h easily; the largest H that still fits is well
+        // below meridian (~89° at Penns Park since M31's dec ≈ lat) and well above the
+        // test floor of 0°. Sub-bound the answer between 50° and 89° as a sanity check
+        // that the bisection is converging into the expected near-meridian region.
+        [Fact]
+        public void LowestHorizon_TargetClearsHorizonComfortably_ReturnsLowAngle()
+        {
+            var loc = MakeLocation();
+            var night = NightCalculator.ComputeNight(loc);
+
+            var result = SessionSolvers.LowestHorizon(
+                Target.Default, loc, night, TimeSpan.FromHours(2));
+
+            Assert.NotNull(result);
+            Assert.True(result.Value.HorizonDeg > 50.0,
+                $"Expected HorizonDeg > 50° (M31 fits 2h easily at high H); got {result.Value.HorizonDeg:F2}°");
+            Assert.True(result.Value.HorizonDeg < 89.0,
+                $"Expected HorizonDeg < 89° (M31's meridian alt ~89°); got {result.Value.HorizonDeg:F2}°");
+            Assert.True(result.Value.End > result.Value.Start);
+        }
+
+        // Asking for a session longer than the night is unsatisfiable at any horizon.
+        [Fact]
+        public void LowestHorizon_DurationExceedsAvailableTime_ReturnsNull()
+        {
+            var loc = MakeLocation();
+            var night = NightCalculator.ComputeNight(loc);
+
+            var result = SessionSolvers.LowestHorizon(
+                Target.Default, loc, night, TimeSpan.FromHours(48));
+
+            Assert.Null(result);
+        }
+
+        // 20 iterations of bisection across the meridian-vs-floor bracket gives sub-
+        // arcminute precision. Sanity: the answer at H_lowest should fit, and at
+        // H_lowest + 1° should not (or be very close to not fitting).
+        [Fact]
+        public void LowestHorizon_BisectionPrecision_AchievesSubDegreePrecision()
+        {
+            var loc = MakeLocation();
+            var night = NightCalculator.ComputeNight(loc);
+            var dur = TimeSpan.FromHours(2);
+
+            var result = SessionSolvers.LowestHorizon(Target.Default, loc, night, dur);
+
+            Assert.NotNull(result);
+            // At the returned horizon, a D-hour session must actually fit.
+            var horizonAtAnswer = new ScalarHorizonProfile(result.Value.HorizonDeg);
+            var atAnswer = SessionSolvers.LongestDuration(
+                Target.Default, loc, night, horizonAtAnswer);
+            Assert.NotNull(atAnswer);
+            Assert.True(atAnswer.Value.Duration >= dur);
+
+            // 1° above the returned horizon, the session must NOT fit (or barely fit
+            // within bisection precision -- so "doesn't fit OR fits with < 0.01h slack").
+            var horizonAbove = new ScalarHorizonProfile(result.Value.HorizonDeg + 1.0);
+            var above = SessionSolvers.LongestDuration(
+                Target.Default, loc, night, horizonAbove);
+            bool justAtBoundary = above.HasValue
+                && (above.Value.Duration - dur).TotalMinutes < 0.6;
+            Assert.True(above == null || above.Value.Duration < dur || justAtBoundary,
+                $"At H+1° the session should not fit (or be at-boundary): got {above?.Duration}");
+        }
+
+        [Fact]
+        public void LowestHorizon_NullArgs_Throws()
+        {
+            var loc = MakeLocation();
+            var night = NightCalculator.ComputeNight(loc);
+            var dur = TimeSpan.FromHours(2);
+
+            Assert.Throws<ArgumentNullException>(() =>
+                SessionSolvers.LowestHorizon(null, loc, night, dur));
+            Assert.Throws<ArgumentNullException>(() =>
+                SessionSolvers.LowestHorizon(Target.Default, null, night, dur));
+            Assert.Throws<ArgumentException>(() =>
+                SessionSolvers.LowestHorizon(Target.Default, loc, night, TimeSpan.Zero));
+            Assert.Throws<ArgumentException>(() =>
+                SessionSolvers.LowestHorizon(Target.Default, loc, night, dur, minHorizonDeg: -91.0));
+            Assert.Throws<ArgumentException>(() =>
+                SessionSolvers.LowestHorizon(Target.Default, loc, night, dur, maxIterations: 0));
+        }
+    }
+}

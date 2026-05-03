@@ -300,7 +300,7 @@ namespace Astronomy.Core.Session
         // located by linear interpolation on (actualSep - requiredSep), so the result is
         // accurate to about 1 minute regardless of how the threshold itself ramps with
         // moon altitude inside the relaxation zone.
-        private static IReadOnlyList<(DateTime Start, DateTime End)> MoonClearIntersect(
+        internal static IReadOnlyList<(DateTime Start, DateTime End)> MoonClearIntersect(
             Target target, Location location,
             IReadOnlyList<(DateTime Start, DateTime End)> visibility,
             MoonAvoidanceProfile profile)
