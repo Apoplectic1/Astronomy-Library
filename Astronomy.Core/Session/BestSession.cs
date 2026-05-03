@@ -267,9 +267,18 @@ namespace Astronomy.Core.Session
                 }
                 else
                 {
-                    // Push against the edge closer to transit (alt is monotone inside the
-                    // window when transit is outside, so the extreme end is the low-alt end).
-                    sessionStart = transitUtc < win.Start
+                    // Push against the edge with HIGHER altitude. When transit is outside
+                    // the window, altitude is monotone within the window and the higher
+                    // endpoint is the "transit-side" end -- but which transit (today's
+                    // vs yesterday's vs tomorrow's) the window came from cannot be inferred
+                    // from a single TransitTime.UtcAtOrAfter call: that always returns the
+                    // next transit, which is wrong for descending-arc windows whose
+                    // relevant transit was the PREVIOUS one. Comparing endpoint altitudes
+                    // recovers the correct "transit-side" edge in all shifted-transit cases
+                    // at the cost of two extra alt-az calls per candidate.
+                    double altWinStart = AltAzCalculator.At(target, location, win.Start).Altitude;
+                    double altWinEnd   = AltAzCalculator.At(target, location, win.End).Altitude;
+                    sessionStart = altWinStart >= altWinEnd
                         ? win.Start
                         : win.End.AddHours(-sessionHrs);
                 }

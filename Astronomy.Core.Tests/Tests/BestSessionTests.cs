@@ -165,6 +165,65 @@ namespace Astronomy.Core.Tests.Tests
             }
         }
 
+        // Regression: PlaceBest must use endpoint-altitude comparison (NOT
+        // TransitTime.UtcAtOrAfter sign comparison) to decide which window wall is
+        // "transit-side". Failure mode: for a descending-arc window (post-PREVIOUS
+        // transit), UtcAtOrAfter returns TOMORROW's transit, treating the window as
+        // "transit AFTER" and pushing session against the LOW-altitude end (window.End).
+        // The correct placement is against window.Start (high altitude, just past
+        // yesterday's transit). Bug surfaced as angular dips in the Optimal chart's
+        // Floor curve through summer months when target transit fell before dusk.
+        [Fact]
+        public void PlaceBest_DescendingArcWindow_PushesAgainstHighAltitudeStart()
+        {
+            var loc = MakeLocation();
+            DateTime transitUtc = TransitTime.UtcAtOrAfter(
+                Target.Default, loc, new DateTime(2026, 11, 15, 0, 0, 0, DateTimeKind.Utc));
+            var dur = TimeSpan.FromHours(2);
+
+            // Window 2-6 hours AFTER transit: post-transit descending arc. The "next
+            // transit at-or-after window.Start" is tomorrow's, well beyond window.End,
+            // so PlaceBest sees transit-AFTER. Without the altitude-comparison fix it
+            // would push session against window.End (lowest altitude); the fix pushes
+            // against window.Start (highest altitude).
+            var window = (Start: transitUtc + TimeSpan.FromHours(2),
+                          End:   transitUtc + TimeSpan.FromHours(6));
+            var windows = new[] { window };
+
+            var result = BestSession.PlaceBest(
+                Target.Default, loc, windows, dur, dur, SinAltQuality);
+
+            Assert.NotNull(result);
+            Assert.Equal(window.Start, result.Value.Start);
+            Assert.Equal(window.Start + dur, result.Value.End);
+        }
+
+        // Symmetric companion: pre-transit RISING arc window. UtcAtOrAfter returns the
+        // upcoming transit (after window.End), and the high-altitude end is window.End
+        // (closer to transit). Both the buggy and fixed code happen to agree here -- this
+        // test exists to lock in the rising-arc behavior so a future change to the
+        // altitude-comparison logic doesn't accidentally break it.
+        [Fact]
+        public void PlaceBest_RisingArcWindow_PushesAgainstHighAltitudeEnd()
+        {
+            var loc = MakeLocation();
+            DateTime transitUtc = TransitTime.UtcAtOrAfter(
+                Target.Default, loc, new DateTime(2026, 11, 15, 0, 0, 0, DateTimeKind.Utc));
+            var dur = TimeSpan.FromHours(2);
+
+            // Window 6-2 hours BEFORE transit: pre-transit rising arc.
+            var window = (Start: transitUtc - TimeSpan.FromHours(6),
+                          End:   transitUtc - TimeSpan.FromHours(2));
+            var windows = new[] { window };
+
+            var result = BestSession.PlaceBest(
+                Target.Default, loc, windows, dur, dur, SinAltQuality);
+
+            Assert.NotNull(result);
+            Assert.Equal(window.End - dur, result.Value.Start);
+            Assert.Equal(window.End, result.Value.End);
+        }
+
         // Two manually-constructed windows: one near transit (high altitude), one in
         // early evening (lower altitude). PlaceBest must pick the high one because
         // sin-altitude integrated over the higher window is greater.
