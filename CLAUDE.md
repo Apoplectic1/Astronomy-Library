@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 The four buildable projects:
 
-- **`Astronomy.Core`** — `netstandard2.0`, `LangVersion 7.3`. The library proper. Pure managed C#; only NuGet dep is `CoordinateSharp 3.4.1.1`. XML doc generation is on (`GenerateDocumentationFile=true`), so public surface is expected to carry `///` docs. Buildable independently with `dotnet build` if a contributor wants only the managed primitives.
+- **`Astronomy.Core`** — `netstandard2.0`, `LangVersion 7.3`. The library proper. Pure managed C# with **no NuGet dependencies** (post-`2249834` CoordinateSharp removal — every helper is now Meeus-backed). XML doc generation is on (`GenerateDocumentationFile=true`), so public surface is expected to carry `///` docs. Buildable independently with `dotnet build` if a contributor wants only the managed primitives.
 - **`Astronomy.Core.Tests`** — `net10.0` x64, `OutputType=Exe`. Hosts both xUnit tests (`Tests/`) and BenchmarkDotNet benchmarks (`Benchmarks/`) in a single assembly. `GenerateProgramFile=false` because `Program.cs` defines its own `Main` that delegates to `BenchmarkSwitcher.FromAssembly(...)`. References both `Astronomy.Core` and `Astronomy.PCL`.
 - **`Astronomy.PCL.Native`** — vcxproj, x64-only C++ DLL. Statically links the vendored PixInsight Class Library (`Library\PCL\lib\x64\$(Configuration)\*-pxi.lib`). Public surface is the `extern "C"` C ABI in `include\Astronomy\PCL\XisfCApi.h`. Mirrors PCL's build flavor (`/MD`, `stdcpp17`, `__PCL_WINDOWS`) using the same MSVC toolset PCL itself uses (`v145` as of VS2026 — both wrapper and PCL bumped together); compiled with `AdvancedVectorExtensions2` (AVX2) for portability — PCL's own AVX-512 paths remain runtime-gated inside the static lib.
 - **`Astronomy.PCL`** — `net8.0` x64. Managed P/Invoke wrapper. Public surface: `XisfFile : IDisposable` (`Open` / `SelectImage` / `ReadImageF32`), `XisfImageInfo`, `XisfColorSpace`, `XisfException`. Internal `NativeMethods` in `Interop/` holds the `[DllImport]` declarations. `<InternalsVisibleTo Include="Astronomy.Core.Tests" />` lets the smoke test bypass the wrapper. **net8.0 not netstandard2.0**: VS2026's `MSBuild.exe` has a defect resolving `System.Runtime.InteropServices.DllImportAttribute` for `netstandard2.0` projects — `net8.0` works under both `MSBuild.exe` and `dotnet build`. `Astronomy.PCL` has no `net481` consumer (TargetPlanner does charting, not file I/O), so the trade-off is free.
@@ -55,11 +55,17 @@ These are baked into the public API and must be respected when adding code:
 - **Immutability + `With(...)`.** `Location` and `Target` are immutable; mutations produce new instances via a `With` method that takes optional parameters.
 - **D/M/S accessors are computed on read**, never stored. Don't add stored DMS fields — they would drift.
 
-## CoordinateSharp thread-safety gate
+## Thread safety
 
-`CoordinateSharp 3.4.1.1` has internal state in `Celestial.CalculateCelestialTimes` that is not safe under concurrent calls — racing calls can produce results with null `AdditionalSolarTimes` entries that should be valid. **Every call into `CalculateCelestialTimes` (in this repo and downstream consumers) must go through `Astronomy.Core.CoordinateSharpGate.Calculate(...)`**, which serializes them on a single static lock. The lock is held only around the calculation itself; the returned `Celestial` is constructed with `EagerLoadType.Celestial`, so subsequent property reads don't need to be under the lock — but the returned instance is not itself thread-safe and must not be shared across threads.
+`Astronomy.Core` is **thread-safe by construction** since the CoordinateSharp removal in commit `2249834`. Verified: zero mutable static fields, zero static caches / dictionaries / `Lazy<T>` / singletons; all public APIs take parameters with no hidden state. All inputs are immutable POCOs (`Target`, `Location`, `NightWindow`, `MoonAvoidanceProfile`); all returns are immutable POCOs, small structs (`AltAz`, `RiseSet`), or `IReadOnlyList<T>`. **Consumers may call any helper from any thread without external synchronization.**
 
-`NightCache` exists to amortize this serialization for multi-target Graph workloads: build it once on a background task, then per-target year work is pure AltAz math that parallelizes freely.
+Two caveats limit that promise:
+
+1. **Caller-supplied delegates are the consumer's responsibility.** Methods that take `Func<...>` parameters — most notably `IntegratedQuality.OverSession(..., Func<double, double> altitudeQuality)` and `IntegratedQuality.HalvesAroundMidpoint(...)`, plus any future delegate-taking helper — invoke the delegate from whatever thread called the method. If a consumer passes a closure that mutates captured state (e.g. `int count = 0; alt => { count++; return ...; }`), thread safety of that closure is on the consumer. Pure / referentially transparent functions are always safe.
+
+2. **`Astronomy.PCL` is NOT part of this contract.** PCL is a separate assembly (`Astronomy.PCL.csproj` + `Astronomy.PCL.Native.vcxproj`) wrapping the vendored PixInsight Class Library. `Astronomy.Core` never references it. The underlying PCL C++ library historically isn't safe to call across threads — assume single-threaded access until PCL's own concurrency story is documented per-API.
+
+`NightCache` is a per-`Location` amortization helper: build once per Graph click, hand to multiple targets so each target's year work doesn't re-derive the same 365-day `NightWindow` series. The instance is immutable after construction; concurrent readers are safe. Several caches can be built in parallel for different locations.
 
 ## Code organization (high-level)
 

@@ -126,5 +126,59 @@ namespace Astronomy.Core.Tests.Tests
             Assert.Throws<ArgumentNullException>(() => SessionAltitude.Ceiling(null, loc, t0, t1));
             Assert.Throws<ArgumentNullException>(() => SessionAltitude.Ceiling(Target.Default, null, t0, t1));
         }
+
+        // Transit-centered session: midpoint IS transit, so the midpoint altitude is
+        // the meridian altitude (the sky-geometry maximum at HA = 0). Tests both that
+        // the helper computes the midpoint correctly and that AltAzCalculator agrees
+        // with TargetGeometry.MeridianAltitude at HA = 0.
+        [Fact]
+        public void Midpoint_TransitCenteredSession_ReturnsMeridianAltitude()
+        {
+            var loc = MakeLocation();
+            DateTime transitUtc = TransitTime.UtcAtOrAfter(
+                Target.Default, loc, new DateTime(2026, 11, 15, 0, 0, 0, DateTimeKind.Utc));
+            DateTime sessionStart = transitUtc - TimeSpan.FromHours(1);
+            DateTime sessionEnd   = transitUtc + TimeSpan.FromHours(1);
+
+            double latDeg = loc.North ? loc.Latitude : -loc.Latitude;
+            double decDeg = Target.Default.North ? Target.Default.Declination : -Target.Default.Declination;
+            double expected = TargetGeometry.MeridianAltitude(latDeg, decDeg);
+
+            double actual = SessionAltitude.Midpoint(Target.Default, loc, sessionStart, sessionEnd);
+
+            // Within ~1e-7 degrees -- limited by tick rounding in the midpoint
+            // computation (the analytic transit may be a fractional tick off the
+            // session midpoint).
+            Assert.Equal(expected, actual, 6);
+        }
+
+        // Off-center session: assert the helper's answer matches AltAzCalculator.At
+        // at the manually computed midpoint. Sanity check that midpoint arithmetic
+        // and the AltAz forward path are consistent.
+        [Fact]
+        public void Midpoint_OffCenterSession_MatchesAltAzAtMidpoint()
+        {
+            var loc = MakeLocation();
+            var sessionStart = new DateTime(2026, 11, 15, 0, 0, 0, DateTimeKind.Utc);
+            var sessionEnd   = sessionStart.AddHours(4);
+
+            DateTime midpoint = sessionStart + TimeSpan.FromTicks((sessionEnd - sessionStart).Ticks / 2);
+            double expected = AltAzCalculator.At(Target.Default, loc, midpoint).Altitude;
+
+            double actual = SessionAltitude.Midpoint(Target.Default, loc, sessionStart, sessionEnd);
+
+            Assert.Equal(expected, actual, 9);
+        }
+
+        [Fact]
+        public void Midpoint_NullArgs_Throws()
+        {
+            var loc = MakeLocation();
+            var t0 = new DateTime(2026, 11, 15, 0, 0, 0, DateTimeKind.Utc);
+            var t1 = t0.AddHours(2);
+
+            Assert.Throws<ArgumentNullException>(() => SessionAltitude.Midpoint(null, loc, t0, t1));
+            Assert.Throws<ArgumentNullException>(() => SessionAltitude.Midpoint(Target.Default, null, t0, t1));
+        }
     }
 }

@@ -51,5 +51,45 @@ namespace Astronomy.Core.Session
             double deltaUtHours = deltaLst * 24.0 / SiderealHoursPerSolarDay;
             return searchFromUtc.AddHours(deltaUtHours);
         }
+
+        /// <summary>
+        /// Returns the signed offset between the next upper transit (at or after
+        /// <paramref name="sessionStartUtc"/>) and the temporal midpoint of the session
+        /// window <c>[<paramref name="sessionStartUtc"/>, <paramref name="sessionEndUtc"/>]</c>.
+        /// </summary>
+        /// <remarks>
+        /// Positive results mean the transit falls <em>after</em> the midpoint (the window
+        /// is pre-transit-skewed); negative means before (post-transit-skewed); zero means
+        /// the window is centered on transit. Caller can <c>.Duration()</c> for absolute
+        /// distance, or inspect the sign for direction. Useful as a transit-centeredness
+        /// tiebreaker input in interval scheduling.
+        ///
+        /// Composes <see cref="UtcAtOrAfter"/> on <paramref name="sessionStartUtc"/>; if the
+        /// window doesn't span the next upper transit (e.g. the transit lies after
+        /// <paramref name="sessionEndUtc"/>), the returned distance refers to that next
+        /// transit (which may be entirely outside the window). Caller decides whether
+        /// that's meaningful for their tiebreaker policy.
+        /// </remarks>
+        /// <param name="target">Target RA/Dec. Non-null.</param>
+        /// <param name="location">Observer position. Non-null.</param>
+        /// <param name="sessionStartUtc">Session start, UTC.</param>
+        /// <param name="sessionEndUtc">Session end, UTC. Must be &gt;= start.</param>
+        /// <returns>
+        /// Signed offset <c>transit - midpoint</c>. Positive = transit after midpoint.
+        /// </returns>
+        /// <exception cref="ArgumentNullException">
+        /// <paramref name="target"/> or <paramref name="location"/> is <see langword="null"/>.
+        /// </exception>
+        public static TimeSpan DistanceFromMidpoint(
+            Target target, Location location,
+            DateTime sessionStartUtc, DateTime sessionEndUtc)
+        {
+            if (target == null) throw new ArgumentNullException(nameof(target));
+            if (location == null) throw new ArgumentNullException(nameof(location));
+
+            DateTime midpoint = sessionStartUtc + TimeSpan.FromTicks((sessionEndUtc - sessionStartUtc).Ticks / 2);
+            DateTime transit = UtcAtOrAfter(target, location, sessionStartUtc);
+            return transit - midpoint;
+        }
     }
 }

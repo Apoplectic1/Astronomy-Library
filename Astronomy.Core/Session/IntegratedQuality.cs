@@ -111,5 +111,50 @@ namespace Astronomy.Core.Session
             // Convert sidereal-hour-based integral to solar-hour-based.
             return siderealIntegral * 24.0 / SiderealHoursPerSolarDay;
         }
+
+        /// <summary>
+        /// Splits the session window
+        /// <c>[<paramref name="sessionStartUtc"/>, <paramref name="sessionEndUtc"/>]</c> at
+        /// its temporal midpoint and integrates
+        /// <paramref name="altitudeQuality"/><c>(alt(t))</c> over each half via
+        /// <see cref="OverSession"/>.
+        /// </summary>
+        /// <remarks>
+        /// Returns <c>(FirstHalf, SecondHalf)</c> with each half denominated in
+        /// <c>(solar hours) * (quality output)</c>. For a window symmetric around the
+        /// target's transit (HA = 0), the two halves are equal modulo Simpson tolerance
+        /// (~1e-6 for smooth quality functions). Useful as a window-symmetry tiebreaker
+        /// input in interval scheduling: callers compose their own symmetry metric (ratio,
+        /// absolute diff, etc.) -- this method exposes data, not policy.
+        ///
+        /// Non-positive total duration returns <c>(0, 0)</c> consistently with
+        /// <see cref="OverSession"/>.
+        /// </remarks>
+        /// <param name="target">Target RA/Dec. Non-null.</param>
+        /// <param name="location">Observer position. Non-null.</param>
+        /// <param name="sessionStartUtc">Session start, UTC.</param>
+        /// <param name="sessionEndUtc">Session end, UTC. Must be &gt;= start.</param>
+        /// <param name="altitudeQuality">
+        /// Maps altitude (degrees) to a dimensionless "quality" score. See
+        /// <see cref="OverSession"/> for semantics.
+        /// </param>
+        /// <exception cref="ArgumentNullException">
+        /// Any of <paramref name="target"/>, <paramref name="location"/>, or
+        /// <paramref name="altitudeQuality"/> is <see langword="null"/>.
+        /// </exception>
+        public static (double FirstHalf, double SecondHalf) HalvesAroundMidpoint(
+            Target target, Location location,
+            DateTime sessionStartUtc, DateTime sessionEndUtc,
+            Func<double, double> altitudeQuality)
+        {
+            if (target == null) throw new ArgumentNullException(nameof(target));
+            if (location == null) throw new ArgumentNullException(nameof(location));
+            if (altitudeQuality == null) throw new ArgumentNullException(nameof(altitudeQuality));
+
+            DateTime midpoint = sessionStartUtc + TimeSpan.FromTicks((sessionEndUtc - sessionStartUtc).Ticks / 2);
+            double firstHalf  = OverSession(target, location, sessionStartUtc, midpoint - sessionStartUtc, altitudeQuality);
+            double secondHalf = OverSession(target, location, midpoint,        sessionEndUtc - midpoint,   altitudeQuality);
+            return (firstHalf, secondHalf);
+        }
     }
 }
