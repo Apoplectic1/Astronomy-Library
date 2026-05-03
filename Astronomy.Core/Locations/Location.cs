@@ -5,7 +5,7 @@ namespace Astronomy.Core.Locations
     /// <summary>
     /// Immutable observer location: latitude / longitude in the Core magnitude-plus-flag
     /// convention, local moment, and analysis preferences (horizon / minimum duration above
-    /// horizon) that color the altitude-chart machinery in the <c>TargetPlanner</c> host.
+    /// horizon) that drive consumer-side altitude / visibility analysis.
     /// </summary>
     /// <remarks>
     /// <para>

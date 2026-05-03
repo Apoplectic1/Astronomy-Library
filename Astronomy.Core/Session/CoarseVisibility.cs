@@ -121,8 +121,8 @@ namespace Astronomy.Core.Session
         /// Single-window semantics: a target whose total above-horizon time during the night
         /// is split across two shorter windows (rises, sets, rises again) is <b>not</b>
         /// considered visible even if the sum meets <paramref name="minDuration"/> -- a single
-        /// imaging session can't span a horizon dip. Matches <see cref="BestSession"/> and the
-        /// Optimal-chart series, which both filter by single-window length.
+        /// imaging session can't span a horizon dip. Matches <see cref="BestSession"/>'s
+        /// placement contract, which also filters by single-window length.
         /// </para>
         /// <para>
         /// Same cost class as <see cref="IsEverAboveHorizon"/>: one closed-form call to

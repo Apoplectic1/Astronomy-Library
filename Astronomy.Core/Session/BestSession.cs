@@ -103,10 +103,10 @@ namespace Astronomy.Core.Session
         /// <para>
         /// This is the placement primitive that <see cref="For"/> calls internally after
         /// computing visibility windows (and optionally intersecting with moon-clear
-        /// sub-intervals). Exposed publicly so callers that already have resolved
-        /// candidate windows -- e.g. a chart that walks pre-cached moon samples and
-        /// produces moon-clear sub-intervals chart-side -- can skip <see cref="For"/>'s
-        /// internal moon sweep and pass them in directly.
+        /// sub-intervals). Exposed publicly so callers that have already resolved their
+        /// candidate windows externally -- e.g. by walking pre-cached moon samples and
+        /// computing moon-clear sub-intervals up-front -- can skip <see cref="For"/>'s
+        /// internal moon sweep and pass the windows in directly.
         /// </para>
         /// </remarks>
         /// <param name="target">Target RA/Dec. Non-null.</param>

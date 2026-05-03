@@ -171,8 +171,9 @@ namespace Astronomy.Core.Tests.Tests
         // transit), UtcAtOrAfter returns TOMORROW's transit, treating the window as
         // "transit AFTER" and pushing session against the LOW-altitude end (window.End).
         // The correct placement is against window.Start (high altitude, just past
-        // yesterday's transit). Bug surfaced as angular dips in the Optimal chart's
-        // Floor curve through summer months when target transit fell before dusk.
+        // yesterday's transit). Symptom: PlaceBest places the session at the lowest-
+        // altitude end of the visibility arc instead of the highest, so any Floor /
+        // Ceiling derived from its returned window is artificially low.
         [Fact]
         public void PlaceBest_DescendingArcWindow_PushesAgainstHighAltitudeStart()
         {

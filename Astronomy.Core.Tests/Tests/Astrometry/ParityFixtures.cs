@@ -51,7 +51,7 @@ namespace Astronomy.Core.Tests.Tests.Astrometry
                 expectValidNight: true),
 
             // Penns Park at the DST autumn-back transition. Validates the offset-recovery
-            // path in NightCalculator.ToUtc that fixed the 2026-11-01 OptimalFloor spike
+            // path in NightCalculator.ToUtc that fixed the 2026-11-01 night-window spike
             // (Library commit 5eb3d0b).
             new Case("PennsParkDstFall",
                 40.282835, true, 74.997369, true,

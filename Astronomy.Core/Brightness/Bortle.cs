@@ -6,8 +6,8 @@ namespace Astronomy.Core.Brightness
     /// Lookup tables mapping Bortle dark-sky class (1 = excellent, 9 = inner-city)
     /// to typical default values for the moonless zenith dark-sky brightness V₀
     /// (mag/arcsec²) and the atmospheric extinction coefficient k at 500 nm
-    /// (mag/airmass). Used by the K-S sky-brightness model and by TargetPlanner's
-    /// per-Location UI to pre-fill sensible defaults when the user picks a class.
+    /// (mag/airmass). Used by the K-S sky-brightness model; consumers may also surface
+    /// these values in their own UI to pre-fill sensible defaults when the user picks a class.
     /// </summary>
     /// <remarks>
     /// Values are the standard amateur-astrophotography averages found in

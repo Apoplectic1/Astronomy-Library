@@ -11,11 +11,12 @@ namespace Astronomy.Core.Session
     /// <remarks>
     /// Separated from <see cref="BestSession"/>: that class is about <em>placement</em>
     /// (deciding when a session should run); this one is about <em>evaluation</em>
-    /// (reporting properties of a session that has already been placed). Two callers in
-    /// TargetPlanner exercise the helpers today: the Day-chart HD overlay's
-    /// <c>ComputeBestDayWindow</c> needs Floor; the Optimal-chart per-night loop needs
-    /// both. Future helpers (e.g. average altitude, minimum target-moon separation,
-    /// integrated airmass) would slot in alongside.
+    /// (reporting properties of a session that has already been placed). Typical use is
+    /// post-<see cref="BestSession.PlaceBest"/> / <see cref="BestSession.PlaceCentered"/>:
+    /// take the returned <c>(Start, End)</c> window and ask for its lowest altitude
+    /// (<see cref="Floor"/>) or highest altitude (<see cref="Ceiling"/>). Future
+    /// session-evaluation helpers (e.g. average altitude, minimum target-moon
+    /// separation, integrated airmass) would slot in alongside.
     /// </remarks>
     public static class SessionAltitude
     {
