@@ -13,9 +13,13 @@ namespace Astronomy.Core.Astrometry
     /// </remarks>
     public sealed class RiseAndSetEvent
     {
+        /// <summary>UTC instant the body crossed above the threshold today, or <see langword="null"/> if it never rose.</summary>
         public DateTime? Rise { get; }
+
+        /// <summary>UTC instant the body crossed below the threshold today, or <see langword="null"/> if it never set.</summary>
         public DateTime? Set  { get; }
 
+        /// <summary>Wraps a (rise, set) pair. Pass <see langword="null"/> for either side to indicate the event didn't occur.</summary>
         public RiseAndSetEvent(DateTime? rise, DateTime? set)
         {
             Rise = rise;

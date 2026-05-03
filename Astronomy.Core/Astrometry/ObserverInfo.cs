@@ -25,6 +25,12 @@ namespace Astronomy.Core.Astrometry
         /// <summary>Elevation above geoid, meters.</summary>
         public double Elevation { get; }
 
+        /// <summary>
+        /// Constructs an observer at <paramref name="latitude"/> /
+        /// <paramref name="longitude"/> (signed degrees, positive north / east) and
+        /// <paramref name="elevation"/> meters above the geoid. Inputs are stored
+        /// verbatim; no range coercion or sign-flag resolution.
+        /// </summary>
         public ObserverInfo(double latitude, double longitude, double elevation = 0.0)
         {
             Latitude  = latitude;
