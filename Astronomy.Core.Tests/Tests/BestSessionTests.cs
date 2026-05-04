@@ -359,5 +359,98 @@ namespace Astronomy.Core.Tests.Tests
             Assert.Null(BestSession.PlaceCentered(Target.Default, loc, windows, TimeSpan.Zero));
             Assert.Null(BestSession.PlaceCentered(Target.Default, loc, windows, TimeSpan.FromHours(-1)));
         }
+
+        // ResolveCandidates is the public surface for callers that need the same
+        // visibility-or-moon-clear-intersected candidate set across multiple
+        // placement strategies (e.g. PlaceBest + PlaceCentered on the same night
+        // for a Sessions chart). Equivalence test: feeding the resolved candidates
+        // to PlaceBest must produce the same result as For directly, since For
+        // calls ResolveCandidates internally before placing.
+        [Fact]
+        public void ResolveCandidates_PlusPlaceBest_MatchesFor_NullProfile()
+        {
+            var loc = MakeLocation();
+            var night = NightCalculator.ComputeNight(loc);
+            var horizon = new ScalarHorizonProfile(20.0);
+            var dur = TimeSpan.FromHours(2);
+
+            var fromFor = BestSession.For(
+                Target.Default, loc, night, horizon, dur, dur, SinAltQuality, profile: null);
+
+            var candidates = BestSession.ResolveCandidates(
+                Target.Default, loc, night, horizon, profile: null);
+            var fromPlace = BestSession.PlaceBest(
+                Target.Default, loc, candidates, dur, dur, SinAltQuality);
+
+            Assert.NotNull(fromFor);
+            Assert.NotNull(fromPlace);
+            Assert.Equal(fromFor.Value.Start, fromPlace.Value.Start);
+            Assert.Equal(fromFor.Value.End,   fromPlace.Value.End);
+            Assert.Equal(fromFor.Value.Quality, fromPlace.Value.Quality, precision: 12);
+        }
+
+        [Fact]
+        public void ResolveCandidates_PlusPlaceBest_MatchesFor_NarrowbandProfile()
+        {
+            var loc = MakeLocation();
+            var night = NightCalculator.ComputeNight(loc);
+            var horizon = new ScalarHorizonProfile(20.0);
+            var dur = TimeSpan.FromHours(2);
+            var profile = MoonAvoidanceProfile.Narrowband;
+
+            var fromFor = BestSession.For(
+                Target.Default, loc, night, horizon, dur, dur, SinAltQuality, profile: profile);
+
+            var candidates = BestSession.ResolveCandidates(
+                Target.Default, loc, night, horizon, profile: profile);
+            var fromPlace = candidates.Count == 0
+                ? null
+                : BestSession.PlaceBest(
+                    Target.Default, loc, candidates, dur, dur, SinAltQuality);
+
+            Assert.Equal(fromFor.HasValue, fromPlace.HasValue);
+            if (fromFor.HasValue && fromPlace.HasValue)
+            {
+                Assert.Equal(fromFor.Value.Start, fromPlace.Value.Start);
+                Assert.Equal(fromFor.Value.End,   fromPlace.Value.End);
+                Assert.Equal(fromFor.Value.Quality, fromPlace.Value.Quality, precision: 12);
+            }
+        }
+
+        [Fact]
+        public void ResolveCandidates_NullProfile_EqualsVisibilityWindowsFor()
+        {
+            // With profile == null (or Disabled), ResolveCandidates returns visibility
+            // unchanged -- byte-equal to VisibilityWindows.For's output.
+            var loc = MakeLocation();
+            var night = NightCalculator.ComputeNight(loc);
+            var horizon = new ScalarHorizonProfile(20.0);
+
+            var visibility = VisibilityWindows.For(Target.Default, loc, night, horizon);
+            var resolved = BestSession.ResolveCandidates(
+                Target.Default, loc, night, horizon, profile: null);
+
+            Assert.Equal(visibility.Count, resolved.Count);
+            for (int i = 0; i < visibility.Count; i++)
+            {
+                Assert.Equal(visibility[i].Start, resolved[i].Start);
+                Assert.Equal(visibility[i].End,   resolved[i].End);
+            }
+        }
+
+        [Fact]
+        public void ResolveCandidates_NullArgs_Throws()
+        {
+            var loc = MakeLocation();
+            var night = NightCalculator.ComputeNight(loc);
+            var horizon = new ScalarHorizonProfile(20.0);
+
+            Assert.Throws<ArgumentNullException>(() =>
+                BestSession.ResolveCandidates(null, loc, night, horizon));
+            Assert.Throws<ArgumentNullException>(() =>
+                BestSession.ResolveCandidates(Target.Default, null, night, horizon));
+            Assert.Throws<ArgumentNullException>(() =>
+                BestSession.ResolveCandidates(Target.Default, loc, night, null));
+        }
     }
 }

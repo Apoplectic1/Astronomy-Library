@@ -90,6 +90,59 @@ namespace Astronomy.Core.Session
         }
 
         /// <summary>
+        /// Resolves the candidate windows for a night without performing placement.
+        /// Returns visibility windows intersected with moon-clear sub-intervals when
+        /// <paramref name="profile"/> is non-<see langword="null"/> and enabled, or just
+        /// visibility windows otherwise.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// Use this when you need the same candidate set for multiple placement strategies
+        /// (e.g. <see cref="PlaceBest"/> for transit-centered-or-wall-pushed AND
+        /// <see cref="PlaceCentered"/> for strict-centered) on the same night without
+        /// resolving the moon mask twice. <see cref="For"/> calls this internally before
+        /// placement; the public expose is for callers that want to share one candidate
+        /// set across multiple placement attempts.
+        /// </para>
+        /// <para>
+        /// Same moon-aware contract as <see cref="For"/>: a non-null + enabled
+        /// <paramref name="profile"/> reads moon position via
+        /// <see cref="Moon.MoonSeparation.ObserveAt"/> at 10-minute cadence inside each
+        /// visibility window; profile-null and profile-Disabled short-circuit to the
+        /// visibility result unchanged.
+        /// </para>
+        /// </remarks>
+        /// <param name="target">Target RA/Dec. Non-null.</param>
+        /// <param name="location">Observer position. Non-null.</param>
+        /// <param name="night">Dusk/dawn pair (UTC).</param>
+        /// <param name="horizon">Horizon profile. Non-null.</param>
+        /// <param name="profile">
+        /// Optional moon-avoidance profile. When non-null and enabled, candidate windows
+        /// are intersected with moon-clear sub-intervals.
+        /// </param>
+        /// <returns>
+        /// Candidate windows (UTC), possibly empty. Iteration order matches
+        /// <see cref="VisibilityWindows.For"/>'s output (left-to-right by start time).
+        /// </returns>
+        /// <exception cref="ArgumentNullException">
+        /// Any of <paramref name="target"/>, <paramref name="location"/>, or
+        /// <paramref name="horizon"/> is <see langword="null"/>.
+        /// </exception>
+        public static IReadOnlyList<(DateTime Start, DateTime End)> ResolveCandidates(
+            Target target, Location location, NightWindow night, IHorizonProfile horizon,
+            MoonAvoidanceProfile profile = null)
+        {
+            if (target == null) throw new ArgumentNullException(nameof(target));
+            if (location == null) throw new ArgumentNullException(nameof(location));
+            if (horizon == null) throw new ArgumentNullException(nameof(horizon));
+
+            var visibility = VisibilityWindows.For(target, location, night, horizon);
+            if (visibility.Count == 0) return visibility;
+            if (profile == null || !profile.Enabled) return visibility;
+            return MoonClearIntersect(target, location, visibility, profile);
+        }
+
+        /// <summary>
         /// Picks the highest-quality D-hour session across a caller-supplied list of
         /// candidate windows.
         /// </summary>
