@@ -177,9 +177,17 @@ namespace Astronomy.Core.Locations
                 extinctionK  ?? this.ExtinctionK);
 
         /// <summary>
-        /// Penns Park defaults, freshly instantiated on each access (<see cref="DateTime"/>
-        /// is <see cref="System.DateTime.Now"/> at the moment of the property read).
+        /// Penns Park defaults, freshly instantiated on each access.
         /// </summary>
+        /// <remarks>
+        /// <see cref="DateTime"/> is <see cref="System.DateTime.Now"/> at the moment of the
+        /// property read -- intentional for interactive callers (TargetPlanner / future
+        /// scheduler UIs that boot at "now"), but <b>nondeterministic</b> for unit tests
+        /// and pure library consumers. Such callers must override the moment explicitly,
+        /// e.g. <c>Location.Default.With(dateTime: new DateTime(2026, 11, 15, 0, 0, 0,
+        /// DateTimeKind.Utc))</c> -- the existing pattern in
+        /// <c>Astronomy.Core.Tests</c>'s <c>MakeLocation</c> helpers.
+        /// </remarks>
         public static Location Default => new Location(
             name:         "Penns Park",
             latitude:     40.282835, north: true,

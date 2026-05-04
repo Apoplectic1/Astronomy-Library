@@ -19,9 +19,18 @@ namespace Astronomy.Core.Session
         /// <c>[startUtc, startUtc + duration]</c> using composite Simpson's rule.
         /// </summary>
         /// <remarks>
+        /// <para>
         /// Returns a dimensionless quantity in units of <c>(solar hours) * (quality output)</c>
         /// -- i.e. "total quality" accumulated over the session. Simpson over 20 segments is
         /// accurate to ~1e-6 for smooth altitude curves; completes in microseconds per call.
+        /// </para>
+        /// <para>
+        /// <b>NaN contract.</b> <paramref name="altitudeQuality"/> must return finite values
+        /// for every altitude in <c>[-90, 90]</c>. NaN or infinite returns flow into the
+        /// Simpson sum and silently corrupt the integral -- there is no runtime guard. A
+        /// quality function that intentionally rejects below-horizon samples should return
+        /// <c>0</c> there, not <c>double.NaN</c>.
+        /// </para>
         /// </remarks>
         /// <param name="target">Target RA/Dec. Non-null.</param>
         /// <param name="location">Observer position. Non-null.</param>
@@ -30,8 +39,7 @@ namespace Astronomy.Core.Session
         /// <param name="altitudeQuality">
         /// Maps altitude (degrees) to a dimensionless "quality" score. Caller-owned semantics
         /// -- e.g. <c>alt =&gt; Math.Sin(alt * Math.PI / 180)</c> for airmass-weighted quality.
-        /// Must be finite for altitudes in [-90, 90]; NaN / infinite values corrupt the
-        /// integral silently.
+        /// Must be finite over <c>[-90, 90]</c>; see remarks for the NaN contract.
         /// </param>
         /// <exception cref="ArgumentNullException">
         /// Any of <paramref name="target"/>, <paramref name="location"/>, or
