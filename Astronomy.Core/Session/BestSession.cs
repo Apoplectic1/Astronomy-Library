@@ -57,10 +57,29 @@ namespace Astronomy.Core.Session
         /// case, and consumers (chart UIs, schedulers) want a uniform null answer
         /// rather than translating an exception into the same null themselves.
         /// </returns>
+        /// <param name="target">Target RA/Dec. Non-null.</param>
+        /// <param name="location">Observer position. Non-null.</param>
+        /// <param name="night">Dusk/dawn pair (UTC).</param>
+        /// <param name="horizon">Horizon profile. Non-null.</param>
+        /// <param name="minDuration">Minimum acceptable session length. Non-positive returns null.</param>
+        /// <param name="maxDuration">Maximum session length. Must be >= minDuration.</param>
+        /// <param name="altitudeQuality">
+        /// Optional altitude → quality function. <see langword="null"/> means
+        /// <c>sin(altitude)</c>; the implementation then takes the
+        /// <see cref="IntegratedQuality.SinAltitudeOverSession"/> closed-form fast
+        /// path instead of the generic Simpson rule used for non-null lambdas (~25×
+        /// faster per candidate window). Pass a non-null function only when you
+        /// genuinely need a different quality model.
+        /// </param>
+        /// <param name="profile">
+        /// Optional moon-avoidance profile. <see langword="null"/> or
+        /// <see cref="MoonAvoidanceProfile.Disabled"/> takes the legacy moon-blind
+        /// path; non-null + enabled intersects candidate windows with moon-clear
+        /// sub-intervals before placement.
+        /// </param>
         /// <exception cref="ArgumentNullException">
-        /// Any of <paramref name="target"/>, <paramref name="location"/>,
-        /// <paramref name="horizon"/>, or <paramref name="altitudeQuality"/> is
-        /// <see langword="null"/>.
+        /// Any of <paramref name="target"/>, <paramref name="location"/>, or
+        /// <paramref name="horizon"/> is <see langword="null"/>.
         /// </exception>
         /// <exception cref="ArgumentException">
         /// <paramref name="minDuration"/> &gt; <paramref name="maxDuration"/>
@@ -70,13 +89,12 @@ namespace Astronomy.Core.Session
         public static (DateTime Start, DateTime End, double Quality)? For(
             Target target, Location location, NightWindow night, IHorizonProfile horizon,
             TimeSpan minDuration, TimeSpan maxDuration,
-            Func<double, double> altitudeQuality,
+            Func<double, double>? altitudeQuality = null,
             MoonAvoidanceProfile? profile = null)
         {
             if (target == null) throw new ArgumentNullException(nameof(target));
             if (location == null) throw new ArgumentNullException(nameof(location));
             if (horizon == null) throw new ArgumentNullException(nameof(horizon));
-            if (altitudeQuality == null) throw new ArgumentNullException(nameof(altitudeQuality));
             if (minDuration <= TimeSpan.Zero) return null;
             if (minDuration > maxDuration)
                 throw new ArgumentException("minDuration must be <= maxDuration");
@@ -201,8 +219,11 @@ namespace Astronomy.Core.Session
         /// wider. Must be &gt;= <paramref name="minDuration"/>.
         /// </param>
         /// <param name="altitudeQuality">
-        /// Maps altitude (degrees) to a dimensionless quality score. See
-        /// <see cref="IntegratedQuality.OverSession"/> for semantics. Non-null.
+        /// Optional altitude → quality function. <see langword="null"/> means
+        /// <c>sin(altitude)</c>, dispatched through
+        /// <see cref="IntegratedQuality.SinAltitudeOverSession"/> closed-form (~25×
+        /// faster per candidate window than the generic Simpson rule). Pass a non-null
+        /// function only when a different quality model is needed.
         /// </param>
         /// <returns>
         /// A <c>(Start, End, Quality)</c> tuple (UTC) for the best candidate, or
@@ -212,9 +233,8 @@ namespace Astronomy.Core.Session
         /// <see cref="For"/> for the rationale).
         /// </returns>
         /// <exception cref="ArgumentNullException">
-        /// Any of <paramref name="target"/>, <paramref name="location"/>,
-        /// <paramref name="windows"/>, or <paramref name="altitudeQuality"/> is
-        /// <see langword="null"/>.
+        /// Any of <paramref name="target"/>, <paramref name="location"/>, or
+        /// <paramref name="windows"/> is <see langword="null"/>.
         /// </exception>
         /// <exception cref="ArgumentException">
         /// <paramref name="minDuration"/> &gt; <paramref name="maxDuration"/>.
@@ -223,12 +243,11 @@ namespace Astronomy.Core.Session
             Target target, Location location,
             IReadOnlyList<(DateTime Start, DateTime End)> windows,
             TimeSpan minDuration, TimeSpan maxDuration,
-            Func<double, double> altitudeQuality)
+            Func<double, double>? altitudeQuality = null)
         {
             if (target == null) throw new ArgumentNullException(nameof(target));
             if (location == null) throw new ArgumentNullException(nameof(location));
             if (windows == null) throw new ArgumentNullException(nameof(windows));
-            if (altitudeQuality == null) throw new ArgumentNullException(nameof(altitudeQuality));
             if (minDuration <= TimeSpan.Zero) return null;
             if (minDuration > maxDuration)
                 throw new ArgumentException("minDuration must be <= maxDuration");
@@ -309,11 +328,13 @@ namespace Astronomy.Core.Session
         // and moon-aware code paths share it. Behavior is preserved exactly relative to
         // the pre-refactor body. Internal so the public PlaceBest can do its own
         // validation once and skip re-checking inside this loop.
+        // altitudeQuality == null dispatches to IntegratedQuality.SinAltitudeOverSession
+        // (closed-form, ~25× faster than the Simpson lambda path).
         private static (DateTime Start, DateTime End, double Quality)? PlaceBestInternal(
             Target target, Location location,
             IReadOnlyList<(DateTime Start, DateTime End)> windows,
             TimeSpan minDuration, TimeSpan maxDuration,
-            Func<double, double> altitudeQuality)
+            Func<double, double>? altitudeQuality)
         {
             double minHrs = minDuration.TotalHours;
             double maxHrs = maxDuration.TotalHours;
@@ -359,8 +380,11 @@ namespace Astronomy.Core.Session
                 }
 
                 DateTime sessionEnd = sessionStart.AddHours(sessionHrs);
-                double quality = IntegratedQuality.OverSession(
-                    target, location, sessionStart, sessionDuration, altitudeQuality);
+                double quality = altitudeQuality is null
+                    ? IntegratedQuality.SinAltitudeOverSession(
+                        target, location, sessionStart, sessionDuration)
+                    : IntegratedQuality.OverSession(
+                        target, location, sessionStart, sessionDuration, altitudeQuality);
 
                 if (best == null || quality > best.Value.Quality)
                     best = (sessionStart, sessionEnd, quality);

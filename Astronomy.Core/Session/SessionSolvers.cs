@@ -25,8 +25,11 @@ namespace Astronomy.Core.Session
     /// </remarks>
     public static class SessionSolvers
     {
-        private static readonly Func<double, double> SinAltDefault =
-            alt => Math.Sin(alt * Math.PI / 180.0);
+        // Quality-function default sentinel removed: BestSession.PlaceBest now treats
+        // a null altitudeQuality as "use sin(altitude)" and dispatches to
+        // IntegratedQuality.SinAltitudeOverSession (~25× faster than the Simpson
+        // path with the equivalent lambda). All downstream callers pass nullable
+        // through directly.
 
         /// <summary>
         /// Returns the longest D-hour session that fits inside any of the night's viable
@@ -87,7 +90,7 @@ namespace Astronomy.Core.Session
 
             var candidates = ResolveCandidates(target, location, night, horizon, profile);
             return LongestDurationInInternal(target, location, candidates, cap,
-                altitudeQuality ?? SinAltDefault);
+                altitudeQuality);
         }
 
         /// <summary>
@@ -128,7 +131,7 @@ namespace Astronomy.Core.Session
             if (cap.HasValue && cap.Value <= TimeSpan.Zero) return null;
 
             return LongestDurationInInternal(target, location, candidates, cap,
-                altitudeQuality ?? SinAltDefault);
+                altitudeQuality);
         }
 
         /// <summary>
@@ -201,8 +204,6 @@ namespace Astronomy.Core.Session
             if (maxIterations <= 0)
                 throw new ArgumentException("maxIterations must be positive", nameof(maxIterations));
 
-            Func<double, double> q = altitudeQuality ?? SinAltDefault;
-
             // Bracket: upper bound is the target's meridian altitude (no point trying H
             // above this -- the target never gets that high). If meridian itself is below
             // the floor, no horizon search can succeed.
@@ -230,7 +231,7 @@ namespace Astronomy.Core.Session
             // Place the session at the converged horizon for the final return tuple.
             var horizonProfile = new ScalarHorizonProfile(lo);
             var candidates = ResolveCandidates(target, location, night, horizonProfile, profile);
-            var session = BestSession.PlaceBest(target, location, candidates, duration, duration, q);
+            var session = BestSession.PlaceBest(target, location, candidates, duration, duration, altitudeQuality);
             if (session == null) return null;
             return (lo, session.Value.Start, session.Value.End);
         }
@@ -386,7 +387,7 @@ namespace Astronomy.Core.Session
             Target target, Location location,
             IReadOnlyList<(DateTime Start, DateTime End)> candidates,
             TimeSpan? cap,
-            Func<double, double> altitudeQuality)
+            Func<double, double>? altitudeQuality)
         {
             TimeSpan longest = TimeSpan.Zero;
             foreach (var c in candidates)
