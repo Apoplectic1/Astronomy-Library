@@ -204,5 +204,107 @@ namespace Astronomy.Core.Tests.Tests
             Assert.Throws<ArgumentNullException>(() =>
                 VisibilityWindows.For(Target.Default, loc, night, null));
         }
+
+        // ---- Profile-aware refinement (non-scalar IHorizonProfile) ----
+
+        [Fact]
+        public void For_PolylineConstantHorizon_MatchesScalarToWithinASecond()
+        {
+            // A polyline whose samples are all equal should produce the same windows
+            // as ScalarHorizonProfile(samples[0]) -- the bisection refinement converges
+            // to the closed-form crossing.
+            var loc = MakeLocation();
+            var night = NightCalculator.ComputeNight(loc);
+            var scalar = new ScalarHorizonProfile(20.0);
+            var flatPolyline = new PolylineHorizonProfile(
+                azimuthsDeg:  new[] {  0.0,  90.0, 180.0, 270.0 },
+                altitudesDeg: new[] { 20.0,  20.0,  20.0,  20.0 });
+
+            var sw = VisibilityWindows.For(Target.Default, loc, night, scalar);
+            var pw = VisibilityWindows.For(Target.Default, loc, night, flatPolyline);
+
+            Assert.Equal(sw.Count, pw.Count);
+            for (int i = 0; i < sw.Count; i++)
+            {
+                Assert.True(Math.Abs((sw[i].Start - pw[i].Start).TotalSeconds) < 1.0,
+                    $"window {i} Start: scalar={sw[i].Start:O} polyline={pw[i].Start:O}");
+                Assert.True(Math.Abs((sw[i].End - pw[i].End).TotalSeconds) < 1.0,
+                    $"window {i} End: scalar={sw[i].End:O} polyline={pw[i].End:O}");
+            }
+        }
+
+        [Fact]
+        public void For_PolylineRidge_ShrinksWindowVsScalarBaseline()
+        {
+            // M42 (Dec -5.4) transits the south at ~44 deg from Penns Park. A polyline
+            // with a 35-deg ridge spanning the southern azimuth band cuts into the
+            // visible time vs the scalar 20-deg baseline.
+            var loc = MakeLocation();
+            var night = NightCalculator.ComputeNight(loc);
+            var m42 = Target.Default.With(
+                name: "M42", rightAscension: 5.588139, declination: 5.391, north: false);
+            var scalar = new ScalarHorizonProfile(20.0);
+            var ridge = new PolylineHorizonProfile(
+                azimuthsDeg:  new[] {   0.0,  90.0, 150.0, 180.0, 210.0, 270.0 },
+                altitudesDeg: new[] {  20.0,  20.0,  35.0,  35.0,  35.0,  20.0 });
+
+            var scalarWindows = VisibilityWindows.For(m42, loc, night, scalar);
+            var ridgeWindows  = VisibilityWindows.For(m42, loc, night, ridge);
+
+            Assert.NotEmpty(scalarWindows);
+            Assert.NotEmpty(ridgeWindows);
+
+            TimeSpan scalarTotal = TimeSpan.Zero;
+            foreach (var w in scalarWindows) scalarTotal += w.End - w.Start;
+            TimeSpan ridgeTotal = TimeSpan.Zero;
+            foreach (var w in ridgeWindows)  ridgeTotal  += w.End - w.Start;
+
+            Assert.True(ridgeTotal < scalarTotal,
+                $"ridge profile should reduce visible time: scalar={scalarTotal.TotalMinutes:F1} min, ridge={ridgeTotal.TotalMinutes:F1} min");
+        }
+
+        [Fact]
+        public void For_RidgeCutsTransit_SplitsIntoRisingAndSettingWindows()
+        {
+            // M42 transits south at ~44 deg from Penns Park. An obstruction-table profile
+            // that places a 50-deg sector at azimuth 175-185 sits ABOVE the target's transit
+            // altitude, splitting the single scalar window into a rising-side and a
+            // setting-side sub-window.
+            var loc = MakeLocation();
+            var night = NightCalculator.ComputeNight(loc);
+            var m42 = Target.Default.With(
+                name: "M42", rightAscension: 5.588139, declination: 5.391, north: false);
+            var profile = new ObstructionTableHorizonProfile(new[]
+            {
+                ( AzimuthDeg:   0.0, AltitudeDeg: 20.0 ),
+                ( AzimuthDeg: 175.0, AltitudeDeg: 50.0 ),
+                ( AzimuthDeg: 185.0, AltitudeDeg: 20.0 ),
+            });
+
+            var scalarWindows  = VisibilityWindows.For(m42, loc, night, new ScalarHorizonProfile(20.0));
+            var profileWindows = VisibilityWindows.For(m42, loc, night, profile);
+
+            Assert.Single(scalarWindows);                       // baseline: one window
+            Assert.Equal(2, profileWindows.Count);              // ridge splits it
+            Assert.True(profileWindows[0].End < profileWindows[1].Start);
+            // Both sub-windows are inside the scalar baseline.
+            Assert.True(profileWindows[0].Start >= scalarWindows[0].Start);
+            Assert.True(profileWindows[1].End   <= scalarWindows[0].End);
+        }
+
+        [Fact]
+        public void For_PolylineProfile_NeverRisesTarget_StaysEmpty()
+        {
+            // The profile path's outer-envelope short-circuit must survive: a target
+            // that never reaches MinAltitude returns empty without invoking the scan.
+            var loc = MakeLocation();
+            var night = NightCalculator.ComputeNight(loc);
+            var southern = Target.Default.With(declination: 80.0, north: false);
+            var profile = new PolylineHorizonProfile(
+                new[] {  0.0,  90.0, 180.0, 270.0 },
+                new[] { 20.0,  20.0,  20.0,  20.0 });
+
+            Assert.Empty(VisibilityWindows.For(southern, loc, night, profile));
+        }
     }
 }

@@ -28,9 +28,10 @@ namespace Astronomy.Core.Session
         /// <paramref name="altitudeQuality"/> function.
         /// </para>
         /// <para>
-        /// Currently uses the scalar-horizon <see cref="VisibilityWindows.For"/> fast-path;
-        /// will pick up the azimuth-aware horizon-profile refinement automatically once
-        /// <see cref="VisibilityWindows"/> gains it.
+        /// Honors the full <paramref name="horizon"/> profile via
+        /// <see cref="VisibilityWindows.For"/>: <see cref="ScalarHorizonProfile"/> takes the
+        /// closed-form path, while ridge / tree / building profiles route through scan-and-
+        /// bisect refinement against the target's actual azimuth track.
         /// </para>
         /// <para>
         /// When <paramref name="profile"/> is non-<see langword="null"/> and enabled, the

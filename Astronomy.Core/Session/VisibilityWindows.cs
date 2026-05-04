@@ -17,20 +17,31 @@ namespace Astronomy.Core.Session
     {
         private const double SiderealHoursPerSolarDay = 24.06570982441908;
 
+        // Outer-scan resolution for profile refinement. 1-minute sampling is fine enough to
+        // catch dips below ridge / building features (azimuth changes < 1 deg / min for
+        // any practical target) while keeping the sample count for a full night under 1000.
+        private static readonly TimeSpan ProfileScanStep = TimeSpan.FromMinutes(1.0);
+
         /// <summary>
         /// Returns 0-2 contiguous UTC intervals where the target is visible during the given
         /// night. Zero windows means never above horizon during the night; one is the usual
         /// case; two arises when the target rises, sets, and rises again before dawn (shifted
-        /// transits <c>k = -1</c> and <c>k = +1</c>).
+        /// transits <c>k = -1</c> and <c>k = +1</c>) or when an azimuth-aware horizon profile
+        /// (ridge / tree / building) cuts across the target's arc.
         /// </summary>
         /// <remarks>
-        /// Currently uses <see cref="IHorizonProfile.MinAltitude"/> as a scalar fast-path --
-        /// treating the profile as flat at its minimum. An azimuth-aware refinement is
-        /// pending. For targets whose visibility is determined by ridges, trees, or
-        /// buildings with sharp azimuth features, the current result is a conservative lower
-        /// bound on visible time (the target is at least above <c>MinAltitude</c> during the
-        /// reported windows; it may clear the full profile for longer or shorter, depending
-        /// on azimuth variation).
+        /// <para>
+        /// <see cref="ScalarHorizonProfile"/> takes the closed-form analytic path. Other
+        /// profiles use the scalar <see cref="IHorizonProfile.MinAltitude"/> arc as an outer
+        /// envelope and scan it at 1-minute resolution, bisecting at each crossing of the
+        /// (target altitude vs profile altitude at target azimuth) curve to sub-second
+        /// precision. The scan is bounded by the scalar windows so polar-day / never-rises
+        /// cases short-circuit before any per-sample work runs.
+        /// </para>
+        /// <para>
+        /// Window-boundary semantics: both dusk and dawn boundaries are inclusive
+        /// (<c>Max(lstDusk, riseHA)</c> / <c>Min(lstDawn, setHA)</c>).
+        /// </para>
         /// </remarks>
         /// <returns>
         /// Intervals as <c>(Start, End)</c> tuples, both <see cref="DateTimeKind.Utc"/>.
@@ -48,18 +59,33 @@ namespace Astronomy.Core.Session
             if (location == null) throw new ArgumentNullException(nameof(location));
             if (horizon == null) throw new ArgumentNullException(nameof(horizon));
 
+            if (!night.IsValid) return new List<(DateTime, DateTime)>();
+
+            var scalarWindows = ForScalar(target, location, night, horizon.MinAltitude);
+            if (horizon is ScalarHorizonProfile) return scalarWindows;
+            if (scalarWindows.Count == 0)        return scalarWindows;
+
+            var refined = new List<(DateTime Start, DateTime End)>();
+            foreach (var outer in scalarWindows)
+            {
+                RefineAgainstProfile(target, location, horizon, outer.Start, outer.End, refined);
+            }
+            return refined;
+        }
+
+        // Closed-form analytic path: target above scalar horizonDeg ∩ [dusk, dawn].
+        private static IReadOnlyList<(DateTime Start, DateTime End)> ForScalar(
+            Target target, Location location, NightWindow night, double horizonDeg)
+        {
             var result = new List<(DateTime Start, DateTime End)>();
 
-            double latDeg = location.North ? location.Latitude : -location.Latitude;
-            double decDeg = target.North ? target.Declination : -target.Declination;
-            double lonDegEast = location.West ? -location.Longitude : location.Longitude;
-            double raHours = target.RightAscension;
-            double horizonDeg = horizon.MinAltitude;
+            double latDeg     = location.North ?  location.Latitude  : -location.Latitude;
+            double decDeg     = target.North   ?  target.Declination : -target.Declination;
+            double lonDegEast = location.West  ? -location.Longitude :  location.Longitude;
+            double raHours    = target.RightAscension;
 
             double haHorizon = TargetGeometry.HourAngleAtAltitude(latDeg, decDeg, horizonDeg);
             if (double.IsNaN(haHorizon)) return result; // never reaches horizon
-
-            if (!night.IsValid) return result;
 
             // NightWindow exposes AstronomicalDusk / AstronomicalDawn as Kind=Utc. No
             // conversion needed here -- see NightCalculator for the offset-recovery rationale.
@@ -93,6 +119,62 @@ namespace Astronomy.Core.Session
             }
 
             return result;
+        }
+
+        // Walk the (outerLo, outerHi) MinAltitude window in 1-minute steps, bisect each
+        // (target alt vs profile alt at target az) crossing to sub-second precision, and
+        // append every resulting "above profile" sub-interval to result.
+        private static void RefineAgainstProfile(
+            Target target, Location location, IHorizonProfile horizon,
+            DateTime outerLo, DateTime outerHi,
+            List<(DateTime Start, DateTime End)> result)
+        {
+            bool prevAbove = IsAboveProfile(target, location, horizon, outerLo);
+            DateTime subStart = prevAbove ? outerLo : default;
+
+            DateTime tPrev = outerLo;
+            while (tPrev < outerHi)
+            {
+                DateTime tNext = tPrev + ProfileScanStep;
+                if (tNext > outerHi) tNext = outerHi;
+
+                bool nextAbove = IsAboveProfile(target, location, horizon, tNext);
+                if (nextAbove != prevAbove)
+                {
+                    DateTime crossing = BisectCrossing(target, location, horizon, tPrev, tNext);
+                    if (nextAbove) subStart = crossing;
+                    else           result.Add((subStart, crossing));
+                    prevAbove = nextAbove;
+                }
+                tPrev = tNext;
+            }
+
+            if (prevAbove) result.Add((subStart, outerHi));
+        }
+
+        private static bool IsAboveProfile(
+            Target target, Location location, IHorizonProfile horizon, DateTime utc)
+        {
+            AltAz altaz = AltAzCalculator.At(target, location, utc);
+            return altaz.Altitude > horizon.AltitudeAt(altaz.Azimuth);
+        }
+
+        // Bisection refines a bracket (lo, hi) where one endpoint is above-profile and the
+        // other below to sub-second precision. 30 iterations halve a 1-minute span ~10^-9
+        // times -- well below DateTime tick resolution.
+        private static DateTime BisectCrossing(
+            Target target, Location location, IHorizonProfile horizon,
+            DateTime lo, DateTime hi)
+        {
+            bool loAbove = IsAboveProfile(target, location, horizon, lo);
+            for (int i = 0; i < 30; i++)
+            {
+                DateTime mid = new DateTime((lo.Ticks + hi.Ticks) / 2, DateTimeKind.Utc);
+                bool midAbove = IsAboveProfile(target, location, horizon, mid);
+                if (midAbove == loAbove) lo = mid;
+                else                     hi = mid;
+            }
+            return new DateTime((lo.Ticks + hi.Ticks) / 2, DateTimeKind.Utc);
         }
     }
 }
