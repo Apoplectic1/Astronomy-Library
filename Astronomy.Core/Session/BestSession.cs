@@ -40,6 +40,13 @@ namespace Astronomy.Core.Session
         /// <see cref="MoonAvoidanceProfile.Disabled"/>, the moon-aware path short-circuits
         /// and the result is byte-identical to the legacy moon-blind output.
         /// </para>
+        /// <para>
+        /// Window-boundary semantics: both dusk and dawn boundaries are inclusive. A
+        /// target whose rising hour-angle coincides with dusk-exactly is included in
+        /// the visibility window; same for setting at dawn-exactly. Internally
+        /// computed via <c>Max(lstDusk, riseHA)</c> / <c>Min(lstDawn, setHA)</c> in
+        /// <see cref="VisibilityWindows.For"/>.
+        /// </para>
         /// </remarks>
         /// <returns>
         /// A <c>(Start, End, Quality)</c> tuple (times are <see cref="DateTimeKind.Utc"/>)
@@ -111,6 +118,12 @@ namespace Astronomy.Core.Session
         /// visibility window; profile-null and profile-Disabled short-circuit to the
         /// visibility result unchanged.
         /// </para>
+        /// <para>
+        /// Window-boundary semantics inherited from <see cref="VisibilityWindows.For"/>:
+        /// both dusk and dawn boundaries are inclusive (<c>Max(lstDusk, riseHA)</c> /
+        /// <c>Min(lstDawn, setHA)</c>). Moon-clear intersection narrows but does not
+        /// shift these boundary semantics.
+        /// </para>
         /// </remarks>
         /// <param name="target">Target RA/Dec. Non-null.</param>
         /// <param name="location">Observer position. Non-null.</param>
@@ -164,6 +177,11 @@ namespace Astronomy.Core.Session
         /// candidate windows externally -- e.g. by walking pre-cached moon samples and
         /// computing moon-clear sub-intervals up-front -- can skip <see cref="For"/>'s
         /// internal moon sweep and pass the windows in directly.
+        /// </para>
+        /// <para>
+        /// Window-boundary semantics inherited from <see cref="VisibilityWindows.For"/>:
+        /// both dusk and dawn boundaries are inclusive when callers compose their
+        /// candidate list from visibility windows.
         /// </para>
         /// </remarks>
         /// <param name="target">Target RA/Dec. Non-null.</param>

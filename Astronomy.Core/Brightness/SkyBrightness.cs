@@ -149,8 +149,12 @@ namespace Astronomy.Core.Brightness
         /// </summary>
         public static double PhaseAngleDegFromAgeDays(double ageDays)
         {
-            const double SynodicMonth = 29.5305882;  // matches Moon.MoonAvoidance.DaysInLunarCycle
-            double elong = (ageDays % SynodicMonth) * 360.0 / SynodicMonth;
+            // Read the synodic-month length from the canonical source so a future
+            // refinement of the constant can't drift between callers. Compile-time
+            // constant fold (LunarAge.SynodicMonthDays is `public const`) -- no
+            // runtime indirection.
+            double synodicMonth = Moon.LunarAge.SynodicMonthDays;
+            double elong = (ageDays % synodicMonth) * 360.0 / synodicMonth;
             if (elong < 0.0) elong += 360.0;
             return Math.Abs(180.0 - elong);
         }

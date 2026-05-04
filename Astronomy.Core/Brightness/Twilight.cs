@@ -25,11 +25,20 @@ namespace Astronomy.Core.Brightness
         /// <summary>
         /// Magnitude-delta brightening of the zenith sky vs the dark baseline V₀
         /// produced by atmospheric scattering of solar light. Returns 0 below
-        /// astronomical twilight; saturates at 12 for sun above horizon.
+        /// astronomical twilight (sun_alt ≤ −18°) and saturates at 12 for sun
+        /// above the horizon. See class <see cref="Twilight"/> remarks for the
+        /// quadratic-fit calibration sources and v2 refinement notes.
         /// </summary>
         /// <param name="sunAltDeg">
-        /// Sun altitude in degrees. Negative values are below the horizon.
+        /// Sun altitude in degrees. Negative values = below the horizon. Method
+        /// short-circuits at −18° (no contribution) and 0° (saturation cap of
+        /// 12 mag).
         /// </param>
+        /// <returns>
+        /// Brightening in magnitudes (≥ 0). Compose into total sky brightness in
+        /// nanolambert space, not magnitude space; <see cref="SkyBrightness.KsAt"/>
+        /// performs the magnitude ↔ nanolambert conversion.
+        /// </returns>
         public static double ZenithBrightening(double sunAltDeg)
         {
             if (sunAltDeg <= -18.0) return 0.0;

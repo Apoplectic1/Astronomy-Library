@@ -18,6 +18,13 @@ namespace Astronomy.Core
         /// Upper-transit altitude (hour angle = 0) in degrees. Equal to
         /// <c>90 &#8722; |latDeg &#8722; decDeg|</c> under common conditions (both signed).
         /// </summary>
+        /// <remarks>
+        /// Both <paramref name="latDeg"/> and <paramref name="decDeg"/> are signed
+        /// degrees: positive = northern hemisphere / northern declination. The caller
+        /// resolves the hemisphere flag (e.g.
+        /// <c>latDeg = location.North ? +location.Latitude : -location.Latitude</c>);
+        /// see <see cref="AltAzCalculator.At"/> for the canonical resolution idiom.
+        /// </remarks>
         public static double MeridianAltitude(double latDeg, double decDeg)
         {
             double phi = latDeg * Math.PI / 180.0;
@@ -31,6 +38,11 @@ namespace Astronomy.Core
         /// <c>|latDeg + decDeg| &#8722; 90</c> under common conditions. Negative for targets
         /// that dip below the horizon.
         /// </summary>
+        /// <remarks>
+        /// Both <paramref name="latDeg"/> and <paramref name="decDeg"/> are signed
+        /// degrees; caller resolves the hemisphere flag. See
+        /// <see cref="AltAzCalculator.At"/> for the canonical resolution idiom.
+        /// </remarks>
         public static double LowerCulminationAltitude(double latDeg, double decDeg)
         {
             double phi = latDeg * Math.PI / 180.0;
@@ -44,6 +56,11 @@ namespace Astronomy.Core
         /// signed declination <paramref name="decDeg"/> seen from signed latitude
         /// <paramref name="latDeg"/> reaches altitude <paramref name="altDeg"/>.
         /// </summary>
+        /// <remarks>
+        /// Both <paramref name="latDeg"/> and <paramref name="decDeg"/> are signed
+        /// degrees; caller resolves the hemisphere flag. See
+        /// <see cref="AltAzCalculator.At"/> for the canonical resolution idiom.
+        /// </remarks>
         /// <returns>
         /// <list type="bullet">
         /// <item><see cref="double.NaN"/> -- target's maximum altitude is below
@@ -72,6 +89,11 @@ namespace Astronomy.Core
         /// sign irrelevant since <c>cos</c> is even) for a target at signed latitude and
         /// declination.
         /// </summary>
+        /// <remarks>
+        /// Both <paramref name="latDeg"/> and <paramref name="decDeg"/> are signed
+        /// degrees; caller resolves the hemisphere flag. See
+        /// <see cref="AltAzCalculator.At"/> for the canonical resolution idiom.
+        /// </remarks>
         public static double AltitudeAtHourAngle(double haHours, double latDeg, double decDeg)
         {
             double phi = latDeg * Math.PI / 180.0;
@@ -86,10 +108,17 @@ namespace Astronomy.Core
         /// <paramref name="haHours"/> (sidereal hours).
         /// </summary>
         /// <remarks>
+        /// <para>
+        /// Both <paramref name="latDeg"/> and <paramref name="decDeg"/> are signed
+        /// degrees; caller resolves the hemisphere flag. See
+        /// <see cref="AltAzCalculator.At"/> for the canonical resolution idiom.
+        /// </para>
+        /// <para>
         /// Hour-angle convention: 0 at upper transit (meridian south in the northern
         /// hemisphere), increasing westward. The input is wrapped into <c>[0, 24)</c>, and
         /// the result is flipped to <c>360 &#8722; az</c> when HA is in the eastern half
         /// (HA &lt; &#960; radians &#8596; target is east of the meridian).
+        /// </para>
         /// </remarks>
         public static double AzimuthAtHourAngle(double haHours, double latDeg, double decDeg)
         {

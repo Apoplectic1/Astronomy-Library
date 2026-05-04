@@ -207,29 +207,19 @@ namespace Astronomy.Core.Astrometry
             return AltAzFromRaDec(lstDeg, raDeg, decDeg, observer.Latitude);
         }
 
-        // Shared (alt, az) reduction from (LST, RA, Dec, lat). Az is from North,
-        // clockwise (N=0, E=90, S=180, W=270). Meeus 13.5 / 13.6 compute az-from-south;
-        // we convert to az-from-north so the public API matches NINA.
+        // Shared (alt, az) reduction from (LST, RA, Dec, lat). Delegates to the
+        // public TargetGeometry helpers so the Meeus path consumes the same
+        // signed-degree geometry primitives the Session layer uses -- no parallel
+        // alt/az implementation. HA arrives in degrees from (LST - RA) * conversion;
+        // TargetGeometry takes HA in sidereal hours, so divide by 15. Both
+        // primitives wrap HA internally and return [0, 360) azimuth from North,
+        // matching the NINA public-API convention.
         private static (double AltDeg, double AzDeg) AltAzFromRaDec(
             double lstDeg, double raDeg, double decDeg, double latDeg)
         {
-            double Hdeg = MeeusUtility.NormPm180(lstDeg - raDeg);
-            double Hrad = Hdeg    * MeeusUtility.DegToRad;
-            double phiRad = latDeg * MeeusUtility.DegToRad;
-            double decRad = decDeg * MeeusUtility.DegToRad;
-
-            double sinPhi = Math.Sin(phiRad);
-            double cosPhi = Math.Cos(phiRad);
-            double sinDec = Math.Sin(decRad);
-            double cosDec = Math.Cos(decRad);
-            double sinH   = Math.Sin(Hrad);
-            double cosH   = Math.Cos(Hrad);
-
-            double altRad = Math.Asin(sinPhi * sinDec + cosPhi * cosDec * cosH);
-            double azFromSouth = Math.Atan2(sinH, cosH * sinPhi - (sinDec / cosDec) * cosPhi);
-            double azDeg  = MeeusUtility.Norm360(azFromSouth * MeeusUtility.RadToDeg + 180.0);
-            double altDeg = altRad * MeeusUtility.RadToDeg;
-            return (altDeg, azDeg);
+            double haHours = MeeusUtility.NormPm180(lstDeg - raDeg) / 15.0;
+            return (TargetGeometry.AltitudeAtHourAngle(haHours, latDeg, decDeg),
+                    TargetGeometry.AzimuthAtHourAngle(haHours, latDeg, decDeg));
         }
 
         private static DateTime EnsureUtc(DateTime dt)
