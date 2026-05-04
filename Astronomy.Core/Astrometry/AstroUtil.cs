@@ -70,10 +70,8 @@ namespace Astronomy.Core.Astrometry
         /// not modelled; refraction is intentionally not applied (caller composes if
         /// they want apparent altitude).
         /// </summary>
-        /// <exception cref="ArgumentNullException"><paramref name="observer"/> is null.</exception>
         public static double GetSunAltitude(DateTime utc, ObserverInfo observer)
         {
-            if (observer == null) throw new ArgumentNullException(nameof(observer));
             (double altDeg, _) = SunAltAz(utc, observer);
             return altDeg;
         }
@@ -82,10 +80,8 @@ namespace Astronomy.Core.Astrometry
         /// Azimuth of the Sun (degrees from North clockwise) at <paramref name="utc"/>
         /// as seen from <paramref name="observer"/>.
         /// </summary>
-        /// <exception cref="ArgumentNullException"><paramref name="observer"/> is null.</exception>
         public static double GetSunAzimuth(DateTime utc, ObserverInfo observer)
         {
-            if (observer == null) throw new ArgumentNullException(nameof(observer));
             (_, double azDeg) = SunAltAz(utc, observer);
             return azDeg;
         }
@@ -97,10 +93,8 @@ namespace Astronomy.Core.Astrometry
         /// from <paramref name="observer"/>. Includes parallax correction (Meeus 40)
         /// since the Moon's parallax is ~1&#176; -- non-negligible.
         /// </summary>
-        /// <exception cref="ArgumentNullException"><paramref name="observer"/> is null.</exception>
         public static double GetMoonAltitude(DateTime utc, ObserverInfo observer)
         {
-            if (observer == null) throw new ArgumentNullException(nameof(observer));
             (double altDeg, _) = MoonAltAz(utc, observer);
             return altDeg;
         }
@@ -109,10 +103,8 @@ namespace Astronomy.Core.Astrometry
         /// Topocentric azimuth of the Moon (degrees, measured from North clockwise) at
         /// <paramref name="utc"/> as seen from <paramref name="observer"/>.
         /// </summary>
-        /// <exception cref="ArgumentNullException"><paramref name="observer"/> is null.</exception>
         public static double GetMoonAzimuth(DateTime utc, ObserverInfo observer)
         {
-            if (observer == null) throw new ArgumentNullException(nameof(observer));
             (_, double azDeg) = MoonAltAz(utc, observer);
             return azDeg;
         }
@@ -129,10 +121,8 @@ namespace Astronomy.Core.Astrometry
         /// the same instant. <see cref="Astronomy.Core.Moon.MoonSeparation.ObserveAt"/>
         /// is the canonical caller.
         /// </remarks>
-        /// <exception cref="ArgumentNullException"><paramref name="observer"/> is null.</exception>
         public static (double AltDeg, double AzDeg) GetMoonAltAz(DateTime utc, ObserverInfo observer)
         {
-            if (observer == null) throw new ArgumentNullException(nameof(observer));
             return MoonAltAz(utc, observer);
         }
 
