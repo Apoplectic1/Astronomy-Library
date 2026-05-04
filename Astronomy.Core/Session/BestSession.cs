@@ -43,7 +43,11 @@ namespace Astronomy.Core.Session
         /// </remarks>
         /// <returns>
         /// A <c>(Start, End, Quality)</c> tuple (times are <see cref="DateTimeKind.Utc"/>)
-        /// or <see langword="null"/> if no window fits.
+        /// or <see langword="null"/> if no window fits. Non-positive
+        /// <paramref name="minDuration"/> also returns <see langword="null"/> -- a
+        /// zero-or-negative session length is the degenerate "no fit possible"
+        /// case, and consumers (chart UIs, schedulers) want a uniform null answer
+        /// rather than translating an exception into the same null themselves.
         /// </returns>
         /// <exception cref="ArgumentNullException">
         /// Any of <paramref name="target"/>, <paramref name="location"/>,
@@ -51,8 +55,9 @@ namespace Astronomy.Core.Session
         /// <see langword="null"/>.
         /// </exception>
         /// <exception cref="ArgumentException">
-        /// <paramref name="minDuration"/> is non-positive, or
-        /// <paramref name="minDuration"/> &gt; <paramref name="maxDuration"/>.
+        /// <paramref name="minDuration"/> &gt; <paramref name="maxDuration"/>
+        /// (the only genuinely impossible-to-satisfy combination -- non-positive
+        /// minDuration is treated as a runtime "no fit" return, not a caller bug).
         /// </exception>
         public static (DateTime Start, DateTime End, double Quality)? For(
             Target target, Location location, NightWindow night, IHorizonProfile horizon,
@@ -64,8 +69,7 @@ namespace Astronomy.Core.Session
             if (location == null) throw new ArgumentNullException(nameof(location));
             if (horizon == null) throw new ArgumentNullException(nameof(horizon));
             if (altitudeQuality == null) throw new ArgumentNullException(nameof(altitudeQuality));
-            if (minDuration <= TimeSpan.Zero)
-                throw new ArgumentException("minDuration must be positive", nameof(minDuration));
+            if (minDuration <= TimeSpan.Zero) return null;
             if (minDuration > maxDuration)
                 throw new ArgumentException("minDuration must be <= maxDuration");
 
@@ -131,6 +135,9 @@ namespace Astronomy.Core.Session
         /// <returns>
         /// A <c>(Start, End, Quality)</c> tuple (UTC) for the best candidate, or
         /// <see langword="null"/> if no window accommodates <paramref name="minDuration"/>.
+        /// Non-positive <paramref name="minDuration"/> also returns <see langword="null"/>
+        /// (treated as the degenerate "no fit possible" case, not a caller bug; see
+        /// <see cref="For"/> for the rationale).
         /// </returns>
         /// <exception cref="ArgumentNullException">
         /// Any of <paramref name="target"/>, <paramref name="location"/>,
@@ -138,7 +145,6 @@ namespace Astronomy.Core.Session
         /// <see langword="null"/>.
         /// </exception>
         /// <exception cref="ArgumentException">
-        /// <paramref name="minDuration"/> is non-positive, or
         /// <paramref name="minDuration"/> &gt; <paramref name="maxDuration"/>.
         /// </exception>
         public static (DateTime Start, DateTime End, double Quality)? PlaceBest(
@@ -151,8 +157,7 @@ namespace Astronomy.Core.Session
             if (location == null) throw new ArgumentNullException(nameof(location));
             if (windows == null) throw new ArgumentNullException(nameof(windows));
             if (altitudeQuality == null) throw new ArgumentNullException(nameof(altitudeQuality));
-            if (minDuration <= TimeSpan.Zero)
-                throw new ArgumentException("minDuration must be positive", nameof(minDuration));
+            if (minDuration <= TimeSpan.Zero) return null;
             if (minDuration > maxDuration)
                 throw new ArgumentException("minDuration must be <= maxDuration");
 
@@ -190,13 +195,12 @@ namespace Astronomy.Core.Session
         /// <returns>
         /// A <c>(Start, End)</c> tuple (UTC) for the centered session, or
         /// <see langword="null"/> if no window contains the centered placement.
+        /// Non-positive <paramref name="duration"/> also returns <see langword="null"/>
+        /// (degenerate "no fit possible" case; see <see cref="For"/>).
         /// </returns>
         /// <exception cref="ArgumentNullException">
         /// Any of <paramref name="target"/>, <paramref name="location"/>, or
         /// <paramref name="windows"/> is <see langword="null"/>.
-        /// </exception>
-        /// <exception cref="ArgumentException">
-        /// <paramref name="duration"/> is non-positive.
         /// </exception>
         public static (DateTime Start, DateTime End)? PlaceCentered(
             Target target, Location location,
@@ -206,8 +210,7 @@ namespace Astronomy.Core.Session
             if (target == null) throw new ArgumentNullException(nameof(target));
             if (location == null) throw new ArgumentNullException(nameof(location));
             if (windows == null) throw new ArgumentNullException(nameof(windows));
-            if (duration <= TimeSpan.Zero)
-                throw new ArgumentException("duration must be positive", nameof(duration));
+            if (duration <= TimeSpan.Zero) return null;
 
             long halfTicks = duration.Ticks / 2;
             TimeSpan halfDuration = TimeSpan.FromTicks(halfTicks);

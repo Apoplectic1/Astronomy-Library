@@ -112,15 +112,24 @@ namespace Astronomy.Core.Tests.Tests
         }
 
         [Fact]
-        public void For_NonPositiveMinDuration_Throws()
+        public void For_NonPositiveMinDuration_ReturnsNull()
         {
+            // Non-positive minDuration is the user-reachable degenerate case
+            // (chart UI scrubs Duration spinner to zero). The contract treats it
+            // as "no fit possible" rather than a caller bug -- consumers want a
+            // uniform null return rather than translating an exception into the
+            // same null themselves.
             var loc = MakeLocation();
             var night = NightCalculator.ComputeNight(loc);
             var horizon = new ScalarHorizonProfile(20.0);
 
-            Assert.Throws<ArgumentException>(() => BestSession.For(
+            Assert.Null(BestSession.For(
                 Target.Default, loc, night, horizon,
                 TimeSpan.Zero, TimeSpan.FromHours(4),
+                SinAltQuality, profile: null));
+            Assert.Null(BestSession.For(
+                Target.Default, loc, night, horizon,
+                TimeSpan.FromHours(-1), TimeSpan.FromHours(4),
                 SinAltQuality, profile: null));
         }
 
@@ -338,8 +347,17 @@ namespace Astronomy.Core.Tests.Tests
                 BestSession.PlaceCentered(Target.Default, null, windows, dur));
             Assert.Throws<ArgumentNullException>(() =>
                 BestSession.PlaceCentered(Target.Default, loc, null, dur));
-            Assert.Throws<ArgumentException>(() =>
-                BestSession.PlaceCentered(Target.Default, loc, windows, TimeSpan.Zero));
+        }
+
+        [Fact]
+        public void PlaceCentered_NonPositiveDuration_ReturnsNull()
+        {
+            // Degenerate "no fit possible" -- non-positive duration returns null.
+            var loc = MakeLocation();
+            var windows = new[] { (Start: DateTime.UtcNow, End: DateTime.UtcNow.AddHours(2)) };
+
+            Assert.Null(BestSession.PlaceCentered(Target.Default, loc, windows, TimeSpan.Zero));
+            Assert.Null(BestSession.PlaceCentered(Target.Default, loc, windows, TimeSpan.FromHours(-1)));
         }
     }
 }

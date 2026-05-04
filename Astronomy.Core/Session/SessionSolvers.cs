@@ -66,14 +66,13 @@ namespace Astronomy.Core.Session
         /// </param>
         /// <returns>
         /// A <c>(Start, End, Duration)</c> tuple (UTC) for the longest fittable session,
-        /// or <see langword="null"/> if no viable window exists.
+        /// or <see langword="null"/> if no viable window exists. Non-positive
+        /// <paramref name="cap"/> also returns <see langword="null"/> (degenerate
+        /// "no fit possible" case, not a caller bug).
         /// </returns>
         /// <exception cref="ArgumentNullException">
         /// Any of <paramref name="target"/>, <paramref name="location"/>, or
         /// <paramref name="horizon"/> is <see langword="null"/>.
-        /// </exception>
-        /// <exception cref="ArgumentException">
-        /// <paramref name="cap"/> is non-positive.
         /// </exception>
         public static (DateTime Start, DateTime End, TimeSpan Duration)? LongestDuration(
             Target target, Location location, NightWindow night, IHorizonProfile horizon,
@@ -84,8 +83,7 @@ namespace Astronomy.Core.Session
             if (target == null) throw new ArgumentNullException(nameof(target));
             if (location == null) throw new ArgumentNullException(nameof(location));
             if (horizon == null) throw new ArgumentNullException(nameof(horizon));
-            if (cap.HasValue && cap.Value <= TimeSpan.Zero)
-                throw new ArgumentException("cap must be positive when supplied", nameof(cap));
+            if (cap.HasValue && cap.Value <= TimeSpan.Zero) return null;
 
             var candidates = ResolveCandidates(target, location, night, horizon, profile);
             return LongestDurationInInternal(target, location, candidates, cap,
@@ -110,15 +108,13 @@ namespace Astronomy.Core.Session
         /// </param>
         /// <returns>
         /// A <c>(Start, End, Duration)</c> tuple (UTC) for the longest fittable session,
-        /// or <see langword="null"/> when <paramref name="candidates"/> is empty or
-        /// contains no positive-length window.
+        /// or <see langword="null"/> when <paramref name="candidates"/> is empty,
+        /// contains no positive-length window, or <paramref name="cap"/> is non-positive
+        /// (the degenerate "no fit possible" case).
         /// </returns>
         /// <exception cref="ArgumentNullException">
         /// Any of <paramref name="target"/>, <paramref name="location"/>, or
         /// <paramref name="candidates"/> is <see langword="null"/>.
-        /// </exception>
-        /// <exception cref="ArgumentException">
-        /// <paramref name="cap"/> is non-positive.
         /// </exception>
         public static (DateTime Start, DateTime End, TimeSpan Duration)? LongestDurationIn(
             Target target, Location location,
@@ -129,8 +125,7 @@ namespace Astronomy.Core.Session
             if (target == null) throw new ArgumentNullException(nameof(target));
             if (location == null) throw new ArgumentNullException(nameof(location));
             if (candidates == null) throw new ArgumentNullException(nameof(candidates));
-            if (cap.HasValue && cap.Value <= TimeSpan.Zero)
-                throw new ArgumentException("cap must be positive when supplied", nameof(cap));
+            if (cap.HasValue && cap.Value <= TimeSpan.Zero) return null;
 
             return LongestDurationInInternal(target, location, candidates, cap,
                 altitudeQuality ?? SinAltDefault);
@@ -179,13 +174,14 @@ namespace Astronomy.Core.Session
         /// <returns>
         /// A <c>(HorizonDeg, Start, End)</c> tuple (UTC times) for the largest horizon at
         /// which the session fits, or <see langword="null"/> when no horizon down to
-        /// <paramref name="minHorizonDeg"/> can host the requested duration.
+        /// <paramref name="minHorizonDeg"/> can host the requested duration. Non-positive
+        /// <paramref name="duration"/> also returns <see langword="null"/> (degenerate
+        /// "no fit possible" case, not a caller bug).
         /// </returns>
         /// <exception cref="ArgumentNullException">
         /// <paramref name="target"/> or <paramref name="location"/> is <see langword="null"/>.
         /// </exception>
         /// <exception cref="ArgumentException">
-        /// <paramref name="duration"/> is non-positive,
         /// <paramref name="minHorizonDeg"/> is outside [-90, 90], or
         /// <paramref name="maxIterations"/> is non-positive.
         /// </exception>
@@ -199,8 +195,7 @@ namespace Astronomy.Core.Session
         {
             if (target == null) throw new ArgumentNullException(nameof(target));
             if (location == null) throw new ArgumentNullException(nameof(location));
-            if (duration <= TimeSpan.Zero)
-                throw new ArgumentException("duration must be positive", nameof(duration));
+            if (duration <= TimeSpan.Zero) return null;
             if (minHorizonDeg < -90.0 || minHorizonDeg > 90.0)
                 throw new ArgumentException("minHorizonDeg must be in [-90, 90]", nameof(minHorizonDeg));
             if (maxIterations <= 0)
@@ -263,14 +258,12 @@ namespace Astronomy.Core.Session
         /// <returns>
         /// A <c>(Start, End, Duration)</c> tuple (UTC) for the longest fittable centered
         /// session, or <see langword="null"/> if no candidate window contains transit
-        /// with positive room on both sides.
+        /// with positive room on both sides. Non-positive <paramref name="cap"/>
+        /// returns <see langword="null"/> (degenerate "no fit possible" case).
         /// </returns>
         /// <exception cref="ArgumentNullException">
         /// Any of <paramref name="target"/>, <paramref name="location"/>, or
         /// <paramref name="horizon"/> is <see langword="null"/>.
-        /// </exception>
-        /// <exception cref="ArgumentException">
-        /// <paramref name="cap"/> is non-positive when supplied.
         /// </exception>
         public static (DateTime Start, DateTime End, TimeSpan Duration)? LongestDurationCentered(
             Target target, Location location, NightWindow night, IHorizonProfile horizon,
@@ -280,8 +273,7 @@ namespace Astronomy.Core.Session
             if (target == null) throw new ArgumentNullException(nameof(target));
             if (location == null) throw new ArgumentNullException(nameof(location));
             if (horizon == null) throw new ArgumentNullException(nameof(horizon));
-            if (cap.HasValue && cap.Value <= TimeSpan.Zero)
-                throw new ArgumentException("cap must be positive when supplied", nameof(cap));
+            if (cap.HasValue && cap.Value <= TimeSpan.Zero) return null;
 
             var candidates = ResolveCandidates(target, location, night, horizon, profile);
             return LongestDurationCenteredInInternal(target, location, candidates, cap);
@@ -300,9 +292,11 @@ namespace Astronomy.Core.Session
         /// Any of <paramref name="target"/>, <paramref name="location"/>, or
         /// <paramref name="candidates"/> is <see langword="null"/>.
         /// </exception>
-        /// <exception cref="ArgumentException">
-        /// <paramref name="cap"/> is non-positive when supplied.
-        /// </exception>
+        /// <returns>
+        /// A <c>(Start, End, Duration)</c> tuple (UTC), or <see langword="null"/> when
+        /// no candidate fits. Non-positive <paramref name="cap"/> returns
+        /// <see langword="null"/> (degenerate "no fit possible" case).
+        /// </returns>
         public static (DateTime Start, DateTime End, TimeSpan Duration)? LongestDurationCenteredIn(
             Target target, Location location,
             IReadOnlyList<(DateTime Start, DateTime End)> candidates,
@@ -311,8 +305,7 @@ namespace Astronomy.Core.Session
             if (target == null) throw new ArgumentNullException(nameof(target));
             if (location == null) throw new ArgumentNullException(nameof(location));
             if (candidates == null) throw new ArgumentNullException(nameof(candidates));
-            if (cap.HasValue && cap.Value <= TimeSpan.Zero)
-                throw new ArgumentException("cap must be positive when supplied", nameof(cap));
+            if (cap.HasValue && cap.Value <= TimeSpan.Zero) return null;
 
             return LongestDurationCenteredInInternal(target, location, candidates, cap);
         }
@@ -333,10 +326,15 @@ namespace Astronomy.Core.Session
         /// <paramref name="target"/> or <paramref name="location"/> is <see langword="null"/>.
         /// </exception>
         /// <exception cref="ArgumentException">
-        /// <paramref name="duration"/> is non-positive,
         /// <paramref name="minHorizonDeg"/> is outside [-90, 90], or
         /// <paramref name="maxIterations"/> is non-positive.
         /// </exception>
+        /// <returns>
+        /// A <c>(HorizonDeg, Start, End)</c> tuple (UTC times), or <see langword="null"/>
+        /// when no horizon down to <paramref name="minHorizonDeg"/> can host the centered
+        /// session. Non-positive <paramref name="duration"/> returns <see langword="null"/>
+        /// (degenerate "no fit possible" case, not a caller bug).
+        /// </returns>
         public static (double HorizonDeg, DateTime Start, DateTime End)? LowestHorizonCentered(
             Target target, Location location, NightWindow night,
             TimeSpan duration,
@@ -346,8 +344,7 @@ namespace Astronomy.Core.Session
         {
             if (target == null) throw new ArgumentNullException(nameof(target));
             if (location == null) throw new ArgumentNullException(nameof(location));
-            if (duration <= TimeSpan.Zero)
-                throw new ArgumentException("duration must be positive", nameof(duration));
+            if (duration <= TimeSpan.Zero) return null;
             if (minHorizonDeg < -90.0 || minHorizonDeg > 90.0)
                 throw new ArgumentException("minHorizonDeg must be in [-90, 90]", nameof(minHorizonDeg));
             if (maxIterations <= 0)

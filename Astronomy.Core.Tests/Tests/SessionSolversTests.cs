@@ -100,8 +100,12 @@ namespace Astronomy.Core.Tests.Tests
                 SessionSolvers.LongestDurationIn(Target.Default, null, windows));
             Assert.Throws<ArgumentNullException>(() =>
                 SessionSolvers.LongestDurationIn(Target.Default, loc, null));
-            Assert.Throws<ArgumentException>(() =>
-                SessionSolvers.LongestDurationIn(Target.Default, loc, windows, TimeSpan.Zero));
+            // Non-positive cap is the user-reachable degenerate case (UI scrubs
+            // duration to zero); contract is to return null, not throw.
+            Assert.Null(SessionSolvers.LongestDurationIn(
+                Target.Default, loc, windows, TimeSpan.Zero));
+            Assert.Null(SessionSolvers.LongestDurationIn(
+                Target.Default, loc, windows, TimeSpan.FromHours(-1)));
         }
 
         // ====================================================================
@@ -249,8 +253,9 @@ namespace Astronomy.Core.Tests.Tests
                 SessionSolvers.LowestHorizon(null, loc, night, dur));
             Assert.Throws<ArgumentNullException>(() =>
                 SessionSolvers.LowestHorizon(Target.Default, null, night, dur));
-            Assert.Throws<ArgumentException>(() =>
-                SessionSolvers.LowestHorizon(Target.Default, loc, night, TimeSpan.Zero));
+            // Non-positive duration is user-reachable; returns null instead of throwing.
+            Assert.Null(SessionSolvers.LowestHorizon(Target.Default, loc, night, TimeSpan.Zero));
+            Assert.Null(SessionSolvers.LowestHorizon(Target.Default, loc, night, TimeSpan.FromHours(-1)));
             Assert.Throws<ArgumentException>(() =>
                 SessionSolvers.LowestHorizon(Target.Default, loc, night, dur, minHorizonDeg: -91.0));
             Assert.Throws<ArgumentException>(() =>
@@ -388,8 +393,11 @@ namespace Astronomy.Core.Tests.Tests
                 SessionSolvers.LongestDurationCenteredIn(Target.Default, null, windows));
             Assert.Throws<ArgumentNullException>(() =>
                 SessionSolvers.LongestDurationCenteredIn(Target.Default, loc, null));
-            Assert.Throws<ArgumentException>(() =>
-                SessionSolvers.LongestDurationCenteredIn(Target.Default, loc, windows, TimeSpan.Zero));
+            // Non-positive cap is user-reachable; returns null instead of throwing.
+            Assert.Null(SessionSolvers.LongestDurationCenteredIn(
+                Target.Default, loc, windows, TimeSpan.Zero));
+            Assert.Null(SessionSolvers.LongestDurationCenteredIn(
+                Target.Default, loc, windows, TimeSpan.FromHours(-1)));
         }
 
         // ====================================================================
@@ -484,8 +492,9 @@ namespace Astronomy.Core.Tests.Tests
                 SessionSolvers.LowestHorizonCentered(null, loc, night, dur));
             Assert.Throws<ArgumentNullException>(() =>
                 SessionSolvers.LowestHorizonCentered(Target.Default, null, night, dur));
-            Assert.Throws<ArgumentException>(() =>
-                SessionSolvers.LowestHorizonCentered(Target.Default, loc, night, TimeSpan.Zero));
+            // Non-positive duration is user-reachable; returns null instead of throwing.
+            Assert.Null(SessionSolvers.LowestHorizonCentered(Target.Default, loc, night, TimeSpan.Zero));
+            Assert.Null(SessionSolvers.LowestHorizonCentered(Target.Default, loc, night, TimeSpan.FromHours(-1)));
             Assert.Throws<ArgumentException>(() =>
                 SessionSolvers.LowestHorizonCentered(Target.Default, loc, night, dur, minHorizonDeg: -91.0));
             Assert.Throws<ArgumentException>(() =>
