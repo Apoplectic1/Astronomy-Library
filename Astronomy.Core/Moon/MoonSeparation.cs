@@ -64,8 +64,10 @@ namespace Astronomy.Core.Moon
             double lonEast   = location.West  ? -location.Longitude :  location.Longitude;
             ObserverInfo observer = new ObserverInfo(latSigned, lonEast, location.Elevation);
 
-            double mAlt = AstroUtil.GetMoonAltitude(utc, observer);
-            double mAz  = AstroUtil.GetMoonAzimuth (utc, observer);
+            // Single-pass Meeus: GetMoonAltAz runs MoonPosition.Topocentric once and
+            // returns both components. Calling GetMoonAltitude + GetMoonAzimuth would
+            // pay the periodic-term sum twice for the same UTC instant.
+            (double mAlt, double mAz) = AstroUtil.GetMoonAltAz(utc, observer);
 
             double t1  = tAlt * Math.PI / 180.0;
             double t2  = mAlt * Math.PI / 180.0;

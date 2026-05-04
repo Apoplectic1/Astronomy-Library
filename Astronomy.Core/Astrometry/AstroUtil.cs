@@ -118,6 +118,25 @@ namespace Astronomy.Core.Astrometry
         }
 
         /// <summary>
+        /// Topocentric altitude and azimuth of the Moon (degrees) at <paramref name="utc"/>
+        /// in a single Meeus pass.
+        /// </summary>
+        /// <remarks>
+        /// Prefer this over calling <see cref="GetMoonAltitude"/> +
+        /// <see cref="GetMoonAzimuth"/> separately when the caller needs both. Each of the
+        /// single-component getters runs the full <c>MoonPosition.Topocentric</c> periodic-
+        /// term sum (~1.5 µs per call); calling them in sequence pays the cost twice for
+        /// the same instant. <see cref="Astronomy.Core.Moon.MoonSeparation.ObserveAt"/>
+        /// is the canonical caller.
+        /// </remarks>
+        /// <exception cref="ArgumentNullException"><paramref name="observer"/> is null.</exception>
+        public static (double AltDeg, double AzDeg) GetMoonAltAz(DateTime utc, ObserverInfo observer)
+        {
+            if (observer == null) throw new ArgumentNullException(nameof(observer));
+            return MoonAltAz(utc, observer);
+        }
+
+        /// <summary>
         /// Geocentric illuminated fraction of the Moon's disc, range <c>[0, 1]</c>.
         /// Topocentric correction is &lt; 0.0001 and intentionally not modelled.
         /// </summary>
