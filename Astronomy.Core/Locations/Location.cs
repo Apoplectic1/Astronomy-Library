@@ -115,13 +115,13 @@ namespace Astronomy.Core.Locations
         /// <paramref name="name"/> defaults to "Custom".
         /// </summary>
         public Location(
-            string name,
+            string? name,
             double latitude, bool north,
             double longitude, bool west,
             double horizon,
             TimeSpan duration,
             DateTime dateTime,
-            TimeZoneInfo timeZoneInfo,
+            TimeZoneInfo? timeZoneInfo,
             double elevation = 0.0,
             int    bortleClass = 5,
             double extinctionK = 0.28)
@@ -152,13 +152,13 @@ namespace Astronomy.Core.Locations
         /// Any omitted argument inherits from the current instance.
         /// </summary>
         public Location With(
-            string name = null,
+            string? name = null,
             double? latitude = null, bool? north = null,
             double? longitude = null, bool? west = null,
             double? horizon = null,
             TimeSpan? duration = null,
             DateTime? dateTime = null,
-            TimeZoneInfo timeZoneInfo = null,
+            TimeZoneInfo? timeZoneInfo = null,
             double? elevation = null,
             int?    bortleClass = null,
             double? extinctionK = null)

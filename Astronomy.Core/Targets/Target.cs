@@ -25,8 +25,8 @@ namespace Astronomy.Core.Targets
     /// drift. The DMS breakdown for Declination is a direct decimal-degree decomposition
     /// (<c>degrees + minutes/60 + seconds/3600</c>), consistent with
     /// <see cref="Astronomy.Core.Locations.Location.LatDegrees"/> etc.; the previous
-    /// implementation routed through <see cref="TimeSpan.FromHours"/> and produced values
-    /// that matched hours-of-declination rather than degrees-of-declination.
+    /// implementation routed through <see cref="TimeSpan.FromHours(double)"/> and produced
+    /// values that matched hours-of-declination rather than degrees-of-declination.
     /// </para>
     /// </remarks>
     public sealed class Target
@@ -78,10 +78,10 @@ namespace Astronomy.Core.Targets
         /// <see cref="string.Empty"/>.
         /// </summary>
         public Target(
-            string name,
+            string? name,
             double rightAscension,
             double declination, bool north,
-            string directory,
+            string? directory,
             bool enabled)
         {
             // Negative declination flips the hemisphere flag, matching Location's convention.
@@ -99,10 +99,10 @@ namespace Astronomy.Core.Targets
         /// Named-argument builder. Any omitted argument inherits from the current instance.
         /// </summary>
         public Target With(
-            string name = null,
+            string? name = null,
             double? rightAscension = null,
             double? declination = null, bool? north = null,
-            string directory = null,
+            string? directory = null,
             bool? enabled = null)
             => new Target(
                 name           ?? this.Name,

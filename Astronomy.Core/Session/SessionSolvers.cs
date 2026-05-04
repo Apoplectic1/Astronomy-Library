@@ -77,8 +77,8 @@ namespace Astronomy.Core.Session
         public static (DateTime Start, DateTime End, TimeSpan Duration)? LongestDuration(
             Target target, Location location, NightWindow night, IHorizonProfile horizon,
             TimeSpan? cap = null,
-            MoonAvoidanceProfile profile = null,
-            Func<double, double> altitudeQuality = null)
+            MoonAvoidanceProfile? profile = null,
+            Func<double, double>? altitudeQuality = null)
         {
             if (target == null) throw new ArgumentNullException(nameof(target));
             if (location == null) throw new ArgumentNullException(nameof(location));
@@ -120,7 +120,7 @@ namespace Astronomy.Core.Session
             Target target, Location location,
             IReadOnlyList<(DateTime Start, DateTime End)> candidates,
             TimeSpan? cap = null,
-            Func<double, double> altitudeQuality = null)
+            Func<double, double>? altitudeQuality = null)
         {
             if (target == null) throw new ArgumentNullException(nameof(target));
             if (location == null) throw new ArgumentNullException(nameof(location));
@@ -189,8 +189,8 @@ namespace Astronomy.Core.Session
             Target target, Location location, NightWindow night,
             TimeSpan duration,
             double minHorizonDeg = 0.0,
-            MoonAvoidanceProfile profile = null,
-            Func<double, double> altitudeQuality = null,
+            MoonAvoidanceProfile? profile = null,
+            Func<double, double>? altitudeQuality = null,
             int maxIterations = 20)
         {
             if (target == null) throw new ArgumentNullException(nameof(target));
@@ -268,7 +268,7 @@ namespace Astronomy.Core.Session
         public static (DateTime Start, DateTime End, TimeSpan Duration)? LongestDurationCentered(
             Target target, Location location, NightWindow night, IHorizonProfile horizon,
             TimeSpan? cap = null,
-            MoonAvoidanceProfile profile = null)
+            MoonAvoidanceProfile? profile = null)
         {
             if (target == null) throw new ArgumentNullException(nameof(target));
             if (location == null) throw new ArgumentNullException(nameof(location));
@@ -339,7 +339,7 @@ namespace Astronomy.Core.Session
             Target target, Location location, NightWindow night,
             TimeSpan duration,
             double minHorizonDeg = 0.0,
-            MoonAvoidanceProfile profile = null,
+            MoonAvoidanceProfile? profile = null,
             int maxIterations = 20)
         {
             if (target == null) throw new ArgumentNullException(nameof(target));
@@ -406,7 +406,7 @@ namespace Astronomy.Core.Session
         // Mirrors the gating in BestSession.For.
         private static IReadOnlyList<(DateTime Start, DateTime End)> ResolveCandidates(
             Target target, Location location, NightWindow night, IHorizonProfile horizon,
-            MoonAvoidanceProfile profile)
+            MoonAvoidanceProfile? profile)
         {
             var visibility = VisibilityWindows.For(target, location, night, horizon);
             if (visibility.Count == 0) return visibility;
@@ -418,7 +418,7 @@ namespace Astronomy.Core.Session
         private static bool FitsAt(
             Target target, Location location, NightWindow night,
             double horizonDeg, TimeSpan duration,
-            MoonAvoidanceProfile profile)
+            MoonAvoidanceProfile? profile)
         {
             var horizonProfile = new ScalarHorizonProfile(horizonDeg);
             var candidates = ResolveCandidates(target, location, night, horizonProfile, profile);
@@ -466,7 +466,7 @@ namespace Astronomy.Core.Session
         private static bool FitsCenteredAt(
             Target target, Location location, NightWindow night,
             double horizonDeg, TimeSpan duration,
-            MoonAvoidanceProfile profile)
+            MoonAvoidanceProfile? profile)
         {
             var horizonProfile = new ScalarHorizonProfile(horizonDeg);
             var candidates = ResolveCandidates(target, location, night, horizonProfile, profile);

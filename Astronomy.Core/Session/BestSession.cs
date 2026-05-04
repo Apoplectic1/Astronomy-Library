@@ -71,7 +71,7 @@ namespace Astronomy.Core.Session
             Target target, Location location, NightWindow night, IHorizonProfile horizon,
             TimeSpan minDuration, TimeSpan maxDuration,
             Func<double, double> altitudeQuality,
-            MoonAvoidanceProfile profile = null)
+            MoonAvoidanceProfile? profile = null)
         {
             if (target == null) throw new ArgumentNullException(nameof(target));
             if (location == null) throw new ArgumentNullException(nameof(location));
@@ -144,7 +144,7 @@ namespace Astronomy.Core.Session
         /// </exception>
         public static IReadOnlyList<(DateTime Start, DateTime End)> ResolveCandidates(
             Target target, Location location, NightWindow night, IHorizonProfile horizon,
-            MoonAvoidanceProfile profile = null)
+            MoonAvoidanceProfile? profile = null)
         {
             if (target == null) throw new ArgumentNullException(nameof(target));
             if (location == null) throw new ArgumentNullException(nameof(location));
