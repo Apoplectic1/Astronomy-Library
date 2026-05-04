@@ -2,8 +2,14 @@
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
     <OutputType>Exe</OutputType>
     <IsPackable>false</IsPackable>
+    <!-- Tests deliberately pass null literals at call sites to verify
+         ArgumentNullException paths in the Library. Enabling nullable here would
+         cascade null! suppressions to ~200+ test sites for zero behavioral
+         benefit. The Library itself ships nullable-enabled annotations; tests
+         verify runtime contract, not compile-time. -->
     <Nullable>disable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <!-- Microsoft.NET.Test.Sdk auto-generates a Program.cs with its own Main when
