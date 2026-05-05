@@ -72,13 +72,23 @@ namespace Astronomy.Core.Night
         }
 
         /// <summary>
-        /// Returns the day-of-year index aligned with <see cref="YearDays"/> for the same seed
-        /// formula <c>AltitudeSeries.ComputeYearCache</c> uses internally, so AltitudeChart can
-        /// build a cache whose range matches what each AltitudeSeries will look up.
+        /// First day of <paramref name="seed"/>'s calendar month at midnight, with
+        /// <see cref="DateTime.Kind"/> preserved. Used as the anchor for the 365-day
+        /// year-cache grid: each per-night entry is at <c>startDay + i days + 12 h</c>,
+        /// so callers that key on the year start (cache invalidation,
+        /// <c>LocationsCacheEquivalent</c> in TP) can compare two seeds for
+        /// "same year window?" by comparing their <c>ComputeYearStartDay</c>.
         /// </summary>
+        /// <remarks>
+        /// Pre-2026-05-04 the body was <c>seed.AddDays(-seed.Day)</c>, which produced
+        /// the LAST day of the PRIOR month (off-by-one). Year / Sessions chart x-axis
+        /// labels appeared shifted because each 30-day grid bin started a day before
+        /// the labelled month. Fixed to <c>seed.AddDays(1 - seed.Day)</c>; the
+        /// XML-doc claim now matches the implementation.
+        /// </remarks>
         public static DateTime ComputeYearStartDay(DateTime seed)
         {
-            return seed.AddDays(-seed.Day);
+            return seed.AddDays(1 - seed.Day);
         }
 
         /// <summary>Companion of <see cref="ComputeYearStartDay"/>: total days in the year window.</summary>
