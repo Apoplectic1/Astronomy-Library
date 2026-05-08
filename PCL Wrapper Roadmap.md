@@ -6,7 +6,7 @@ This is a companion to `PCL InterOp.md` (the architectural decision doc) and `CL
 
 ## Status today
 
-`Astronomy.PCL` (managed wrapper, `net8.0` x64) currently exposes:
+`Astronomy.PCL` (managed wrapper, `net10.0` x64 — was net8.0 initially; bumped 2026-05-04) currently exposes:
 
 ```csharp
 public sealed class XisfFile : IDisposable

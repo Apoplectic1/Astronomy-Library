@@ -45,7 +45,7 @@ here so it doesn't drift out of memory.
    (pure-managed Meeus + closed-form session placement + K-S sky brightness
    + optional XISF read via PCL P/Invoke), build/test instructions, link
    to existing CLAUDE.md as the deeper reference. ~80 lines.
-4. **Build prerequisites.** Document MSBuild + VS2022+ for the C++/C#
+4. **Build prerequisites.** Document MSBuild + VS2026 (build 18.x) for the C++/C#
    mixed solution; `dotnet build` for `Astronomy.Core` alone. For Option B,
    document where to drop the PCL SDK
    (`Library\PCL\` snapshot from `PCL-master.zip`, pinned 2025-02-22) so

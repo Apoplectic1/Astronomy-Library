@@ -1,15 +1,15 @@
 # PCL InterOp — Unifying Astronomy across C# and C++ on Windows
 
-*Discussion summary, 2026-04-25.*
+*Discussion summary, 2026-04-25. TFMs updated 2026-05-08 to reflect the post-NINA-migration uniformly-net10 portfolio; net481 / netstandard2.0 / net8.0 references in this doc are now historical context, not current state.*
 
 ## Goal
 
 The `Astronomy` library at `E:\Projects\VisualStudio\Astronomy\Library\` should expose [PCL](https://pixinsight.com/developer/pcl/) (the PixInsight Class Library, C++), now vendored at `E:\Projects\VisualStudio\Astronomy\Library\PCL\`, to managed C# consumers, while continuing to be usable from C++ consumers without disrupting them. Windows-only is the immediate target; Linux portability is acknowledged as harder and explicitly deferred.
 
-Consumer matrix:
-- **C# apps:** TargetPlanner (`net481`), XisfManager / IS / ISS (`net10`).
+Consumer matrix (post 2026-05-04 portfolio bump):
+- **C# apps:** TargetPlanner, XisfManager, IS, ISS — all `net10` (or `net10.0-windows*` for WinForms/WPF hosts). NINA itself migrated upstream to `net10.0-windows`, so the planned ISP plugin inherits that.
 - **C++ apps:** existing xisf utility in `PCL\src\utils\xisf\`, plus any future C++ tools.
-- **Library targets:** `Astronomy.Core` is `netstandard2.0`; `Astronomy.PCL` is `net8.0` (it has no `net481` consumer — TargetPlanner doesn't use PCL, and the VS2026 msbuild has a defect with netstandard2.0 + `System.Runtime.InteropServices` reference resolution).
+- **Library targets:** `Astronomy.Core` and `Astronomy.PCL` both target `net10.0`. (Originally the matrix was netstandard2.0 / net8.0 to bridge a TP-on-net481 host alongside the net10 desktop apps; that constraint disappeared when TP and NINA both migrated.)
 
 ---
 
@@ -32,12 +32,12 @@ Three architectures were considered. Only the chosen one is described in detail 
 ```
 E:\Projects\VisualStudio\Astronomy\Library\        (the Astronomy library family)
 ├── Astronomy.sln                                  (x64-only; AnyCPU/x86 dropped)
-├── Astronomy.Core\                                (C#, netstandard2.0)
+├── Astronomy.Core\                                (C#, net10.0)
 ├── Astronomy.Core.Tests\                          (xUnit + BenchmarkDotNet, net10.0 x64)
 ├── Astronomy.PCL.Native\                          (C++ DLL — vcxproj, x64)
 │   ├── include\Astronomy\PCL\                     (public headers for C++ apps)
 │   └── src\                                       (impl + extern "C" exports for C#)
-├── Astronomy.PCL\                                 (C# managed P/Invoke wrapper, net8.0 x64)
+├── Astronomy.PCL\                                 (C# managed P/Invoke wrapper, net10.0 x64)
 └── PCL\                                           (Pleiades' source/lib — vendored, gitignored)
 ```
 
@@ -54,7 +54,7 @@ There are TWO assemblies with "Astronomy.PCL" in the name. They serve different 
 
 ### Why not put PCL inside `Astronomy.Core`?
 
-`Astronomy.Core` is a `netstandard2.0` C# project. A netstandard2.0 csproj cannot embed C++ source or be a C++/CLI mixed-mode assembly. It can declare `[DllImport]`, but that does not help when PCL is heavily templated C++ — there is no flat C ABI to import directly. So PCL needs a separate native wrapper project.
+`Astronomy.Core` is a pure-managed C# project (originally netstandard2.0; net10.0 since 2026-05-04). A managed-only csproj can declare `[DllImport]`, but that does not help when PCL is heavily templated C++ — there is no flat C ABI to import directly. Adding C++ source or going C++/CLI would change Core's nature (Windows-only, mixed-mode, harder to consume from non-Windows hosts later). So PCL stays in a separate native wrapper project.
 
 ---
 
@@ -195,7 +195,7 @@ PCL snapshot pinned at `PCL\PCL-master.zip` from 2025-02-22. Re-snapshot only wh
 
 ## Status
 
-**First surface implemented: XISF read.** `Astronomy.PCL.Native` (vcxproj, statically links PCL `.lib`s from `Library\PCL\lib\x64\$(Configuration)\`) plus `Astronomy.PCL` (net8.0 P/Invoke wrapper) are in `Astronomy.sln`. Public C# surface: `XisfFile : IDisposable` with `Open` / `SelectImage` / `ReadImageF32`. Tests live in `Astronomy.Core.Tests/Tests/PCL/`. The C ABI surface is in `Astronomy.PCL.Native\include\Astronomy\PCL\XisfCApi.h` — extension is wrap-on-demand per the strategy in this doc.
+**First surface implemented: XISF read.** `Astronomy.PCL.Native` (vcxproj, statically links PCL `.lib`s from `Library\PCL\lib\x64\$(Configuration)\`) plus `Astronomy.PCL` (net10.0 P/Invoke wrapper, was net8.0 at first implementation; bumped 2026-05-04) are in `Astronomy.sln`. Public C# surface: `XisfFile : IDisposable` with `Open` / `SelectImage` / `ReadImageF32`. Tests live in `Astronomy.Core.Tests/Tests/PCL/`. The C ABI surface is in `Astronomy.PCL.Native\include\Astronomy\PCL\XisfCApi.h` — extension is wrap-on-demand per the strategy in this doc.
 
 **PCL itself was bumped to `v145` post-implementation** (matches the wrapper's toolset). The seven PCL projects we link against — `PCL.vcxproj` plus the six 3rd-party libs (`cminpack`, `lcms`, `lz4`, `RFC6234`, `zlib`, `zstd`) — are also listed in `Astronomy.sln` under a `PCL` Solution Folder for source visibility, but with `Build.0` omitted: they show in Solution Explorer with full IntelliSense / F12, and `Build Solution` does not build them. PCL rebuilds remain a manual step via `Library\PCL\src\pcl\windows\vc18\PCL.sln`.
 
@@ -203,4 +203,4 @@ PCL snapshot pinned at `PCL\PCL-master.zip` from 2025-02-22. Re-snapshot only wh
 
 1. **Read in the file's native sample format, then convert in our own code.** PCL's auto-converting `XISFReader::ReadImage(FImage&)` for non-float source files (e.g. UInt16 → Float32) appears to need PixInsight platform services that aren't available in a host process — the call raises an SEH access violation that surfaces through `catch (...)` as "Unknown C++ exception". The wrapper dispatches on `ImageOptions.bitsPerSample` / `ieeefpSampleFormat` and reads as `UInt16Image` / `FImage` / etc. directly, then scales to float32 ourselves. See `XisfCApi.cpp:AstronomyXisf_ReadImageF32`.
 
-2. **`Astronomy.PCL` targets `net8.0`, not `netstandard2.0`.** Visual Studio 2026 (build 18.x) `MSBuild.exe` has a defect resolving `System.Runtime.InteropServices.DllImportAttribute` for `netstandard2.0` projects — `dotnet build` resolves it correctly, but VS's `msbuild.exe` (which is what builds the SLN with the C++ vcxproj reference) does not. Since `Astronomy.PCL` has no `net481` consumer (TargetPlanner does charting, not file I/O), `net8.0` is a clean trade-off.
+2. **`Astronomy.PCL` targets `net10.0` (was `net8.0` initially).** The original choice avoided netstandard2.0 because VS2026 (build 18.x) `MSBuild.exe` has a defect resolving `System.Runtime.InteropServices.DllImportAttribute` for `netstandard2.0` projects — `dotnet build` resolves it correctly, but VS's `msbuild.exe` (which is what builds the SLN with the C++ vcxproj reference) does not. Since `Astronomy.PCL` had no net481 consumer (TargetPlanner does charting, not file I/O), net8.0 was a clean trade-off at the time. Bumped to net10.0 on 2026-05-04 (commit `c7eeff9`) alongside the rest of the portfolio once NINA migrated upstream.

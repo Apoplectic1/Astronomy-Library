@@ -8,16 +8,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 The four buildable projects:
 
-- **`Astronomy.Core`** — `netstandard2.0`, `LangVersion 7.3`. The library proper. Pure managed C# with **no NuGet dependencies** (post-`2249834` CoordinateSharp removal — every helper is now Meeus-backed). XML doc generation is on (`GenerateDocumentationFile=true`), so public surface is expected to carry `///` docs. Buildable independently with `dotnet build` if a contributor wants only the managed primitives.
+- **`Astronomy.Core`** — `net10.0`, `LangVersion latest`, `Nullable enable`. The library proper. Pure managed C# with **no NuGet dependencies** (post-`2249834` CoordinateSharp removal — every helper is now Meeus-backed). XML doc generation is on (`GenerateDocumentationFile=true`), so public surface is expected to carry `///` docs. Buildable independently with `dotnet build` if a contributor wants only the managed primitives. The original netstandard2.0 floor was lifted to net10.0 on 2026-05-04 (commit `b834f52`) once NINA's upstream migration confirmed every consumer was on modern .NET.
 - **`Astronomy.Core.Tests`** — `net10.0` x64, `OutputType=Exe`. Hosts both xUnit tests (`Tests/`) and BenchmarkDotNet benchmarks (`Benchmarks/`) in a single assembly. `GenerateProgramFile=false` because `Program.cs` defines its own `Main` that delegates to `BenchmarkSwitcher.FromAssembly(...)`. References both `Astronomy.Core` and `Astronomy.PCL`.
 - **`Astronomy.PCL.Native`** — vcxproj, x64-only C++ DLL. Statically links the vendored PixInsight Class Library (`Library\PCL\lib\x64\$(Configuration)\*-pxi.lib`). Public surface is the `extern "C"` C ABI in `include\Astronomy\PCL\XisfCApi.h`. Mirrors PCL's build flavor (`/MD`, `stdcpp17`, `__PCL_WINDOWS`) using the same MSVC toolset PCL itself uses (`v145` as of VS2026 — both wrapper and PCL bumped together); compiled with `AdvancedVectorExtensions2` (AVX2) for portability — PCL's own AVX-512 paths remain runtime-gated inside the static lib.
-- **`Astronomy.PCL`** — `net8.0` x64. Managed P/Invoke wrapper. Public surface: `XisfFile : IDisposable` (`Open` / `SelectImage` / `ReadImageF32`), `XisfImageInfo`, `XisfColorSpace`, `XisfException`. Internal `NativeMethods` in `Interop/` holds the `[DllImport]` declarations. `<InternalsVisibleTo Include="Astronomy.Core.Tests" />` lets the smoke test bypass the wrapper. **net8.0 not netstandard2.0**: VS2026's `MSBuild.exe` has a defect resolving `System.Runtime.InteropServices.DllImportAttribute` for `netstandard2.0` projects — `net8.0` works under both `MSBuild.exe` and `dotnet build`. `Astronomy.PCL` has no `net481` consumer (TargetPlanner does charting, not file I/O), so the trade-off is free.
+- **`Astronomy.PCL`** — `net10.0` x64, `LangVersion latest`. Managed P/Invoke wrapper. Public surface: `XisfFile : IDisposable` (`Open` / `SelectImage` / `ReadImageF32`), `XisfImageInfo`, `XisfColorSpace`, `XisfException`. Internal `NativeMethods` in `Interop/` holds the `[DllImport]` declarations. `<InternalsVisibleTo Include="Astronomy.Core.Tests" />` lets the smoke test bypass the wrapper. The TFM history: originally net8.0 because VS2026 `MSBuild.exe` had a defect resolving `System.Runtime.InteropServices.DllImportAttribute` for netstandard2.0 projects (and TP, the only other potential consumer at the time, was on net481 but didn't use PCL); bumped to net10.0 on 2026-05-04 (commit `c7eeff9`) alongside the rest of the portfolio.
 
 `Library\PCL\` is the vendored PixInsight Class Library (~10 GB of source + prebuilt `.lib` outputs). It's gitignored — re-extract from `PCL\PCL-master.zip` (snapshot pinned 2025-02-22 per `PCL InterOp.md`) on a fresh clone.
 
 ## Build / test / benchmark
 
-The mixed C++/C# solution requires `MSBuild.exe` (from VS2022+) for full builds — `dotnet build Astronomy.sln` cannot drive the C++ vcxproj. Locate it via `vswhere.exe` or run from a Developer Command Prompt.
+The mixed C++/C# solution requires `MSBuild.exe` (from VS2026; build 18.x) for full builds — `dotnet build Astronomy.sln` cannot drive the C++ vcxproj. Locate it via `vswhere.exe` or run from a Developer Command Prompt. Earlier VS lines (2022 / build 17.x) likely also work but the project is developed and verified against VS2026.
 
 ```bash
 # Full mixed build (native + managed) — REQUIRED to produce Astronomy.PCL.Native.dll
@@ -103,7 +103,7 @@ Two caveats limit that promise:
 The hybrid architecture from `PCL InterOp.md` is **implemented** for the first surface (XISF read). Two projects:
 
 - `Astronomy.PCL.Native` (C++ DLL, statically links PCL `.lib`s from `Library\PCL\lib\x64\`).
-- `Astronomy.PCL` (managed P/Invoke wrapper, `net8.0` x64).
+- `Astronomy.PCL` (managed P/Invoke wrapper, `net10.0` x64).
 
 C ABI is the source of truth: `Astronomy.PCL.Native\include\Astronomy\PCL\XisfCApi.h`. Every export is wrapped in `ASTRONOMY_PCL_TRY` / `ASTRONOMY_PCL_CATCH` (in `src\Exception.h`) — this catches `pcl::Exception` and `std::exception` and translates to status codes; the `catch (...)` branch picks up SEH (access violations etc.) due to `<ExceptionHandling>Async</ExceptionHandling>`. Last-error message is thread-local (`src\LastError.cpp`); consumers retrieve via `AstronomyXisf_GetLastErrorMessage` (two-call idiom: query length, alloc, fetch).
 
