@@ -12,7 +12,7 @@ namespace Astronomy.Core.Tests.Tests
     public class SessionAltitudeTests
     {
         private static Location MakeLocation()
-            => Location.Default.With(
+            => TestLocations.PennsPark.With(
                 dateTime: new DateTime(2026, 11, 15, 0, 0, 0, DateTimeKind.Utc));
 
         // Transit-centered session: [transit - 1h, transit + 1h]. Altitude is monotone

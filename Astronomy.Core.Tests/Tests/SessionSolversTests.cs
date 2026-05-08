@@ -17,7 +17,7 @@ namespace Astronomy.Core.Tests.Tests
             alt => Math.Sin(alt * Math.PI / 180.0);
 
         private static Location MakeLocation(int year = 2026, int month = 11, int day = 15)
-            => Location.Default.With(
+            => TestLocations.PennsPark.With(
                 dateTime: new DateTime(year, month, day, 0, 0, 0, DateTimeKind.Utc));
 
         // ====================================================================
@@ -160,7 +160,7 @@ namespace Astronomy.Core.Tests.Tests
         public void LongestDuration_PolarNight_ReturnsNull()
         {
             // Northern polar location in summer where the sun never sets.
-            var loc = Location.Default.With(
+            var loc = TestLocations.PennsPark.With(
                 latitude: 80.0, north: true,
                 longitude: 0.0, west: false,
                 dateTime: new DateTime(2026, 6, 21, 0, 0, 0, DateTimeKind.Utc));
@@ -431,7 +431,7 @@ namespace Astronomy.Core.Tests.Tests
         [Fact]
         public void LongestDurationCentered_PolarNight_ReturnsNull()
         {
-            var loc = Location.Default.With(
+            var loc = TestLocations.PennsPark.With(
                 latitude: 80.0, north: true,
                 longitude: 0.0, west: false,
                 dateTime: new DateTime(2026, 6, 21, 0, 0, 0, DateTimeKind.Utc));

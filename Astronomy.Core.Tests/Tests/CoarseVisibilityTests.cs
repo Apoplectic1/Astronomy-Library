@@ -14,7 +14,7 @@ namespace Astronomy.Core.Tests.Tests
     public class CoarseVisibilityTests
     {
         private static Location MakeLocation(int year = 2026, int month = 11, int day = 15)
-            => Location.Default.With(
+            => TestLocations.PennsPark.With(
                 dateTime: new DateTime(year, month, day, 0, 0, 0, DateTimeKind.Utc));
 
         // ---- IsEverVisible (no horizon profile, alt >= 0 threshold) ----
@@ -58,7 +58,7 @@ namespace Astronomy.Core.Tests.Tests
         {
             // No astronomical night above the Arctic Circle in mid-summer -- the
             // method short-circuits on !night.IsValid.
-            var loc = Location.Default.With(
+            var loc = TestLocations.PennsPark.With(
                 latitude: 80.0, north: true,
                 dateTime: new DateTime(2026, 6, 21, 0, 0, 0, DateTimeKind.Utc));
             var night = NightCalculator.ComputeNight(loc);
@@ -108,7 +108,7 @@ namespace Astronomy.Core.Tests.Tests
         [Fact]
         public void IsEverAboveHorizon_PolarDay_ReturnsFalse()
         {
-            var loc = Location.Default.With(
+            var loc = TestLocations.PennsPark.With(
                 latitude: 80.0, north: true,
                 dateTime: new DateTime(2026, 6, 21, 0, 0, 0, DateTimeKind.Utc));
             var night = NightCalculator.ComputeNight(loc);
@@ -176,7 +176,7 @@ namespace Astronomy.Core.Tests.Tests
         [Fact]
         public void IsAboveHorizonForAtLeast_PolarDay_ReturnsFalse()
         {
-            var loc = Location.Default.With(
+            var loc = TestLocations.PennsPark.With(
                 latitude: 80.0, north: true,
                 dateTime: new DateTime(2026, 6, 21, 0, 0, 0, DateTimeKind.Utc));
             var night = NightCalculator.ComputeNight(loc);

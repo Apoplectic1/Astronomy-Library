@@ -15,7 +15,7 @@ namespace Astronomy.Core.Tests.Tests
     public class RiseSetTests
     {
         private static Location MakeLocation(int year = 2026, int month = 11, int day = 15)
-            => Location.Default.With(
+            => TestLocations.PennsPark.With(
                 dateTime: new DateTime(year, month, day, 0, 0, 0, DateTimeKind.Utc));
 
         // ---- Scalar overload ----

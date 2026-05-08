@@ -14,7 +14,7 @@ namespace Astronomy.Core.Tests.Tests
     public class TargetOrderingTests
     {
         private static Location MakeLocation()
-            => Location.Default.With(
+            => TestLocations.PennsPark.With(
                 dateTime: new DateTime(2026, 11, 15, 0, 0, 0, DateTimeKind.Utc));
 
         // M31 (RA 0.7h), M42 (RA 5.6h), M81 (RA 9.9h), M51 (RA 13.5h) are spread

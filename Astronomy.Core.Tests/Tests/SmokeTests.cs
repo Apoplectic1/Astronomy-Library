@@ -27,11 +27,16 @@ namespace Astronomy.Core.Tests.Tests
         }
 
         [Fact]
-        public void LocationDefault_IsPennsPark()
+        public void LocationDefault_IsPublicSafe()
         {
+            // Location.Default carries neutral, ship-safe placeholder coordinates so the
+            // public Library source contains no author-specific values; consumer apps
+            // (TargetPlanner, XisfManager, IS / ISP / ISS) override these via their own
+            // configuration layers. Tests anchored to specific real-world coordinates use
+            // the TestLocations fixtures instead of Location.Default.
             Location loc = Location.Default;
 
-            Assert.Equal("Penns Park", loc.Name);
+            Assert.Equal("Custom", loc.Name);
             Assert.True(loc.North);
             Assert.True(loc.West);
             Assert.InRange(loc.Latitude, 0.0, 90.0);
@@ -44,7 +49,7 @@ namespace Astronomy.Core.Tests.Tests
             // Pick a stable UTC instant (no DST dance, unambiguous).
             DateTime searchFromUtc = new DateTime(2026, 11, 15, 0, 0, 0, DateTimeKind.Utc);
             Target target = Target.Default;
-            Location location = Location.Default;
+            Location location = TestLocations.PennsPark;
 
             DateTime transitUtc = TransitTime.UtcAtOrAfter(target, location, searchFromUtc);
             AltAz altaz = AltAzCalculator.At(target, location, transitUtc);

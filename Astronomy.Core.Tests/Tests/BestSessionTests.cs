@@ -19,7 +19,7 @@ namespace Astronomy.Core.Tests.Tests
             alt => Math.Sin(alt * Math.PI / 180.0);
 
         private static Location MakeLocation(int year = 2026, int month = 11, int day = 15)
-            => Location.Default.With(
+            => TestLocations.PennsPark.With(
                 dateTime: new DateTime(year, month, day, 0, 0, 0, DateTimeKind.Utc));
 
         // M31 is well-placed at Penns Park in November; tests use it as the canonical

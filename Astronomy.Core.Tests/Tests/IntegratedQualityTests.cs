@@ -12,7 +12,7 @@ namespace Astronomy.Core.Tests.Tests
     public class IntegratedQualityTests
     {
         private static Location MakeLocation()
-            => Location.Default.With(
+            => TestLocations.PennsPark.With(
                 dateTime: new DateTime(2026, 11, 15, 0, 0, 0, DateTimeKind.Utc));
 
         // sin(alt * pi/180) -- smooth, monotone in altitude. Standard quality proxy.

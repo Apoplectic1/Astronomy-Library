@@ -11,7 +11,9 @@ namespace Astronomy.Core.Locations
     /// <para>
     /// Every property is read-only; mutations produce a new instance via <see cref="With"/>.
     /// Construction takes a full parameter set so every caller is explicit about what it
-    /// means; use <see cref="Default"/> for the Penns Park defaults.
+    /// means; use <see cref="Default"/> for neutral, ship-safe placeholder values that
+    /// downstream consumers (TargetPlanner, scheduler apps, etc.) override via their own
+    /// configuration layers.
     /// </para>
     /// <para>
     /// <b>Hemisphere convention.</b> <see cref="Latitude"/> and <see cref="Longitude"/> are
@@ -30,7 +32,7 @@ namespace Astronomy.Core.Locations
     /// </remarks>
     public sealed class Location
     {
-        /// <summary>Human-readable label for the location (e.g. "Penns Park"). Defaults to "Custom".</summary>
+        /// <summary>Human-readable label for the location. Defaults to "Custom".</summary>
         public string        Name         { get; }
 
         /// <summary>Latitude magnitude in decimal degrees, non-negative. Hemisphere lives in <see cref="North"/>.</summary>
@@ -177,9 +179,16 @@ namespace Astronomy.Core.Locations
                 extinctionK  ?? this.ExtinctionK);
 
         /// <summary>
-        /// Penns Park defaults, freshly instantiated on each access.
+        /// Neutral, ship-safe placeholder values, freshly instantiated on each access.
         /// </summary>
         /// <remarks>
+        /// <para>
+        /// Coordinates are deliberately rounded (40&#176;N, 75&#176;W, sea level) so the
+        /// public Library source contains no author-specific values. Consumer apps
+        /// resolve the user's actual site via their own configuration layers (e.g.
+        /// TargetPlanner's <c>PersonalDefaults</c> + <c>SettingsStore</c>).
+        /// </para>
+        /// <para>
         /// <see cref="DateTime"/> is <see cref="System.DateTime.Now"/> at the moment of the
         /// property read -- intentional for interactive callers (TargetPlanner / future
         /// scheduler UIs that boot at "now"), but <b>nondeterministic</b> for unit tests
@@ -187,16 +196,17 @@ namespace Astronomy.Core.Locations
         /// e.g. <c>Location.Default.With(dateTime: new DateTime(2026, 11, 15, 0, 0, 0,
         /// DateTimeKind.Utc))</c> -- the existing pattern in
         /// <c>Astronomy.Core.Tests</c>'s <c>MakeLocation</c> helpers.
+        /// </para>
         /// </remarks>
         public static Location Default => new Location(
-            name:         "Penns Park",
-            latitude:     40.282835, north: true,
-            longitude:    74.997369, west:  true,
+            name:         "Custom",
+            latitude:     40.0, north: true,
+            longitude:    75.0, west:  true,
             horizon:      30,
             duration:     TimeSpan.FromMinutes(240),
             dateTime:     DateTime.Now,
             timeZoneInfo: TimeZoneInfo.Local,
-            elevation:    80.67,
+            elevation:    0.0,
             bortleClass:  5,
             extinctionK:  0.28);
     }

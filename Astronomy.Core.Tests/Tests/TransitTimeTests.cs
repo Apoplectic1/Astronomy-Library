@@ -11,7 +11,7 @@ namespace Astronomy.Core.Tests.Tests
     public class TransitTimeTests
     {
         private static Location MakeLocation()
-            => Location.Default.With(
+            => TestLocations.PennsPark.With(
                 dateTime: new DateTime(2026, 11, 15, 0, 0, 0, DateTimeKind.Utc));
 
         // Tolerance note: TransitTime.UtcAtOrAfter is an analytic LST=RA inversion

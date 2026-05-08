@@ -24,7 +24,7 @@ namespace Astronomy.Core.Tests.Tests
         public void Sample_MatchesPerMinuteAltAz(int count)
         {
             Target target = Target.Default;
-            Location location = Location.Default;
+            Location location = TestLocations.PennsPark;
             DateTime startUtc = new DateTime(2026, 11, 15, 22, 0, 0, DateTimeKind.Utc);
             TimeSpan step = TimeSpan.FromMinutes(1);
 
@@ -46,7 +46,7 @@ namespace Astronomy.Core.Tests.Tests
         public void Sample_CountZero_ReturnsEmpty()
         {
             var result = AltitudeCurve.Sample(
-                Target.Default, Location.Default,
+                Target.Default, TestLocations.PennsPark,
                 new DateTime(2026, 11, 15, 22, 0, 0, DateTimeKind.Utc),
                 TimeSpan.FromMinutes(1), count: 0);
 
@@ -57,7 +57,7 @@ namespace Astronomy.Core.Tests.Tests
         public void Sample_NegativeCount_Throws()
         {
             Assert.Throws<ArgumentException>(() => AltitudeCurve.Sample(
-                Target.Default, Location.Default,
+                Target.Default, TestLocations.PennsPark,
                 new DateTime(2026, 11, 15, 22, 0, 0, DateTimeKind.Utc),
                 TimeSpan.FromMinutes(1), count: -1));
         }
@@ -66,7 +66,7 @@ namespace Astronomy.Core.Tests.Tests
         public void Sample_NonPositiveStep_Throws()
         {
             Assert.Throws<ArgumentException>(() => AltitudeCurve.Sample(
-                Target.Default, Location.Default,
+                Target.Default, TestLocations.PennsPark,
                 new DateTime(2026, 11, 15, 22, 0, 0, DateTimeKind.Utc),
                 TimeSpan.Zero, count: 10));
         }

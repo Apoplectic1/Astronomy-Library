@@ -15,7 +15,7 @@ namespace Astronomy.Core.Tests.Tests
     public class VisibilityWindowsTests
     {
         private static Location MakeLocation(int year = 2026, int month = 11, int day = 15)
-            => Location.Default.With(
+            => TestLocations.PennsPark.With(
                 dateTime: new DateTime(year, month, day, 0, 0, 0, DateTimeKind.Utc));
 
         [Fact]
@@ -99,7 +99,7 @@ namespace Astronomy.Core.Tests.Tests
             // Above the Arctic Circle at June solstice -- no astronomical night.
             // NightWindow.IsValid is false, so VisibilityWindows.For early-outs
             // before doing any geometry work.
-            var loc = Location.Default.With(
+            var loc = TestLocations.PennsPark.With(
                 latitude: 80.0, north: true,
                 dateTime: new DateTime(2026, 6, 21, 0, 0, 0, DateTimeKind.Utc));
             var night = NightCalculator.ComputeNight(loc);
