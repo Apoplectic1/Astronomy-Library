@@ -5,7 +5,7 @@ using Xunit.Abstractions;
 
 namespace Astronomy.Core.Tests.Tests.Astrometry
 {
-    // Validate the internal Meeus implementations (SunPosition, MoonPosition,
+    // Validate the internal Meeus implementations (SunEphemeris, MoonPosition,
     // MoonIllumination) against Jean Meeus's published worked examples in
     // *Astronomical Algorithms* 2nd ed. The constants here are quoted directly from
     // the book and are the gold standard against which a low-precision implementation
@@ -15,7 +15,7 @@ namespace Astronomy.Core.Tests.Tests.Astrometry
     // 60-term Moon series (chapter 47) is accurate to ~0.003 deg. Tolerances reflect
     // those budgets plus some extra slack.
     //
-    // Reflection is used because SunPosition / MoonPosition / MoonIllumination are
+    // Reflection is used because SunEphemeris / MoonPosition / MoonIllumination are
     // internal -- we want them to stay internal (the public surface is AstroUtil) but
     // still want unit-test coverage on the math without making the InternalsVisibleTo
     // surface noisier than necessary.
@@ -100,7 +100,7 @@ namespace Astronomy.Core.Tests.Tests.Astrometry
 
         private static readonly MethodInfo mSunApparent = typeof(Astronomy.Core.Astrometry.AstroUtil)
             .Assembly
-            .GetType("Astronomy.Core.Astrometry.Meeus.SunPosition")
+            .GetType("Astronomy.Core.Astrometry.Meeus.SunEphemeris")
             .GetMethod("Apparent", BindingFlags.Public | BindingFlags.Static);
 
         private static readonly MethodInfo mMoonApparent = typeof(Astronomy.Core.Astrometry.AstroUtil)

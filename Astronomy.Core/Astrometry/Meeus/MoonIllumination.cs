@@ -4,7 +4,7 @@ namespace Astronomy.Core.Astrometry.Meeus
 {
     /// <summary>
     /// Lunar phase angle and illuminated fraction via Meeus AA chapter 48. Composes the
-    /// outputs of <see cref="SunPosition.Apparent"/> and <see cref="MoonPosition.Apparent"/>
+    /// outputs of <see cref="SunEphemeris.Apparent"/> and <see cref="MoonPosition.Apparent"/>
     /// -- no independent series of its own.
     /// </summary>
     /// <remarks>
@@ -25,7 +25,7 @@ namespace Astronomy.Core.Astrometry.Meeus
         /// </summary>
         public static double Fraction(double jd)
         {
-            (double sunRa,  double sunDec,  double sunR_au)  = SunPosition.Apparent(jd);
+            (double sunRa,  double sunDec,  double sunR_au)  = SunEphemeris.Apparent(jd);
             (double moonRa, double moonDec, double moonD_km) = MoonPosition.Apparent(jd);
 
             double sunRaRad   = sunRa   * MeeusUtility.DegToRad;

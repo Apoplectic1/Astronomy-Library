@@ -13,7 +13,7 @@ namespace Astronomy.Core.Astrometry.Meeus
     /// at moderate latitudes; degrades near the polar circles where the iterative
     /// solver may not converge for thresholds near the sun's noon altitude.
     /// </remarks>
-    internal static class SunPosition
+    internal static class SunEphemeris
     {
         /// <summary>
         /// Apparent geocentric equatorial coordinates of the Sun at <paramref name="jd"/>

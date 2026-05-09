@@ -13,7 +13,7 @@ namespace Astronomy.Core.Night
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Backed by <see cref="SunPosition.RiseSet"/> (Meeus chapter 15) and
+    /// Backed by <see cref="SunEphemeris.RiseSet"/> (Meeus chapter 15) and
     /// <see cref="MoonIllumination.Fraction"/> (Meeus chapter 48). Call
     /// <see cref="TwilightCalculator.ComputeNight"/> for nautical (-12&#176;) or civil
     /// (-6&#176;) thresholds; the implementation is shared.
@@ -82,7 +82,7 @@ namespace Astronomy.Core.Night
             DateTime? endingDawn = null;
             for (int i = 0; i < days.Length; i++)
             {
-                (DateTime? rise, _) = SunPosition.RiseSet(days[i], latSigned, lonEast, sunAltDeg);
+                (DateTime? rise, _) = SunEphemeris.RiseSet(days[i], latSigned, lonEast, sunAltDeg);
                 if (rise.HasValue && rise.Value >= locUtc
                     && (!endingDawn.HasValue || rise.Value < endingDawn.Value))
                 {
@@ -95,7 +95,7 @@ namespace Astronomy.Core.Night
             {
                 for (int i = 0; i < days.Length; i++)
                 {
-                    (_, DateTime? set) = SunPosition.RiseSet(days[i], latSigned, lonEast, sunAltDeg);
+                    (_, DateTime? set) = SunEphemeris.RiseSet(days[i], latSigned, lonEast, sunAltDeg);
                     if (set.HasValue && set.Value < endingDawn.Value
                         && (!startingDusk.HasValue || set.Value > startingDusk.Value))
                     {

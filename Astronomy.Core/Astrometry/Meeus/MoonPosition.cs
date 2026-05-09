@@ -314,7 +314,7 @@ namespace Astronomy.Core.Astrometry.Meeus
         /// returned altitude.
         /// </summary>
         /// <remarks>
-        /// Uses the same Meeus chapter 15 algorithm as <see cref="SunPosition.RiseSet"/> --
+        /// Uses the same Meeus chapter 15 algorithm as <see cref="SunEphemeris.RiseSet"/> --
         /// three-day RA/Dec interpolation, iterative refinement -- but with the Moon's
         /// fast motion (~13&#176; / day in RA) means we run more iterations to converge.
         /// </remarks>
@@ -324,7 +324,7 @@ namespace Astronomy.Core.Astrometry.Meeus
             DateTime day0 = new DateTime(dateUtc.Year, dateUtc.Month, dateUtc.Day, 0, 0, 0, DateTimeKind.Utc);
             double jd0 = Astronomy.Core.Time.JulianDate.FromUtc(day0);
 
-            // GAST at 0h UT, in degrees. Same polynomial as SunPosition.RiseSet.
+            // GAST at 0h UT, in degrees. Same polynomial as SunEphemeris.RiseSet.
             double T0 = MeeusUtility.T(jd0);
             double theta0 = MeeusUtility.Norm360(
                 100.46061837 + 36000.770053608 * T0 + 0.000387933 * T0 * T0 - T0 * T0 * T0 / 38710000.0);
@@ -372,7 +372,7 @@ namespace Astronomy.Core.Astrometry.Meeus
             return (rise, set);
         }
 
-        // Same idea as SunPosition.RefineEvent but inlined here so MoonPosition stays
+        // Same idea as SunEphemeris.RefineEvent but inlined here so MoonPosition stays
         // self-contained -- callers don't need to know which Meeus class owns the helper.
         private static double RefineMoonEvent(
             double m, double theta0, double L, double phi,

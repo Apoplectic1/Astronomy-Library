@@ -5,18 +5,18 @@ using Astronomy.Core.Time;
 namespace Astronomy.Core.Astrometry
 {
     /// <summary>
-    /// Public, NINA-API-compatible astronomy surface. Pure C#, thread-safe by construction
+    /// Public, NINA-API-compatible Moon surface. Pure C#, thread-safe by construction
     /// (no static mutable state, no init dance), so callers can hammer this from many
-    /// threads without coordination. Replaces the CoordinateSharp-backed paths that
-    /// gated through a process-wide lock.
+    /// threads without coordination.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Function names and signatures mirror <c>NINA.Astrometry.AstroUtil</c> so a future
-    /// scheduler-plugin port can be drop-in interchangeable. Internals are Meeus-based
-    /// (chapters 15, 25, 47, 48); accuracy is ~30s on twilight events at moderate
-    /// latitudes and ~10 arcsec on moon position -- ample for scheduler use, well below
-    /// the tolerance any UI-level decision can resolve.
+    /// Function names and signatures mirror the moon-related parts of
+    /// <c>NINA.Astrometry.AstroUtil</c>. Internals are Meeus-based (chapters 47, 48);
+    /// accuracy is ~10 arcsec on moon position -- ample for scheduler use, well below
+    /// any UI-level decision threshold. The Sun-related members that previously lived
+    /// here have moved to <see cref="Astronomy.Core.Sun.SunPosition"/> /
+    /// <see cref="Astronomy.Core.Sun.SunEvents"/>.
     /// </para>
     /// <para>
     /// All <see cref="DateTime"/> inputs are expected as <see cref="DateTimeKind.Utc"/>;
@@ -27,65 +27,6 @@ namespace Astronomy.Core.Astrometry
     /// </remarks>
     public static class AstroUtil
     {
-        // -------------------- Sun rise/set / twilights --------------------
-
-        /// <summary>
-        /// Sun rise / set on the UTC calendar day of <paramref name="dateUtc"/>.
-        /// Threshold is the geometric altitude -0.833&#176; (refraction + solar disc
-        /// semi-diameter, the standard "official" sunrise/sunset definition), lowered by
-        /// the refracted horizon dip <c>1.76 * sqrt(elevationM)</c> arcmin so an elevated
-        /// observer's earlier sunrise / later sunset matches reality (~25 s shift at
-        /// 80 m; ~11 min at 10000 m).
-        /// </summary>
-        public static RiseAndSetEvent GetSunRiseAndSet(
-            DateTime dateUtc, double latDeg, double lonEastDeg, double elevationM = 0.0)
-            => RiseSetAt(dateUtc, latDeg, lonEastDeg, -0.833 - MeeusUtility.HorizonDipDeg(elevationM));
-
-        /// <summary>
-        /// Civil twilight (sun centre at -6&#176;). NOT elevation-corrected -- the
-        /// twilight thresholds reference the celestial horizontal plane by convention.
-        /// </summary>
-        public static RiseAndSetEvent GetCivilNightTimes(DateTime dateUtc, double latDeg, double lonEastDeg)
-            => RiseSetAt(dateUtc, latDeg, lonEastDeg, -6.0);
-
-        /// <summary>Nautical twilight (sun centre at -12&#176;). NOT elevation-corrected.</summary>
-        public static RiseAndSetEvent GetNauticalNightTimes(DateTime dateUtc, double latDeg, double lonEastDeg)
-            => RiseSetAt(dateUtc, latDeg, lonEastDeg, -12.0);
-
-        /// <summary>Astronomical twilight (sun centre at -18&#176;). NOT elevation-corrected.</summary>
-        public static RiseAndSetEvent GetNightTimes(DateTime dateUtc, double latDeg, double lonEastDeg)
-            => RiseSetAt(dateUtc, latDeg, lonEastDeg, -18.0);
-
-        private static RiseAndSetEvent RiseSetAt(DateTime dateUtc, double latDeg, double lonEastDeg, double altDeg)
-        {
-            (DateTime? rise, DateTime? set) = SunPosition.RiseSet(dateUtc, latDeg, lonEastDeg, altDeg);
-            return new RiseAndSetEvent(rise, set);
-        }
-
-        // -------------------- Sun position --------------------
-
-        /// <summary>
-        /// Geometric altitude of the Sun (degrees) at <paramref name="utc"/> as seen from
-        /// <paramref name="observer"/>. Solar parallax (~9&quot;) is below tolerance and
-        /// not modelled; refraction is intentionally not applied (caller composes if
-        /// they want apparent altitude).
-        /// </summary>
-        public static double GetSunAltitude(DateTime utc, ObserverInfo observer)
-        {
-            (double altDeg, _) = SunAltAz(utc, observer);
-            return altDeg;
-        }
-
-        /// <summary>
-        /// Azimuth of the Sun (degrees from North clockwise) at <paramref name="utc"/>
-        /// as seen from <paramref name="observer"/>.
-        /// </summary>
-        public static double GetSunAzimuth(DateTime utc, ObserverInfo observer)
-        {
-            (_, double azDeg) = SunAltAz(utc, observer);
-            return azDeg;
-        }
-
         // -------------------- Moon position --------------------
 
         /// <summary>
@@ -198,20 +139,6 @@ namespace Astronomy.Core.Astrometry
             // Topocentric (RA, Dec) of the Moon -- parallax-corrected.
             (double raDeg, double decDeg, _) = MoonPosition.Topocentric(
                 jd, lstDeg, observer.Latitude, observer.Elevation);
-
-            return AltAzFromRaDec(lstDeg, raDeg, decDeg, observer.Latitude);
-        }
-
-        // Computes geocentric (alt, az) of the Sun at utc for the observer. Solar
-        // parallax is negligible; we skip topocentric correction.
-        private static (double AltDeg, double AzDeg) SunAltAz(DateTime utc, ObserverInfo observer)
-        {
-            DateTime utcOnly = EnsureUtc(utc);
-            double jd = JulianDate.FromUtc(utcOnly);
-
-            double lstDeg = SiderealTime.Local(utcOnly, observer.Longitude) * 15.0;
-
-            (double raDeg, double decDeg, _) = SunPosition.Apparent(jd);
 
             return AltAzFromRaDec(lstDeg, raDeg, decDeg, observer.Latitude);
         }

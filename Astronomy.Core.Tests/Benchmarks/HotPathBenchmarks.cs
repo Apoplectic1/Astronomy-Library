@@ -8,6 +8,7 @@ using Astronomy.Core.Locations;
 using Astronomy.Core.Moon;
 using Astronomy.Core.Night;
 using Astronomy.Core.Session;
+using Astronomy.Core.Sun;
 using Astronomy.Core.Targets;
 using Astronomy.Core.Time;
 using BenchmarkDotNet.Attributes;
@@ -68,7 +69,7 @@ namespace Astronomy.Core.Tests.Benchmarks
             _moonAlt = AstroUtil.GetMoonAltitude(_utc, _observer);
             _moonAz  = AstroUtil.GetMoonAzimuth (_utc, _observer);
             _moonPhaseDeg = SkyBrightness.PhaseAngleDegFromAgeDays(LunarAge.DaysAt(_utc));
-            _sunAlt = AstroUtil.GetSunAltitude(_utc, _observer);
+            _sunAlt = SunPosition.AltAzAt(_location, _utc).Altitude;
         }
 
         // ---- Geometry primitives ----
@@ -95,11 +96,11 @@ namespace Astronomy.Core.Tests.Benchmarks
 
         // ---- Astrometry / Moon (public surface; covers the internal Meeus primitives) ----
 
-        // Public sun-altitude wrapper -- exercises SunPosition.Apparent + AltAzFromRaDec.
+        // Public sun-altitude wrapper -- exercises SunEphemeris.Apparent + AltAzFromRaDec.
         [Benchmark]
-        public double AstroUtil_GetSunAltitude()
+        public double Sun_AltAzAt()
         {
-            return AstroUtil.GetSunAltitude(_utc, _observer);
+            return SunPosition.AltAzAt(_location, _utc).Altitude;
         }
 
         // Public moon-altitude wrapper -- exercises MoonPosition.Topocentric + AltAz path.
