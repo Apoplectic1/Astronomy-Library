@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Solution layout
 
-`Astronomy.sln` is **x64-only** (Debug/Release × x64; no AnyCPU/x86) and holds four buildable projects, plus a `PCL` Solution Folder containing seven view-only PCL projects (`PCL.vcxproj` + the six 3rd-party `.lib`s — `cminpack`, `lcms`, `lz4`, `RFC6234`, `zlib`, `zstd`) sourced from `Library\PCL\`. The PCL projects have `ActiveCfg` set but `Build.0` omitted: full source visibility and IntelliSense / F12 in the IDE, but `Build Solution` and `msbuild Astronomy.sln` skip them. PCL rebuilds happen manually via `Library\PCL\src\pcl\windows\vc18\PCL.sln`.
+`Astronomy.sln` is **x64-only** (Debug/Release × x64; no AnyCPU/x86) and holds four buildable projects, plus a `PCL` Solution Folder containing eight view-only PCL projects (`PCL.vcxproj`, the six 3rd-party `.lib`s — `cminpack`, `lcms`, `lz4`, `RFC6234`, `zlib`, `zstd` — and the `xisf.vcxproj` CLI utility) sourced from `Library\PCL\`. The PCL projects have `ActiveCfg` set but `Build.0` omitted: full source visibility and IntelliSense / F12 in the IDE, but `Build Solution` and `msbuild Astronomy.sln` skip them. PCL rebuilds happen manually via `Library\PCL\src\pcl\windows\vc18\PCL.sln`.
 
 The four buildable projects:
 
@@ -79,7 +79,7 @@ Two caveats limit that promise:
 
 ## PCL local build
 
-`Library\PCL\` is the vendored Pleiades PixInsight Class Library, locally pruned to **Windows-only** — the macOS and Linux build trees were stripped. The canonical pinned snapshot is `Library\PCL\PCL-master.zip` (2025-02-22 per `PCL InterOp.md`). Re-extract on a fresh clone, or to discard local edits.
+`Library\PCL\` is the vendored Pleiades PixInsight Class Library, locally pruned to **Windows-only** — the macOS and Linux build trees were largely stripped (some Makefile stubs survive under `Library\PCL\src\modules\...`, but the actual source trees were removed). The canonical pinned snapshot is `Library\PCL\PCL-master.zip` (2025-02-22 per `PCL InterOp.md`). Re-extract on a fresh clone, or to discard local edits.
 
 **Toolset.** All PCL projects (`PCL.vcxproj` + the six 3rd-party libs + `xisf.vcxproj`) are at `<PlatformToolset>v145</PlatformToolset>`, matching `Astronomy.PCL.Native`. The directory naming `vc17` under `src\3rdparty\*\windows\vc17\` and `src\modules\*\windows\vc17\` is historical PCL convention and was deliberately not renamed; only the main PCL solution moved from `src\pcl\windows\vc17\` → `src\pcl\windows\vc18\` to signal the VS2026 build flavor.
 
