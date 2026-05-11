@@ -1,8 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net10.0-windows</TargetFramework>
-    <LangVersion>latest</LangVersion>
     <RootNamespace>Astronomy.PCL</RootNamespace>
     <AssemblyName>Astronomy.PCL</AssemblyName>
     <Deterministic>true</Deterministic>
