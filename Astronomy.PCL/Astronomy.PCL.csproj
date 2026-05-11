@@ -7,6 +7,7 @@
     <AssemblyName>Astronomy.PCL</AssemblyName>
     <Deterministic>true</Deterministic>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <WarningsAsErrors>$(WarningsAsErrors);CS1591</WarningsAsErrors>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <Platforms>x64</Platforms>
     <ProjectGuid>{E1F0A847-9D31-4F26-B5C7-8E2D6A3F1B04}</ProjectGuid>
