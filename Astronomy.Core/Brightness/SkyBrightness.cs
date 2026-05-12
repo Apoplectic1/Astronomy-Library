@@ -172,8 +172,9 @@ namespace Astronomy.Core.Brightness
         private static double AngularDistanceDeg(double alt1, double az1, double alt2, double az2)
         {
             const double R = Math.PI / 180.0;
-            double cos = Math.Sin(alt1 * R) * Math.Sin(alt2 * R)
-                       + Math.Cos(alt1 * R) * Math.Cos(alt2 * R) * Math.Cos((az1 - az2) * R);
+            double cos = Math.FusedMultiplyAdd(
+                Math.Cos(alt1 * R) * Math.Cos(alt2 * R), Math.Cos((az1 - az2) * R),
+                Math.Sin(alt1 * R) * Math.Sin(alt2 * R));
             if (cos > 1.0) cos = 1.0;
             else if (cos < -1.0) cos = -1.0;
             return Math.Acos(cos) / R;

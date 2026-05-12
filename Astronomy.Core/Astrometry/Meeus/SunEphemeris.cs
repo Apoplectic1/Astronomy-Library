@@ -38,9 +38,14 @@ namespace Astronomy.Core.Astrometry.Meeus
 
             // Equation of centre, in degrees.
             double Mrad = M * MeeusUtility.DegToRad;
-            double C = (1.914602 - 0.004817 * T - 0.000014 * T * T) * Math.Sin(Mrad)
-                     + (0.019993 - 0.000101 * T) * Math.Sin(2 * Mrad)
-                     +  0.000289                * Math.Sin(3 * Mrad);
+            // Each coefficient is a polynomial in T (FMA-evaluated), then weighted by sin(kM),
+            // and the three terms accumulate via FMA into C.
+            double c1 = Math.FusedMultiplyAdd(-0.000014, T * T,
+                        Math.FusedMultiplyAdd(-0.004817, T, 1.914602));
+            double c2 = Math.FusedMultiplyAdd(-0.000101, T, 0.019993);
+            double C  = Math.FusedMultiplyAdd(c1, Math.Sin(Mrad),
+                        Math.FusedMultiplyAdd(c2, Math.Sin(2 * Mrad),
+                                       0.000289 * Math.Sin(3 * Mrad)));
 
             double trueLon = L0 + C;
             double trueAnom = M + C;
@@ -121,8 +126,10 @@ namespace Astronomy.Core.Astrometry.Meeus
             m0 = Frac(m0);
 
             // Hour angle at the threshold altitude (Meeus 15.1).
-            double cosH0 = (Math.Sin(targetAltitudeDeg * MeeusUtility.DegToRad)
-                          - Math.Sin(phi * MeeusUtility.DegToRad) * Math.Sin(dec1 * MeeusUtility.DegToRad))
+            double cosH0 = Math.FusedMultiplyAdd(
+                              -Math.Sin(phi * MeeusUtility.DegToRad),
+                               Math.Sin(dec1 * MeeusUtility.DegToRad),
+                               Math.Sin(targetAltitudeDeg * MeeusUtility.DegToRad))
                         / (Math.Cos(phi * MeeusUtility.DegToRad) * Math.Cos(dec1 * MeeusUtility.DegToRad));
 
             DateTime? rise = null;
@@ -175,10 +182,10 @@ namespace Astronomy.Core.Astrometry.Meeus
             double H = MeeusUtility.NormPm180(thetaM - L - raInterp);
 
             // Geometric altitude.
-            double altRad = Math.Asin(
-                Math.Sin(phi * MeeusUtility.DegToRad) * Math.Sin(decInterp * MeeusUtility.DegToRad)
-              + Math.Cos(phi * MeeusUtility.DegToRad) * Math.Cos(decInterp * MeeusUtility.DegToRad)
-                                                      * Math.Cos(H * MeeusUtility.DegToRad));
+            double altRad = Math.Asin(Math.FusedMultiplyAdd(
+                Math.Cos(phi * MeeusUtility.DegToRad) * Math.Cos(decInterp * MeeusUtility.DegToRad),
+                Math.Cos(H * MeeusUtility.DegToRad),
+                Math.Sin(phi * MeeusUtility.DegToRad) * Math.Sin(decInterp * MeeusUtility.DegToRad)));
             double altDeg = altRad * MeeusUtility.RadToDeg;
 
             double dm;

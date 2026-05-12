@@ -209,15 +209,19 @@ namespace Astronomy.Core.Astrometry.Meeus
                 double lC = termsLR[idx + 4];
                 double rC = termsLR[idx + 5];
 
-                double arg = (dC * D + mC * M + mpC * Mp + fC * F) * MeeusUtility.DegToRad;
+                // Accumulate the linear-combo argument with FMA: dC*D + mC*M + mpC*Mp + fC*F.
+                double arg = Math.FusedMultiplyAdd(dC,  D,
+                             Math.FusedMultiplyAdd(mC,  M,
+                             Math.FusedMultiplyAdd(mpC, Mp, fC * F))) * MeeusUtility.DegToRad;
 
                 double mult = 1.0;
                 int absM = mC < 0 ? -mC : mC;
                 if      (absM == 1) mult = E;
                 else if (absM == 2) mult = E2;
 
-                sigmaL += lC * mult * Math.Sin(arg);
-                sigmaR += rC * mult * Math.Cos(arg);
+                // sigmaL += (lC*mult) * sin(arg) -> FMA collapses the += into one round.
+                sigmaL = Math.FusedMultiplyAdd(lC * mult, Math.Sin(arg), sigmaL);
+                sigmaR = Math.FusedMultiplyAdd(rC * mult, Math.Cos(arg), sigmaR);
             }
 
             // Sum periodic series for latitude (sigma_b).
@@ -231,14 +235,16 @@ namespace Astronomy.Core.Astrometry.Meeus
                 int fC  = termsB[idx + 3];
                 double bC = termsB[idx + 4];
 
-                double arg = (dC * D + mC * M + mpC * Mp + fC * F) * MeeusUtility.DegToRad;
+                double arg = Math.FusedMultiplyAdd(dC,  D,
+                             Math.FusedMultiplyAdd(mC,  M,
+                             Math.FusedMultiplyAdd(mpC, Mp, fC * F))) * MeeusUtility.DegToRad;
 
                 double mult = 1.0;
                 int absM = mC < 0 ? -mC : mC;
                 if      (absM == 1) mult = E;
                 else if (absM == 2) mult = E2;
 
-                sigmaB += bC * mult * Math.Sin(arg);
+                sigmaB = Math.FusedMultiplyAdd(bC * mult, Math.Sin(arg), sigmaB);
             }
 
             // Additive terms outside the table (Meeus pg. 342). Venus / Jupiter pulls and
@@ -344,8 +350,10 @@ namespace Astronomy.Core.Astrometry.Meeus
             double m0 = (ra1 + L - theta0) / 360.0;
             m0 = Frac(m0);
 
-            double cosH0 = (Math.Sin(h0Deg * MeeusUtility.DegToRad)
-                          - Math.Sin(phi * MeeusUtility.DegToRad) * Math.Sin(dec1 * MeeusUtility.DegToRad))
+            double cosH0 = Math.FusedMultiplyAdd(
+                              -Math.Sin(phi * MeeusUtility.DegToRad),
+                               Math.Sin(dec1 * MeeusUtility.DegToRad),
+                               Math.Sin(h0Deg * MeeusUtility.DegToRad))
                         / (Math.Cos(phi * MeeusUtility.DegToRad) * Math.Cos(dec1 * MeeusUtility.DegToRad));
 
             DateTime? rise = null;
@@ -387,10 +395,10 @@ namespace Astronomy.Core.Astrometry.Meeus
 
             double H = MeeusUtility.NormPm180(thetaM - L - raInterp);
 
-            double altRad = Math.Asin(
-                Math.Sin(phi * MeeusUtility.DegToRad) * Math.Sin(decInterp * MeeusUtility.DegToRad)
-              + Math.Cos(phi * MeeusUtility.DegToRad) * Math.Cos(decInterp * MeeusUtility.DegToRad)
-                                                      * Math.Cos(H * MeeusUtility.DegToRad));
+            double altRad = Math.Asin(Math.FusedMultiplyAdd(
+                Math.Cos(phi * MeeusUtility.DegToRad) * Math.Cos(decInterp * MeeusUtility.DegToRad),
+                Math.Cos(H * MeeusUtility.DegToRad),
+                Math.Sin(phi * MeeusUtility.DegToRad) * Math.Sin(decInterp * MeeusUtility.DegToRad)));
             double altDeg = altRad * MeeusUtility.RadToDeg;
 
             double denom = 360.0 * Math.Cos(decInterp * MeeusUtility.DegToRad)
@@ -436,8 +444,9 @@ namespace Astronomy.Core.Astrometry.Meeus
             // Geocentric latitude / radius factors -- Meeus 11.1 / 11.2 (pg. 82).
             double phiRad = latDeg * MeeusUtility.DegToRad;
             double u      = Math.Atan(0.99664719 * Math.Tan(phiRad));
-            double rhoSinPhi = 0.99664719 * Math.Sin(u) + (elevationM / 6378140.0) * Math.Sin(phiRad);
-            double rhoCosPhi = Math.Cos(u)              + (elevationM / 6378140.0) * Math.Cos(phiRad);
+            double elevFactor = elevationM / 6378140.0;
+            double rhoSinPhi = Math.FusedMultiplyAdd(0.99664719, Math.Sin(u), elevFactor * Math.Sin(phiRad));
+            double rhoCosPhi = Math.FusedMultiplyAdd(elevFactor, Math.Cos(phiRad), Math.Cos(u));
 
             // Equatorial horizontal parallax, sin(pi) = a / Delta -- Meeus 40.4 (pg. 279).
             double sinPi = EarthEquatorialRadiusKm / distKm;
@@ -455,9 +464,11 @@ namespace Astronomy.Core.Astrometry.Meeus
             double cosH   = Math.Cos(Hrad);
 
             double A = cosDec * sinH;
-            double B = cosDec * cosH - rhoCosPhi * sinPi;
-            double C = sinDec - rhoSinPhi * sinPi;
-            double q = Math.Sqrt(A * A + B * B + C * C);
+            double B = Math.FusedMultiplyAdd(-rhoCosPhi, sinPi, cosDec * cosH);
+            double C = Math.FusedMultiplyAdd(-rhoSinPhi, sinPi, sinDec);
+            // q = sqrt(A^2 + B^2 + C^2) -- FMA the squared-sum chain.
+            double q = Math.Sqrt(Math.FusedMultiplyAdd(A, A,
+                                 Math.FusedMultiplyAdd(B, B, C * C)));
 
             double HpRad   = Math.Atan2(A, B);
             double decpRad = Math.Asin(C / q);

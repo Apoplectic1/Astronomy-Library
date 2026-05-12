@@ -25,12 +25,17 @@ namespace Astronomy.Core.Astrometry.Meeus
         /// Horner evaluation of a polynomial in <paramref name="x"/>. Coefficients are in
         /// ascending order: result = coeffs[0] + coeffs[1]*x + coeffs[2]*x^2 + ...
         /// </summary>
+        /// <remarks>
+        /// Inner step uses <see cref="Math.FusedMultiplyAdd"/> for round-once accuracy
+        /// (matches Meeus's infinite-precision assumption) and to collapse mul+add to
+        /// one hardware uop on FMA3-capable cores.
+        /// </remarks>
         public static double Horner(double x, params double[] coeffs)
         {
             double result = 0.0;
             for (int i = coeffs.Length - 1; i >= 0; i--)
             {
-                result = result * x + coeffs[i];
+                result = Math.FusedMultiplyAdd(result, x, coeffs[i]);
             }
             return result;
         }
@@ -90,10 +95,11 @@ namespace Astronomy.Core.Astrometry.Meeus
             double Omega = 125.04452 - 1934.136261 * T;
             double L     = 280.4665  + 36000.7698 * T;     // Sun's mean longitude
             double Lp    = 218.3165  + 481267.8813 * T;    // Moon's mean longitude
-            double dPsi = -17.20 * Math.Sin(Omega * DegToRad)
-                          - 1.32 * Math.Sin(2.0 * L * DegToRad)
-                          - 0.23 * Math.Sin(2.0 * Lp * DegToRad)
-                          + 0.21 * Math.Sin(2.0 * Omega * DegToRad);
+            // FMA chain: each line is FMA(coefficient, sin(arg), running sum).
+            double dPsi = Math.FusedMultiplyAdd(-17.20, Math.Sin(Omega * DegToRad), 0.0);
+            dPsi = Math.FusedMultiplyAdd( -1.32, Math.Sin(2.0 * L     * DegToRad), dPsi);
+            dPsi = Math.FusedMultiplyAdd( -0.23, Math.Sin(2.0 * Lp    * DegToRad), dPsi);
+            dPsi = Math.FusedMultiplyAdd(  0.21, Math.Sin(2.0 * Omega * DegToRad), dPsi);
             return dPsi;
         }
 
@@ -103,10 +109,10 @@ namespace Astronomy.Core.Astrometry.Meeus
             double Omega = 125.04452 - 1934.136261 * T;
             double L     = 280.4665  + 36000.7698 * T;
             double Lp    = 218.3165  + 481267.8813 * T;
-            double dEps =  9.20 * Math.Cos(Omega * DegToRad)
-                         + 0.57 * Math.Cos(2.0 * L * DegToRad)
-                         + 0.10 * Math.Cos(2.0 * Lp * DegToRad)
-                         - 0.09 * Math.Cos(2.0 * Omega * DegToRad);
+            double dEps = Math.FusedMultiplyAdd( 9.20, Math.Cos(Omega * DegToRad), 0.0);
+            dEps = Math.FusedMultiplyAdd( 0.57, Math.Cos(2.0 * L     * DegToRad), dEps);
+            dEps = Math.FusedMultiplyAdd( 0.10, Math.Cos(2.0 * Lp    * DegToRad), dEps);
+            dEps = Math.FusedMultiplyAdd(-0.09, Math.Cos(2.0 * Omega * DegToRad), dEps);
             return dEps;
         }
 

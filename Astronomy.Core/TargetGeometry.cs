@@ -29,7 +29,8 @@ namespace Astronomy.Core
         {
             double phi = latDeg * Math.PI / 180.0;
             double delta = decDeg * Math.PI / 180.0;
-            double sinAlt = Math.Sin(phi) * Math.Sin(delta) + Math.Cos(phi) * Math.Cos(delta);
+            double sinAlt = Math.FusedMultiplyAdd(Math.Cos(phi), Math.Cos(delta),
+                                                  Math.Sin(phi) * Math.Sin(delta));
             return Math.Asin(sinAlt) * 180.0 / Math.PI;
         }
 
@@ -47,7 +48,9 @@ namespace Astronomy.Core
         {
             double phi = latDeg * Math.PI / 180.0;
             double delta = decDeg * Math.PI / 180.0;
-            double sinAlt = Math.Sin(phi) * Math.Sin(delta) - Math.Cos(phi) * Math.Cos(delta);
+            // FMA with negated cos*cos: sin*sin - cos*cos == FMA(-cos, cos, sin*sin).
+            double sinAlt = Math.FusedMultiplyAdd(-Math.Cos(phi), Math.Cos(delta),
+                                                   Math.Sin(phi) * Math.Sin(delta));
             return Math.Asin(sinAlt) * 180.0 / Math.PI;
         }
 
@@ -78,7 +81,9 @@ namespace Astronomy.Core
             double phi = latDeg * Math.PI / 180.0;
             double delta = decDeg * Math.PI / 180.0;
             double h = altDeg * Math.PI / 180.0;
-            double rhs = (Math.Sin(h) - Math.Sin(phi) * Math.Sin(delta)) / (Math.Cos(phi) * Math.Cos(delta));
+            // FMA in the numerator: sin(h) - sin*sin == FMA(-sin(phi), sin(delta), sin(h)).
+            double rhs = Math.FusedMultiplyAdd(-Math.Sin(phi), Math.Sin(delta), Math.Sin(h))
+                       / (Math.Cos(phi) * Math.Cos(delta));
             if (rhs >  1.0) return double.NaN;
             if (rhs < -1.0) return double.PositiveInfinity;
             return Math.Acos(rhs) * 12.0 / Math.PI;
@@ -99,7 +104,9 @@ namespace Astronomy.Core
             double phi = latDeg * Math.PI / 180.0;
             double delta = decDeg * Math.PI / 180.0;
             double haRad = haHours * Math.PI / 12.0;
-            double sinAlt = Math.Sin(phi) * Math.Sin(delta) + Math.Cos(phi) * Math.Cos(delta) * Math.Cos(haRad);
+            // FMA: (cos*cos) * cos(ha) + (sin*sin) in one rounded step.
+            double sinAlt = Math.FusedMultiplyAdd(Math.Cos(phi) * Math.Cos(delta), Math.Cos(haRad),
+                                                  Math.Sin(phi) * Math.Sin(delta));
             return Math.Asin(sinAlt) * 180.0 / Math.PI;
         }
 
@@ -130,10 +137,13 @@ namespace Astronomy.Core
             double phi = latDeg * Math.PI / 180.0;
             double delta = decDeg * Math.PI / 180.0;
 
-            double sinAlt = Math.Sin(phi) * Math.Sin(delta) + Math.Cos(phi) * Math.Cos(delta) * Math.Cos(haRad);
+            double sinAlt = Math.FusedMultiplyAdd(Math.Cos(phi) * Math.Cos(delta), Math.Cos(haRad),
+                                                  Math.Sin(phi) * Math.Sin(delta));
             double altitude = Math.Asin(sinAlt);
 
-            double cosAz = (Math.Sin(delta) - Math.Sin(phi) * sinAlt) / (Math.Cos(phi) * Math.Cos(altitude));
+            // Numerator: sin(delta) - sin(phi)*sinAlt == FMA(-sin(phi), sinAlt, sin(delta)).
+            double cosAz = Math.FusedMultiplyAdd(-Math.Sin(phi), sinAlt, Math.Sin(delta))
+                         / (Math.Cos(phi) * Math.Cos(altitude));
             if (cosAz >  1.0) cosAz =  1.0;
             if (cosAz < -1.0) cosAz = -1.0;
             double azimuth = Math.Acos(cosAz) * 180.0 / Math.PI;
