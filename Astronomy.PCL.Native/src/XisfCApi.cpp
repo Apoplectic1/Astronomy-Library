@@ -1,5 +1,10 @@
 #include "Astronomy/PCL/XisfCApi.h"
 
+// PCL headers trigger Level4 style warnings (C4100/C4456/C4457/C4458) on template
+// instantiations in our TU. Suppress around the include block so Level4 stays
+// active for our own code below.
+#pragma warning(push)
+#pragma warning(disable: 4100 4456 4457 4458)
 #include <pcl/XISF.h>
 #include <pcl/Image.h>
 #include <pcl/ImageInfo.h>
@@ -7,6 +12,7 @@
 #include <pcl/ColorSpace.h>
 #include <pcl/Exception.h>
 #include <pcl/String.h>
+#pragma warning(pop)
 
 #include "Exception.h"
 #include "LastError.h"

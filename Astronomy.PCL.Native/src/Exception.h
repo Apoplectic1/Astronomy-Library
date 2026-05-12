@@ -3,7 +3,10 @@
 
 #include <exception>
 #include <typeinfo>
+#pragma warning(push)
+#pragma warning(disable: 4100 4456 4457 4458)
 #include <pcl/Exception.h>
+#pragma warning(pop)
 #include "LastError.h"
 #include "Astronomy/PCL/XisfCApi.h"
 
