@@ -1,5 +1,35 @@
 # Astronomy Library — Roadmap
 
+## Open: SIMD / FMA deep dive
+
+Captured 2026-05-12. The FMA hygiene pass landed in `b83a0d8` (Meeus +
+TargetGeometry + SkyBrightness, 1.5-4.2% on Sun / Simpson paths, noise
+on the transcendental-dominated moon path). The user wants to follow
+up with a proper SIMD / vectorization investigation when time allows.
+
+Full field notes — toolchain answers, runtime knobs, performance model,
+microbench design lessons, the HotPathBenchmarks before/after table,
+and four open directions ranked by impact — live in
+**[docs/SIMD_Investigation.md](docs/SIMD_Investigation.md)**.
+
+The four open directions in summary:
+
+1. **Specialized non-`params` `Horner` overloads.** Eliminates the
+   `double[]` allocation that shows up in `Sun_AltAzAt` (144 B/call)
+   and `BestSession_For_MoonBlind` (168 B/call). Low risk, modest win.
+2. **`Vector<double>` SIMD on `MoonPosition.ApparentEcliptic` 60-term
+   table loops.** Biggest perf upside in the portfolio; needs a
+   vectorised sin/cos (hand-rolled polynomial approximation or lookup
+   table) since .NET doesn't auto-vectorise scalar `Math.Sin`/`Cos`.
+3. **Estrin's-scheme polynomial parallelisation.** Drop-in alternative
+   to Horner for longer chains; modest win on 4-term polynomials, grows
+   logarithmically with length.
+4. **Explicit `System.Runtime.Intrinsics.X86.{Fma,Avx2,Avx512F}`
+   intrinsics.** Reserve for cases `Vector<T>` doesn't express. Niche.
+
+Not gating any active work — recorded here so the investigation isn't
+re-derived next time.
+
 ## Open: publish to GitHub
 
 Captured 2026-05-08. The library currently lives only on disk; sibling
