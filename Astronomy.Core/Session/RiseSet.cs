@@ -51,8 +51,8 @@ namespace Astronomy.Core.Session
         public static (RiseSetState State, DateTime? Rise, DateTime? Set) NextAtOrAfter(
             Target target, Location location, DateTime searchFromUtc, double horizonDeg)
         {
-            if (target == null) throw new ArgumentNullException(nameof(target));
-            if (location == null) throw new ArgumentNullException(nameof(location));
+            ArgumentNullException.ThrowIfNull(target);
+            ArgumentNullException.ThrowIfNull(location);
 
             double latDeg = location.North ? location.Latitude : -location.Latitude;
             double decDeg = target.North ? target.Declination : -target.Declination;
@@ -95,9 +95,9 @@ namespace Astronomy.Core.Session
         public static (RiseSetState State, DateTime? Rise, DateTime? Set) NextAtOrAfter(
             Target target, Location location, DateTime searchFromUtc, IHorizonProfile horizon)
         {
-            if (target == null) throw new ArgumentNullException(nameof(target));
-            if (location == null) throw new ArgumentNullException(nameof(location));
-            if (horizon == null) throw new ArgumentNullException(nameof(horizon));
+            ArgumentNullException.ThrowIfNull(target);
+            ArgumentNullException.ThrowIfNull(location);
+            ArgumentNullException.ThrowIfNull(horizon);
 
             // Seed from the scalar lower-bound fast-path. Circumpolar / NeverRises pass
             // straight through with Rise / Set null.

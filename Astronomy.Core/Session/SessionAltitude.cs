@@ -43,8 +43,8 @@ namespace Astronomy.Core.Session
             Target target, Location location,
             DateTime sessionStartUtc, DateTime sessionEndUtc)
         {
-            if (target == null) throw new ArgumentNullException(nameof(target));
-            if (location == null) throw new ArgumentNullException(nameof(location));
+            ArgumentNullException.ThrowIfNull(target);
+            ArgumentNullException.ThrowIfNull(location);
 
             double altStart = AltAzCalculator.At(target, location, sessionStartUtc).Altitude;
             double altEnd   = AltAzCalculator.At(target, location, sessionEndUtc).Altitude;
@@ -74,8 +74,8 @@ namespace Astronomy.Core.Session
             Target target, Location location,
             DateTime sessionStartUtc, DateTime sessionEndUtc)
         {
-            if (target == null) throw new ArgumentNullException(nameof(target));
-            if (location == null) throw new ArgumentNullException(nameof(location));
+            ArgumentNullException.ThrowIfNull(target);
+            ArgumentNullException.ThrowIfNull(location);
 
             DateTime transitUtc = TransitTime.UtcAtOrAfter(target, location, sessionStartUtc);
             if (transitUtc <= sessionEndUtc)
@@ -113,8 +113,8 @@ namespace Astronomy.Core.Session
             Target target, Location location,
             DateTime sessionStartUtc, DateTime sessionEndUtc)
         {
-            if (target == null) throw new ArgumentNullException(nameof(target));
-            if (location == null) throw new ArgumentNullException(nameof(location));
+            ArgumentNullException.ThrowIfNull(target);
+            ArgumentNullException.ThrowIfNull(location);
 
             DateTime midpoint = sessionStartUtc + TimeSpan.FromTicks((sessionEndUtc - sessionStartUtc).Ticks / 2);
             return AltAzCalculator.At(target, location, midpoint).Altitude;

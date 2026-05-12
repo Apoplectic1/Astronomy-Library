@@ -53,8 +53,8 @@ namespace Astronomy.Core.Moon
         public static (double SeparationDeg, double MoonAltDeg, double MoonAzDeg) ObserveAt(
             Target target, Location location, DateTime utc)
         {
-            if (target == null) throw new ArgumentNullException(nameof(target));
-            if (location == null) throw new ArgumentNullException(nameof(location));
+            ArgumentNullException.ThrowIfNull(target);
+            ArgumentNullException.ThrowIfNull(location);
 
             AltAz targetAltAz = AltAzCalculator.At(target, location, utc);
             double tAlt = targetAltAz.Altitude;
@@ -104,8 +104,8 @@ namespace Astronomy.Core.Moon
         public static IReadOnlyList<(DateTime Start, DateTime End)> IntervalsAboveDeg(
             Target target, Location location, NightWindow night, double minSepDeg)
         {
-            if (target == null) throw new ArgumentNullException(nameof(target));
-            if (location == null) throw new ArgumentNullException(nameof(location));
+            ArgumentNullException.ThrowIfNull(target);
+            ArgumentNullException.ThrowIfNull(location);
 
             var result = new List<(DateTime Start, DateTime End)>();
             if (!night.IsValid) return result;

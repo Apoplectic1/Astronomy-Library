@@ -25,8 +25,10 @@ namespace Astronomy.PCL.Interop
         [DllImport(Lib, ExactSpelling = true)]
         internal static extern unsafe int AstronomyXisf_ReadImageF32(System.IntPtr handle, float* outSamples, long samplesCount);
 
+#pragma warning disable CA1838 // Error-path retrieval; marshalling overhead is negligible vs. the exception itself.
         [DllImport(Lib, CharSet = CharSet.Unicode, ExactSpelling = true)]
         internal static extern int AstronomyXisf_GetLastErrorMessage(StringBuilder outBuffer, int bufferCharCount, out int outRequiredCharCount);
+#pragma warning restore CA1838
 
         [DllImport(Lib, ExactSpelling = true)]
         internal static extern int AstronomyXisf_Add(int a, int b);

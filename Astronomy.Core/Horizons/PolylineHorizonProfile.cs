@@ -32,8 +32,8 @@ namespace Astronomy.Core.Horizons
         /// </exception>
         public PolylineHorizonProfile(double[] azimuthsDeg, double[] altitudesDeg)
         {
-            if (azimuthsDeg == null) throw new ArgumentNullException(nameof(azimuthsDeg));
-            if (altitudesDeg == null) throw new ArgumentNullException(nameof(altitudesDeg));
+            ArgumentNullException.ThrowIfNull(azimuthsDeg);
+            ArgumentNullException.ThrowIfNull(altitudesDeg);
             if (azimuthsDeg.Length != altitudesDeg.Length)
                 throw new ArgumentException("azimuthsDeg and altitudesDeg must have the same length");
             if (azimuthsDeg.Length == 0)

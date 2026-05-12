@@ -23,13 +23,13 @@ namespace Astronomy.Core.Night
     public struct NightWindow
     {
         /// <summary>UTC instant of astronomical dawn bounding this night.</summary>
-        public DateTime AstronomicalDawn;
+        public DateTime AstronomicalDawn { get; init; }
 
         /// <summary>UTC instant of astronomical dusk bounding this night.</summary>
-        public DateTime AstronomicalDusk;
+        public DateTime AstronomicalDusk { get; init; }
 
         /// <summary>Fraction of the moon's disk that is illuminated at this night, in [0, 1].</summary>
-        public double   LunarIlluminationFraction;
+        public double   LunarIlluminationFraction { get; init; }
 
         /// <summary>
         /// <see langword="true"/> if both <see cref="AstronomicalDawn"/> and

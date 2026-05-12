@@ -44,8 +44,8 @@ namespace Astronomy.Core.Session
         public static IReadOnlyList<Target> ByTransit(
             IEnumerable<Target> targets, Location location, DateTime searchFromUtc)
         {
-            if (targets == null) throw new ArgumentNullException(nameof(targets));
-            if (location == null) throw new ArgumentNullException(nameof(location));
+            ArgumentNullException.ThrowIfNull(targets);
+            ArgumentNullException.ThrowIfNull(location);
 
             return targets
                 .Where(t => t != null)
@@ -88,8 +88,8 @@ namespace Astronomy.Core.Session
             IEnumerable<Target> targets, Location location,
             DateTime searchFromUtc, double horizonDeg)
         {
-            if (targets == null) throw new ArgumentNullException(nameof(targets));
-            if (location == null) throw new ArgumentNullException(nameof(location));
+            ArgumentNullException.ThrowIfNull(targets);
+            ArgumentNullException.ThrowIfNull(location);
 
             return targets
                 .Where(t => t != null)

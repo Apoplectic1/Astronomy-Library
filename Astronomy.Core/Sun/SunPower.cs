@@ -58,7 +58,7 @@ namespace Astronomy.Core.Sun
         public static double ClearSkyDirectNormalAt(
             Location location, DateTime utc, double linkeTurbidity = 3.0)
         {
-            if (location == null) throw new ArgumentNullException(nameof(location));
+            ArgumentNullException.ThrowIfNull(location);
             if (linkeTurbidity < 1.0) linkeTurbidity = 1.0;
 
             double altDeg = SunPosition.ApparentAltitudeAt(location, utc);
@@ -94,7 +94,7 @@ namespace Astronomy.Core.Sun
         public static double ClearSkyGlobalHorizontalAt(
             Location location, DateTime utc, double linkeTurbidity = 3.0)
         {
-            if (location == null) throw new ArgumentNullException(nameof(location));
+            ArgumentNullException.ThrowIfNull(location);
             if (linkeTurbidity < 1.0) linkeTurbidity = 1.0;
 
             double altDeg = SunPosition.ApparentAltitudeAt(location, utc);
@@ -120,7 +120,7 @@ namespace Astronomy.Core.Sun
         /// </exception>
         public static double OptimalAnnualTiltDeg(Location location)
         {
-            if (location == null) throw new ArgumentNullException(nameof(location));
+            ArgumentNullException.ThrowIfNull(location);
             return 0.76 * location.Latitude + 3.1;
         }
 
@@ -135,7 +135,7 @@ namespace Astronomy.Core.Sun
         /// </exception>
         public static double OptimalSeasonalTiltDeg(Location location, DateOnly utcDate)
         {
-            if (location == null) throw new ArgumentNullException(nameof(location));
+            ArgumentNullException.ThrowIfNull(location);
             DateTime transit = SunEvents.TransitOn(location, utcDate);
             double decDeg = SunPosition.DeclinationAt(transit);
             double latSigned = location.North ? location.Latitude : -location.Latitude;

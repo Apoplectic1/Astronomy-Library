@@ -55,9 +55,9 @@ namespace Astronomy.Core.Session
         public static IReadOnlyList<(DateTime Start, DateTime End)> For(
             Target target, Location location, NightWindow night, IHorizonProfile horizon)
         {
-            if (target == null) throw new ArgumentNullException(nameof(target));
-            if (location == null) throw new ArgumentNullException(nameof(location));
-            if (horizon == null) throw new ArgumentNullException(nameof(horizon));
+            ArgumentNullException.ThrowIfNull(target);
+            ArgumentNullException.ThrowIfNull(location);
+            ArgumentNullException.ThrowIfNull(horizon);
 
             if (!night.IsValid) return new List<(DateTime, DateTime)>();
 
@@ -74,7 +74,7 @@ namespace Astronomy.Core.Session
         }
 
         // Closed-form analytic path: target above scalar horizonDeg ∩ [dusk, dawn].
-        private static IReadOnlyList<(DateTime Start, DateTime End)> ForScalar(
+        private static List<(DateTime Start, DateTime End)> ForScalar(
             Target target, Location location, NightWindow night, double horizonDeg)
         {
             var result = new List<(DateTime Start, DateTime End)>();

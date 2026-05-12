@@ -31,7 +31,7 @@ namespace Astronomy.Core.Sun
         /// </exception>
         public static (double AltDegPerSec, double AzDegPerSec) AngularRateAt(Location location, DateTime utc)
         {
-            if (location == null) throw new ArgumentNullException(nameof(location));
+            ArgumentNullException.ThrowIfNull(location);
 
             DateTime t0 = EnsureUtc(utc);
             AltAz pMinus = SunPosition.AltAzAt(location, t0.AddSeconds(-1));
@@ -68,7 +68,7 @@ namespace Astronomy.Core.Sun
         public static IReadOnlyList<(DateTime Utc, AltAz Pos)> Schedule(
             Location location, DateTime startUtc, DateTime endUtc, TimeSpan step)
         {
-            if (location == null) throw new ArgumentNullException(nameof(location));
+            ArgumentNullException.ThrowIfNull(location);
             if (step < TimeSpan.FromSeconds(1))
                 throw new ArgumentOutOfRangeException(nameof(step), "step must be >= 1 second");
 

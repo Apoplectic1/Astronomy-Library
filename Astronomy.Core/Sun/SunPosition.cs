@@ -46,7 +46,7 @@ namespace Astronomy.Core.Sun
         /// </exception>
         public static AltAz AltAzAt(Location location, DateTime utc)
         {
-            if (location == null) throw new ArgumentNullException(nameof(location));
+            ArgumentNullException.ThrowIfNull(location);
 
             DateTime utcOnly = EnsureUtc(utc);
             double jd = JulianDate.FromUtc(utcOnly);
@@ -96,7 +96,7 @@ namespace Astronomy.Core.Sun
         /// </exception>
         public static double HourAngleAt(Location location, DateTime utc)
         {
-            if (location == null) throw new ArgumentNullException(nameof(location));
+            ArgumentNullException.ThrowIfNull(location);
 
             DateTime utcOnly = EnsureUtc(utc);
             double lonEast = location.West ? -location.Longitude : location.Longitude;

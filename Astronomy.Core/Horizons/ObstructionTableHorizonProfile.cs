@@ -32,7 +32,7 @@ namespace Astronomy.Core.Horizons
         /// </exception>
         public ObstructionTableHorizonProfile(IReadOnlyList<(double AzimuthDeg, double AltitudeDeg)> samples)
         {
-            if (samples == null) throw new ArgumentNullException(nameof(samples));
+            ArgumentNullException.ThrowIfNull(samples);
             if (samples.Count == 0) throw new ArgumentException("at least one sample required");
 
             int n = samples.Count;

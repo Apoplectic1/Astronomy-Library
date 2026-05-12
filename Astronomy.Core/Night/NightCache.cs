@@ -55,8 +55,8 @@ namespace Astronomy.Core.Night
         public NightCache(Location location, DateTime yearStartDay, int yearDaysCount,
                           CancellationToken ct = default)
         {
-            if (location == null) throw new ArgumentNullException(nameof(location));
-            if (yearDaysCount < 0) throw new ArgumentOutOfRangeException(nameof(yearDaysCount));
+            ArgumentNullException.ThrowIfNull(location);
+            ArgumentOutOfRangeException.ThrowIfNegative(yearDaysCount);
 
             Starting = NightCalculator.ComputeNight(location);
             YearStartDay = yearStartDay;

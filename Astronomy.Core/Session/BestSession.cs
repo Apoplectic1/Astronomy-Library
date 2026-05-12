@@ -92,9 +92,9 @@ namespace Astronomy.Core.Session
             Func<double, double>? altitudeQuality = null,
             MoonAvoidanceProfile? profile = null)
         {
-            if (target == null) throw new ArgumentNullException(nameof(target));
-            if (location == null) throw new ArgumentNullException(nameof(location));
-            if (horizon == null) throw new ArgumentNullException(nameof(horizon));
+            ArgumentNullException.ThrowIfNull(target);
+            ArgumentNullException.ThrowIfNull(location);
+            ArgumentNullException.ThrowIfNull(horizon);
             if (minDuration <= TimeSpan.Zero) return null;
             if (minDuration > maxDuration)
                 throw new ArgumentException("minDuration must be <= maxDuration");
@@ -164,9 +164,9 @@ namespace Astronomy.Core.Session
             Target target, Location location, NightWindow night, IHorizonProfile horizon,
             MoonAvoidanceProfile? profile = null)
         {
-            if (target == null) throw new ArgumentNullException(nameof(target));
-            if (location == null) throw new ArgumentNullException(nameof(location));
-            if (horizon == null) throw new ArgumentNullException(nameof(horizon));
+            ArgumentNullException.ThrowIfNull(target);
+            ArgumentNullException.ThrowIfNull(location);
+            ArgumentNullException.ThrowIfNull(horizon);
 
             var visibility = VisibilityWindows.For(target, location, night, horizon);
             if (visibility.Count == 0) return visibility;
@@ -245,9 +245,9 @@ namespace Astronomy.Core.Session
             TimeSpan minDuration, TimeSpan maxDuration,
             Func<double, double>? altitudeQuality = null)
         {
-            if (target == null) throw new ArgumentNullException(nameof(target));
-            if (location == null) throw new ArgumentNullException(nameof(location));
-            if (windows == null) throw new ArgumentNullException(nameof(windows));
+            ArgumentNullException.ThrowIfNull(target);
+            ArgumentNullException.ThrowIfNull(location);
+            ArgumentNullException.ThrowIfNull(windows);
             if (minDuration <= TimeSpan.Zero) return null;
             if (minDuration > maxDuration)
                 throw new ArgumentException("minDuration must be <= maxDuration");
@@ -298,9 +298,9 @@ namespace Astronomy.Core.Session
             IReadOnlyList<(DateTime Start, DateTime End)> windows,
             TimeSpan duration)
         {
-            if (target == null) throw new ArgumentNullException(nameof(target));
-            if (location == null) throw new ArgumentNullException(nameof(location));
-            if (windows == null) throw new ArgumentNullException(nameof(windows));
+            ArgumentNullException.ThrowIfNull(target);
+            ArgumentNullException.ThrowIfNull(location);
+            ArgumentNullException.ThrowIfNull(windows);
             if (duration <= TimeSpan.Zero) return null;
 
             long halfTicks = duration.Ticks / 2;

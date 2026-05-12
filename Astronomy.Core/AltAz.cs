@@ -62,8 +62,8 @@ namespace Astronomy.Core
         /// </exception>
         public static AltAz At(Target target, Location location, DateTime utc)
         {
-            if (target == null) throw new ArgumentNullException(nameof(target));
-            if (location == null) throw new ArgumentNullException(nameof(location));
+            ArgumentNullException.ThrowIfNull(target);
+            ArgumentNullException.ThrowIfNull(location);
 
             double raHours = target.RightAscension;
             double decDeg = target.North ? target.Declination : -target.Declination;
@@ -92,8 +92,8 @@ namespace Astronomy.Core
         /// </exception>
         public static AltAz Of(Target target, Location location)
         {
-            if (target == null) throw new ArgumentNullException(nameof(target));
-            if (location == null) throw new ArgumentNullException(nameof(location));
+            ArgumentNullException.ThrowIfNull(target);
+            ArgumentNullException.ThrowIfNull(location);
             return At(target, location, location.DateTime.ToUniversalTime());
         }
     }

@@ -48,8 +48,8 @@ namespace Astronomy.Core.Sun
         public static (double SeparationDeg, double SunAltDeg, double SunAzDeg) ObserveAt(
             Target target, Location location, DateTime utc)
         {
-            if (target == null) throw new ArgumentNullException(nameof(target));
-            if (location == null) throw new ArgumentNullException(nameof(location));
+            ArgumentNullException.ThrowIfNull(target);
+            ArgumentNullException.ThrowIfNull(location);
 
             AltAz tgt = AltAzCalculator.At(target, location, utc);
             AltAz sun = SunPosition.AltAzAt(location, utc);
@@ -92,8 +92,8 @@ namespace Astronomy.Core.Sun
         public static IReadOnlyList<(DateTime Start, DateTime End)> IntervalsBelowDeg(
             Target target, Location location, DateTime startUtc, DateTime endUtc, double maxSepDeg)
         {
-            if (target == null) throw new ArgumentNullException(nameof(target));
-            if (location == null) throw new ArgumentNullException(nameof(location));
+            ArgumentNullException.ThrowIfNull(target);
+            ArgumentNullException.ThrowIfNull(location);
 
             DateTime s = EnsureUtc(startUtc);
             DateTime e = EnsureUtc(endUtc);

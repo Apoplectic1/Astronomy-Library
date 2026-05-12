@@ -31,7 +31,7 @@ namespace Astronomy.Core.Sun
         /// </exception>
         public static RiseAndSetEvent RiseSetOn(Location location, DateOnly utcDate)
         {
-            if (location == null) throw new ArgumentNullException(nameof(location));
+            ArgumentNullException.ThrowIfNull(location);
             return CrossingsOnInternal(location, utcDate,
                 -0.833 - MeeusUtility.HorizonDipDeg(location.Elevation));
         }
@@ -43,21 +43,21 @@ namespace Astronomy.Core.Sun
         /// </summary>
         public static RiseAndSetEvent CivilTwilightOn(Location location, DateOnly utcDate)
         {
-            if (location == null) throw new ArgumentNullException(nameof(location));
+            ArgumentNullException.ThrowIfNull(location);
             return CrossingsOnInternal(location, utcDate, -6.0);
         }
 
         /// <summary>Nautical twilight (sun centre at -12&#176;). NOT elevation-corrected.</summary>
         public static RiseAndSetEvent NauticalTwilightOn(Location location, DateOnly utcDate)
         {
-            if (location == null) throw new ArgumentNullException(nameof(location));
+            ArgumentNullException.ThrowIfNull(location);
             return CrossingsOnInternal(location, utcDate, -12.0);
         }
 
         /// <summary>Astronomical twilight (sun centre at -18&#176;). NOT elevation-corrected.</summary>
         public static RiseAndSetEvent AstronomicalTwilightOn(Location location, DateOnly utcDate)
         {
-            if (location == null) throw new ArgumentNullException(nameof(location));
+            ArgumentNullException.ThrowIfNull(location);
             return CrossingsOnInternal(location, utcDate, -18.0);
         }
 
@@ -77,7 +77,7 @@ namespace Astronomy.Core.Sun
         public static RiseAndSetEvent CrossingsOn(
             Location location, DateOnly utcDate, double altitudeDeg)
         {
-            if (location == null) throw new ArgumentNullException(nameof(location));
+            ArgumentNullException.ThrowIfNull(location);
             return CrossingsOnInternal(location, utcDate, altitudeDeg);
         }
 
@@ -97,7 +97,7 @@ namespace Astronomy.Core.Sun
         /// </exception>
         public static DateTime TransitOn(Location location, DateOnly utcDate)
         {
-            if (location == null) throw new ArgumentNullException(nameof(location));
+            ArgumentNullException.ThrowIfNull(location);
 
             // Initial guess: UTC noon of utcDate, shifted by location longitude so we
             // start near local solar noon.
@@ -125,7 +125,7 @@ namespace Astronomy.Core.Sun
         /// </exception>
         public static double NoonAltitudeOn(Location location, DateOnly utcDate)
         {
-            if (location == null) throw new ArgumentNullException(nameof(location));
+            ArgumentNullException.ThrowIfNull(location);
             DateTime transit = TransitOn(location, utcDate);
             double latSigned = location.North ? location.Latitude : -location.Latitude;
             double decDeg = SunPosition.DeclinationAt(transit);
@@ -141,7 +141,7 @@ namespace Astronomy.Core.Sun
         /// </exception>
         public static TimeSpan DayLengthOn(Location location, DateOnly utcDate)
         {
-            if (location == null) throw new ArgumentNullException(nameof(location));
+            ArgumentNullException.ThrowIfNull(location);
 
             RiseAndSetEvent ev = RiseSetOn(location, utcDate);
             if (ev.Rise == null && ev.Set == null)
@@ -179,7 +179,7 @@ namespace Astronomy.Core.Sun
         /// </exception>
         public static DateTime? NextRise(Location location, DateTime fromUtc)
         {
-            if (location == null) throw new ArgumentNullException(nameof(location));
+            ArgumentNullException.ThrowIfNull(location);
 
             DateTime cursor = EnsureUtc(fromUtc);
             DateOnly start = DateOnly.FromDateTime(cursor);
@@ -200,7 +200,7 @@ namespace Astronomy.Core.Sun
         /// </exception>
         public static DateTime? NextSet(Location location, DateTime fromUtc)
         {
-            if (location == null) throw new ArgumentNullException(nameof(location));
+            ArgumentNullException.ThrowIfNull(location);
 
             DateTime cursor = EnsureUtc(fromUtc);
             DateOnly start = DateOnly.FromDateTime(cursor);

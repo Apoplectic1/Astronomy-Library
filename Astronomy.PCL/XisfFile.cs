@@ -26,7 +26,7 @@ namespace Astronomy.PCL
         /// <summary>Open an XISF file at <paramref name="path"/>. Throws <see cref="XisfException"/> on failure.</summary>
         public static XisfFile Open(string path)
         {
-            if (path == null) throw new ArgumentNullException(nameof(path));
+            ArgumentNullException.ThrowIfNull(path);
             if (!File.Exists(path)) throw new FileNotFoundException("XISF file not found.", path);
 
             int status = NativeMethods.AstronomyXisf_Open(path, out IntPtr handle);
@@ -88,7 +88,7 @@ namespace Astronomy.PCL
         /// </summary>
         public void ReadImageF32(float[] destination)
         {
-            if (destination == null) throw new ArgumentNullException(nameof(destination));
+            ArgumentNullException.ThrowIfNull(destination);
             ThrowIfDisposed();
             unsafe
             {
@@ -105,7 +105,7 @@ namespace Astronomy.PCL
         {
             if (_handle != IntPtr.Zero)
             {
-                NativeMethods.AstronomyXisf_Close(_handle);
+                _ = NativeMethods.AstronomyXisf_Close(_handle);
                 _handle = IntPtr.Zero;
             }
             GC.SuppressFinalize(this);
@@ -116,15 +116,14 @@ namespace Astronomy.PCL
         {
             if (_handle != IntPtr.Zero)
             {
-                NativeMethods.AstronomyXisf_Close(_handle);
+                _ = NativeMethods.AstronomyXisf_Close(_handle);
                 _handle = IntPtr.Zero;
             }
         }
 
         private void ThrowIfDisposed()
         {
-            if (_handle == IntPtr.Zero)
-                throw new ObjectDisposedException(nameof(XisfFile));
+            ObjectDisposedException.ThrowIf(_handle == IntPtr.Zero, this);
         }
 
         private static void ThrowOnError(int status)

@@ -230,7 +230,7 @@ namespace Astronomy.Core.Moon
         public static double RequiredSepWithRelax(
             double moonAgeDays, double moonAltDeg, MoonAvoidanceProfile profile)
         {
-            if (profile == null) throw new ArgumentNullException(nameof(profile));
+            ArgumentNullException.ThrowIfNull(profile);
             if (!profile.Enabled) return 0.0;
 
             double distance = profile.SeparationDeg;
@@ -272,7 +272,7 @@ namespace Astronomy.Core.Moon
             double actualSepDeg, double moonAgeDays, double moonAltDeg,
             MoonAvoidanceProfile profile)
         {
-            if (profile == null) throw new ArgumentNullException(nameof(profile));
+            ArgumentNullException.ThrowIfNull(profile);
             if (!profile.Enabled) return false;
 
             double required = RequiredSepWithRelax(moonAgeDays, moonAltDeg, profile);

@@ -40,8 +40,8 @@ namespace Astronomy.Core.Session
         /// </exception>
         public static bool IsEverVisible(Target target, Location location, NightWindow night)
         {
-            if (target == null) throw new ArgumentNullException(nameof(target));
-            if (location == null) throw new ArgumentNullException(nameof(location));
+            ArgumentNullException.ThrowIfNull(target);
+            ArgumentNullException.ThrowIfNull(location);
 
             if (!night.IsValid) return false;
 
@@ -100,9 +100,9 @@ namespace Astronomy.Core.Session
         public static bool IsEverAboveHorizon(
             Target target, Location location, NightWindow night, IHorizonProfile horizon)
         {
-            if (target == null) throw new ArgumentNullException(nameof(target));
-            if (location == null) throw new ArgumentNullException(nameof(location));
-            if (horizon == null) throw new ArgumentNullException(nameof(horizon));
+            ArgumentNullException.ThrowIfNull(target);
+            ArgumentNullException.ThrowIfNull(location);
+            ArgumentNullException.ThrowIfNull(horizon);
 
             if (!night.IsValid) return false;
 
@@ -139,9 +139,9 @@ namespace Astronomy.Core.Session
             Target target, Location location, NightWindow night,
             IHorizonProfile horizon, TimeSpan minDuration)
         {
-            if (target == null) throw new ArgumentNullException(nameof(target));
-            if (location == null) throw new ArgumentNullException(nameof(location));
-            if (horizon == null) throw new ArgumentNullException(nameof(horizon));
+            ArgumentNullException.ThrowIfNull(target);
+            ArgumentNullException.ThrowIfNull(location);
+            ArgumentNullException.ThrowIfNull(horizon);
 
             if (!night.IsValid) return false;
 

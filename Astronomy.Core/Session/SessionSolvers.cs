@@ -83,9 +83,9 @@ namespace Astronomy.Core.Session
             MoonAvoidanceProfile? profile = null,
             Func<double, double>? altitudeQuality = null)
         {
-            if (target == null) throw new ArgumentNullException(nameof(target));
-            if (location == null) throw new ArgumentNullException(nameof(location));
-            if (horizon == null) throw new ArgumentNullException(nameof(horizon));
+            ArgumentNullException.ThrowIfNull(target);
+            ArgumentNullException.ThrowIfNull(location);
+            ArgumentNullException.ThrowIfNull(horizon);
             if (cap.HasValue && cap.Value <= TimeSpan.Zero) return null;
 
             var candidates = ResolveCandidates(target, location, night, horizon, profile);
@@ -125,9 +125,9 @@ namespace Astronomy.Core.Session
             TimeSpan? cap = null,
             Func<double, double>? altitudeQuality = null)
         {
-            if (target == null) throw new ArgumentNullException(nameof(target));
-            if (location == null) throw new ArgumentNullException(nameof(location));
-            if (candidates == null) throw new ArgumentNullException(nameof(candidates));
+            ArgumentNullException.ThrowIfNull(target);
+            ArgumentNullException.ThrowIfNull(location);
+            ArgumentNullException.ThrowIfNull(candidates);
             if (cap.HasValue && cap.Value <= TimeSpan.Zero) return null;
 
             return LongestDurationInInternal(target, location, candidates, cap,
@@ -196,8 +196,8 @@ namespace Astronomy.Core.Session
             Func<double, double>? altitudeQuality = null,
             int maxIterations = 20)
         {
-            if (target == null) throw new ArgumentNullException(nameof(target));
-            if (location == null) throw new ArgumentNullException(nameof(location));
+            ArgumentNullException.ThrowIfNull(target);
+            ArgumentNullException.ThrowIfNull(location);
             if (duration <= TimeSpan.Zero) return null;
             if (minHorizonDeg < -90.0 || minHorizonDeg > 90.0)
                 throw new ArgumentException("minHorizonDeg must be in [-90, 90]", nameof(minHorizonDeg));
@@ -271,9 +271,9 @@ namespace Astronomy.Core.Session
             TimeSpan? cap = null,
             MoonAvoidanceProfile? profile = null)
         {
-            if (target == null) throw new ArgumentNullException(nameof(target));
-            if (location == null) throw new ArgumentNullException(nameof(location));
-            if (horizon == null) throw new ArgumentNullException(nameof(horizon));
+            ArgumentNullException.ThrowIfNull(target);
+            ArgumentNullException.ThrowIfNull(location);
+            ArgumentNullException.ThrowIfNull(horizon);
             if (cap.HasValue && cap.Value <= TimeSpan.Zero) return null;
 
             var candidates = ResolveCandidates(target, location, night, horizon, profile);
@@ -303,9 +303,9 @@ namespace Astronomy.Core.Session
             IReadOnlyList<(DateTime Start, DateTime End)> candidates,
             TimeSpan? cap = null)
         {
-            if (target == null) throw new ArgumentNullException(nameof(target));
-            if (location == null) throw new ArgumentNullException(nameof(location));
-            if (candidates == null) throw new ArgumentNullException(nameof(candidates));
+            ArgumentNullException.ThrowIfNull(target);
+            ArgumentNullException.ThrowIfNull(location);
+            ArgumentNullException.ThrowIfNull(candidates);
             if (cap.HasValue && cap.Value <= TimeSpan.Zero) return null;
 
             return LongestDurationCenteredInInternal(target, location, candidates, cap);
@@ -343,8 +343,8 @@ namespace Astronomy.Core.Session
             MoonAvoidanceProfile? profile = null,
             int maxIterations = 20)
         {
-            if (target == null) throw new ArgumentNullException(nameof(target));
-            if (location == null) throw new ArgumentNullException(nameof(location));
+            ArgumentNullException.ThrowIfNull(target);
+            ArgumentNullException.ThrowIfNull(location);
             if (duration <= TimeSpan.Zero) return null;
             if (minHorizonDeg < -90.0 || minHorizonDeg > 90.0)
                 throw new ArgumentException("minHorizonDeg must be in [-90, 90]", nameof(minHorizonDeg));

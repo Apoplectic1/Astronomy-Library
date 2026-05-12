@@ -36,8 +36,8 @@ namespace Astronomy.Core.Session
         /// </exception>
         public static DateTime UtcAtOrAfter(Target target, Location location, DateTime searchFromUtc)
         {
-            if (target == null) throw new ArgumentNullException(nameof(target));
-            if (location == null) throw new ArgumentNullException(nameof(location));
+            ArgumentNullException.ThrowIfNull(target);
+            ArgumentNullException.ThrowIfNull(location);
 
             double lonDegEast = location.West ? -location.Longitude : location.Longitude;
             double raHours = target.RightAscension;
@@ -84,8 +84,8 @@ namespace Astronomy.Core.Session
             Target target, Location location,
             DateTime sessionStartUtc, DateTime sessionEndUtc)
         {
-            if (target == null) throw new ArgumentNullException(nameof(target));
-            if (location == null) throw new ArgumentNullException(nameof(location));
+            ArgumentNullException.ThrowIfNull(target);
+            ArgumentNullException.ThrowIfNull(location);
 
             DateTime midpoint = sessionStartUtc + TimeSpan.FromTicks((sessionEndUtc - sessionStartUtc).Ticks / 2);
             DateTime transit = UtcAtOrAfter(target, location, sessionStartUtc);

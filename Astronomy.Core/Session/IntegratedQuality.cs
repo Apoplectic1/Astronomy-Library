@@ -50,9 +50,9 @@ namespace Astronomy.Core.Session
             DateTime startUtc, TimeSpan duration,
             Func<double, double> altitudeQuality)
         {
-            if (target == null) throw new ArgumentNullException(nameof(target));
-            if (location == null) throw new ArgumentNullException(nameof(location));
-            if (altitudeQuality == null) throw new ArgumentNullException(nameof(altitudeQuality));
+            ArgumentNullException.ThrowIfNull(target);
+            ArgumentNullException.ThrowIfNull(location);
+            ArgumentNullException.ThrowIfNull(altitudeQuality);
 
             double latDeg = location.North ? location.Latitude : -location.Latitude;
             double decDeg = target.North ? target.Declination : -target.Declination;
@@ -95,8 +95,8 @@ namespace Astronomy.Core.Session
             Target target, Location location,
             DateTime startUtc, TimeSpan duration)
         {
-            if (target == null) throw new ArgumentNullException(nameof(target));
-            if (location == null) throw new ArgumentNullException(nameof(location));
+            ArgumentNullException.ThrowIfNull(target);
+            ArgumentNullException.ThrowIfNull(location);
 
             double latDeg = location.North ? location.Latitude : -location.Latitude;
             double decDeg = target.North ? target.Declination : -target.Declination;
@@ -155,9 +155,9 @@ namespace Astronomy.Core.Session
             DateTime sessionStartUtc, DateTime sessionEndUtc,
             Func<double, double> altitudeQuality)
         {
-            if (target == null) throw new ArgumentNullException(nameof(target));
-            if (location == null) throw new ArgumentNullException(nameof(location));
-            if (altitudeQuality == null) throw new ArgumentNullException(nameof(altitudeQuality));
+            ArgumentNullException.ThrowIfNull(target);
+            ArgumentNullException.ThrowIfNull(location);
+            ArgumentNullException.ThrowIfNull(altitudeQuality);
 
             DateTime midpoint = sessionStartUtc + TimeSpan.FromTicks((sessionEndUtc - sessionStartUtc).Ticks / 2);
             double firstHalf  = OverSession(target, location, sessionStartUtc, midpoint - sessionStartUtc, altitudeQuality);

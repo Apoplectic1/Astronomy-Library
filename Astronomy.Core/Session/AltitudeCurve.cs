@@ -63,8 +63,8 @@ namespace Astronomy.Core.Session
         public static IReadOnlyList<double> Sample(
             Target target, Location location, DateTime startUtc, TimeSpan step, int count)
         {
-            if (target == null) throw new ArgumentNullException(nameof(target));
-            if (location == null) throw new ArgumentNullException(nameof(location));
+            ArgumentNullException.ThrowIfNull(target);
+            ArgumentNullException.ThrowIfNull(location);
             if (step <= TimeSpan.Zero)
                 throw new ArgumentException("step must be positive", nameof(step));
             if (count < 0)

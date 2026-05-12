@@ -47,7 +47,7 @@ namespace Astronomy.Core.Night
         /// </exception>
         public static NightWindow ComputeNight(Location location, double sunAltBelowDeg)
         {
-            if (location == null) throw new ArgumentNullException(nameof(location));
+            ArgumentNullException.ThrowIfNull(location);
             return NightCalculator.Compute(location, sunAltBelowDeg);
         }
     }
