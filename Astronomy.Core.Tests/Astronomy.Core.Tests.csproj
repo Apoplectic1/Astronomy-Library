@@ -38,7 +38,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="..\PCL\src\utils\xisf\TestData\test.xisf">
+    <None Include="..\PCL\src\utils\xisf\TestData\test.xisf"
+          Condition="Exists('..\PCL\src\utils\xisf\TestData\test.xisf')">
       <Link>TestData\test.xisf</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
