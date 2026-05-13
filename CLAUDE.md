@@ -54,6 +54,7 @@ These are baked into the public API and must be respected when adding code:
 - **DateTime kinds.** `Location.DateTime` is caller-owned. `Local`/`Unspecified` are treated as local; `Utc` is no-op'd. `NightWindow` outputs are `Kind=Utc`. Helpers like `AltAzCalculator.Of` call `ToUniversalTime()` internally.
 - **Immutability + `With(...)`.** `Location` and `Target` are immutable; mutations produce new instances via a `With` method that takes optional parameters.
 - **D/M/S accessors are computed on read**, never stored. Don't add stored DMS fields — they would drift.
+- **Schedule scalars don't live on `Location` anymore.** `Location.Horizon` and `Location.Duration` are `[Obsolete]` (warning, not error) as of 2026-05-13 (commit `301fa3f`). They're retained for transitional caller-side persistence (TargetPlanner's `NamedLocationSetting` still serializes them) but Library scheduling helpers MUST take horizon as an `IHorizonProfile` parameter and duration as a `TimeSpan` parameter explicitly — never read off a captured `Location` reference, which can carry a stale value across a `.With(...)` edit. `BestSession.For` / `ResolveCandidates` / `SessionSolvers` already follow this pattern; new helpers must too. The only in-tree reads are inside `Location` itself (the `With` copy, the ctor's auto-property init, and `MinutesAboveHorizon`) — each pragma-suppressed with a comment explaining why it's not a regression.
 
 ## Thread safety
 
