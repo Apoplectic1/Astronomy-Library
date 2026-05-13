@@ -52,9 +52,25 @@ namespace Astronomy.Core.Locations
         /// horizon" for scheduling math. A flat-horizon scalar -- for azimuth-varying
         /// profiles, see <c>Astronomy.Core.Horizons.IHorizonProfile</c>.
         /// </summary>
+        /// <remarks>
+        /// Retained for transitional caller-side persistence (TargetPlanner's
+        /// <c>NamedLocationSetting</c> still serializes this scalar). Library scheduling
+        /// helpers MUST take horizon as an explicit <see cref="Horizons.IHorizonProfile"/>
+        /// parameter rather than reading <see cref="Horizon"/> off a captured
+        /// <see cref="Location"/> -- a captured reference can carry a stale value across a
+        /// <see cref="With"/> edit. <see cref="Session.BestSession"/> and friends already
+        /// follow this pattern.
+        /// </remarks>
+        [Obsolete("Pass an IHorizonProfile explicitly to scheduling helpers (e.g. BestSession.For). Location.Horizon is transitional persistence for callers only.", error: false)]
         public double        Horizon      { get; }
 
         /// <summary>Minimum time above <see cref="Horizon"/> required for a target to qualify as observable.</summary>
+        /// <remarks>
+        /// Same transitional-persistence contract as <see cref="Horizon"/>: scheduling
+        /// helpers must take duration as an explicit <see cref="TimeSpan"/> parameter, not
+        /// read it off a captured <see cref="Location"/>.
+        /// </remarks>
+        [Obsolete("Pass duration explicitly to scheduling helpers. Location.Duration is transitional persistence for callers only.", error: false)]
         public TimeSpan      Duration     { get; }
 
         /// <summary>
@@ -106,7 +122,9 @@ namespace Astronomy.Core.Locations
         public double LonSeconds => 3600.0 * (Longitude - LonDegrees - LonMinutes / 60.0);
 
         /// <summary>Convenience accessor for <see cref="Duration"/> in minutes.</summary>
+#pragma warning disable CS0618 // Wrapper read of the transitional Duration; same contract as the property itself.
         public double MinutesAboveHorizon => Duration.TotalMinutes;
+#pragma warning restore CS0618
 
         /// <summary>
         /// Constructs a fully-specified <see cref="Location"/>. Negative
@@ -138,8 +156,10 @@ namespace Astronomy.Core.Locations
             North        = north;
             Longitude    = longitude;
             West         = west;
+#pragma warning disable CS0618 // Ctor must initialize its own Horizon/Duration auto-properties; not a regression.
             Horizon      = horizon;
             Duration     = duration;
+#pragma warning restore CS0618
             DateTime     = dateTime;
             TimeZoneInfo = timeZoneInfo ?? TimeZoneInfo.Local;
             Elevation    = elevation;
@@ -164,6 +184,7 @@ namespace Astronomy.Core.Locations
             double? elevation = null,
             int?    bortleClass = null,
             double? extinctionK = null)
+#pragma warning disable CS0618 // Location.With must read its own Horizon/Duration to preserve them; not a regression.
             => new Location(
                 name         ?? this.Name,
                 latitude     ?? this.Latitude,
@@ -177,6 +198,7 @@ namespace Astronomy.Core.Locations
                 elevation    ?? this.Elevation,
                 bortleClass  ?? this.BortleClass,
                 extinctionK  ?? this.ExtinctionK);
+#pragma warning restore CS0618
 
         /// <summary>
         /// Neutral, ship-safe placeholder values, freshly instantiated on each access.
