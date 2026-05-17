@@ -117,17 +117,19 @@ namespace Astronomy.Core.Astrometry.Meeus
         }
 
         /// <summary>
-        /// Atmospheric refraction (degrees) at apparent altitude <paramref name="apparentAltDeg"/>.
-        /// Bennett's formula with Saemundsson correction; matches NINA's
-        /// <c>AstroUtil.GetRefraction</c> within mas. Returns 0 for altitudes below the
-        /// horizon (no upward bend modelled past nadir).
+        /// Atmospheric refraction (degrees) at <b>true (geometric)</b> altitude
+        /// <paramref name="trueAltDeg"/> via Saemundsson 1986. Add to a geometric
+        /// altitude to get apparent altitude. Returns 0 for altitudes below
+        /// ~-1&#176; (formula breaks down past the geometric nadir of the standard-
+        /// atmosphere model).
         /// </summary>
-        public static double RefractionDeg(double apparentAltDeg)
+        public static double SaemundssonRefractionDeg(double trueAltDeg)
         {
-            if (apparentAltDeg < -1.0) return 0.0;
-            // Bennett 1982: cot(alt + 7.31/(alt + 4.4)) in degrees, result in arcminutes.
-            double h = apparentAltDeg + 7.31 / (apparentAltDeg + 4.4);
-            double rArcmin = 1.0 / Math.Tan(h * DegToRad);
+            if (trueAltDeg < -1.0) return 0.0;
+            // Saemundsson 1986: 1.02 * cot(h_t + 10.3/(h_t + 5.11)) in degrees,
+            // result in arcminutes. h_t is true (geometric) altitude.
+            double h = trueAltDeg + 10.3 / (trueAltDeg + 5.11);
+            double rArcmin = 1.02 / Math.Tan(h * DegToRad);
             return rArcmin / 60.0;
         }
 

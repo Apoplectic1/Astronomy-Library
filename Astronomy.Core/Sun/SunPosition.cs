@@ -123,7 +123,7 @@ namespace Astronomy.Core.Sun
         public static double ApparentAltitudeAt(Location location, DateTime utc)
         {
             double altGeom = AltAzAt(location, utc).Altitude;
-            return altGeom + Refraction.BennettDeg(altGeom);
+            return altGeom + Refraction.SaemundssonDeg(altGeom);
         }
 
         /// <summary>

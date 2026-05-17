@@ -39,7 +39,18 @@ namespace Astronomy.Core.Brightness
         /// </summary>
         /// <param name="targetAltDeg">Target altitude (degrees, 0 = horizon, 90 = zenith).</param>
         /// <param name="targetAzDeg">Target azimuth (degrees from North, clockwise).</param>
-        /// <param name="moonAltDeg">Moon altitude (degrees).</param>
+        /// <param name="moonAltDeg">
+        /// Moon <b>apparent</b> altitude (degrees) -- i.e. the moon's altitude as
+        /// it appears through the atmosphere (geometric altitude + atmospheric
+        /// refraction). The moon contribution gates on <c>moonAltDeg &gt; 0</c>,
+        /// so passing apparent altitude aligns the K-S moonset with the visually
+        /// observed horizon (~34&#8242; refraction lift, ~2 min later than the
+        /// geometric moonset depending on the moon's descent rate). Callers
+        /// already holding a geometric altitude (from e.g.
+        /// <see cref="Astronomy.Core.Moon.MoonSeparation"/>) should add
+        /// <see cref="Astronomy.Core.Astrometry.Refraction.SaemundssonDeg"/>
+        /// to convert before passing in.
+        /// </param>
         /// <param name="moonAzDeg">Moon azimuth (degrees from North, clockwise).</param>
         /// <param name="moonPhaseAngleDeg">Phase angle (0 = full, 180 = new).</param>
         /// <param name="sunAltDeg">Sun altitude (degrees). Below −18° contributes zero.</param>
