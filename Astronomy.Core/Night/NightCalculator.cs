@@ -102,6 +102,48 @@ namespace Astronomy.Core.Night
                         startingDusk = set;
                     }
                 }
+
+                // Caveat: SunEphemeris.RiseSet returns ONE set event per UTC calendar
+                // day (Meeus's single-iteration convergence at m2 = Frac(m0 + H0/360)).
+                // On dates where local evening astronomical dusk straddles 00:00 UTC,
+                // TWO -18-deg down-crossings land on the same UTC day -- the prior
+                // evening's dusk just past midnight UTC, and tonight's dusk just before
+                // midnight UTC the next day. Meeus converges to whichever is closer to
+                // its initial m_init and silently misses the other. The dropped event
+                // is the dusk we actually need for the current night; the one we found
+                // is the prior night's dusk, which combines with endingDawn into a
+                // >18 h "night" that is really two separate nights with a sunlit day
+                // between them.
+                //
+                // Detection: a real astronomical night at non-polar latitudes is at
+                // most ~14 h, and at extreme polar twilight conditions the dusk/dawn
+                // search already returns null (NightWindow.IsValid then reports false
+                // at the caller). A computed (dawn - dusk) > 18 h is the signature of
+                // the missing-late-dusk bug, not a real night.
+                //
+                // Recovery: brute-force-bisect backwards from endingDawn for the
+                // latest -18-deg down-crossing. Triggers on ~6-10 nights per year per
+                // location at mid-latitudes (autumn / spring equinox bands, shifted by
+                // each DST transition); recovery cost is ~25 sun-altitude evaluations
+                // plus a ~35-step bisect (a few microseconds), trivial vs the 365
+                // night-builds in a year-cache.
+                //
+                // The "structural" alternative is to extend SunEphemeris.RiseSet to
+                // return both events on collision days, but that changes the API for
+                // every consumer; this localized fix has zero blast radius outside
+                // this method.
+                if (startingDusk.HasValue
+                    && (endingDawn.Value - startingDusk.Value) > TimeSpan.FromHours(18))
+                {
+                    DateTime? recovered = FindLatestDuskBefore(
+                        endingDawn.Value, latSigned, lonEast, sunAltDeg);
+                    if (recovered.HasValue
+                        && recovered.Value > startingDusk.Value
+                        && (endingDawn.Value - recovered.Value) <= TimeSpan.FromHours(18))
+                    {
+                        startingDusk = recovered;
+                    }
+                }
             }
 
             return (endingDawn, startingDusk);
@@ -118,6 +160,73 @@ namespace Astronomy.Core.Night
                 case DateTimeKind.Local: return dt.ToUniversalTime();
                 default:                 return DateTime.SpecifyKind(dt, DateTimeKind.Local).ToUniversalTime();
             }
+        }
+
+        // Walk backward from `before` in 30-minute steps to bracket the most recent
+        // sun crossing from above sunAltBelowDeg to at-or-below it (= astronomical
+        // dusk for -18 deg), then bisect to ~1-second precision. Used by
+        // BracketingPair to recover the late same-UTC-day dusk that
+        // SunEphemeris.RiseSet silently drops on collision days. Returns null if no
+        // crossing is found within ~15 h (polar / anomalous condition -- caller
+        // falls back to the original startingDusk).
+        private static DateTime? FindLatestDuskBefore(
+            DateTime before, double latSigned, double lonEast, double sunAltBelowDeg)
+        {
+            const int MaxStepsBack = 30;
+            TimeSpan step = TimeSpan.FromMinutes(30);
+
+            DateTime tHi = before;
+            double altHi = SunAltitudeDeg(tHi, latSigned, lonEast);
+            for (int i = 1; i <= MaxStepsBack; i++)
+            {
+                DateTime tLo = before.AddTicks(-i * step.Ticks);
+                double altLo = SunAltitudeDeg(tLo, latSigned, lonEast);
+                // Forward-in-time across [tLo, tHi]: altitude goes from above the
+                // threshold (at tLo) to at-or-below (at tHi) -- this is the dusk
+                // crossing we want.
+                if (altLo > sunAltBelowDeg && altHi <= sunAltBelowDeg)
+                    return BisectDuskCrossing(tLo, tHi, sunAltBelowDeg, latSigned, lonEast);
+                tHi = tLo;
+                altHi = altLo;
+            }
+            return null;
+        }
+
+        // Bisect the dusk crossing within [lo, hi] where altLo > threshold and
+        // altHi <= threshold. Returns the first UTC instant (to ~1 s) where the
+        // sun's altitude is at or below the threshold.
+        private static DateTime BisectDuskCrossing(
+            DateTime lo, DateTime hi, double threshold, double latSigned, double lonEast)
+        {
+            while ((hi - lo).Ticks > TimeSpan.TicksPerSecond)
+            {
+                DateTime mid = lo.AddTicks((hi - lo).Ticks / 2);
+                double altMid = SunAltitudeDeg(mid, latSigned, lonEast);
+                if (altMid > threshold) lo = mid;
+                else hi = mid;
+            }
+            return hi;
+        }
+
+        // Sun altitude in degrees at a UTC instant using the standard equatorial-to-
+        // horizontal conversion: sun RA/Dec from SunEphemeris.Apparent, LST at the
+        // observer from SiderealTime.Local, then
+        //   alt = asin(sin(lat) * sin(dec) + cos(lat) * cos(dec) * cos(HA)).
+        // Internal to NightCalculator -- the dusk-recovery path is the only consumer.
+        private static double SunAltitudeDeg(DateTime utc, double latSigned, double lonEast)
+        {
+            double jd = JulianDate.FromUtc(utc);
+            (double raDeg, double decDeg, double _r) = SunEphemeris.Apparent(jd);
+            double lstDeg = SiderealTime.Local(utc, lonEast) * 15.0;
+            double haDeg = lstDeg - raDeg;
+            if (haDeg > 180.0) haDeg -= 360.0;
+            else if (haDeg < -180.0) haDeg += 360.0;
+
+            const double degToRad = Math.PI / 180.0;
+            double sinAlt = Math.Sin(latSigned * degToRad) * Math.Sin(decDeg * degToRad)
+                          + Math.Cos(latSigned * degToRad) * Math.Cos(decDeg * degToRad)
+                          * Math.Cos(haDeg * degToRad);
+            return Math.Asin(sinAlt) * (180.0 / Math.PI);
         }
     }
 }
