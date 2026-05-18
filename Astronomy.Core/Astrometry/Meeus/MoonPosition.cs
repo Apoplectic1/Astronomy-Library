@@ -341,14 +341,14 @@ namespace Astronomy.Core.Astrometry.Meeus
             (double ra2, double dec2, _) = Apparent(jd0 + 1.0);
 
             // Unwrap RA seam (moon moves ~13 deg/day so wraps are common).
-            ra1 = Unwrap(ra0, ra1);
-            ra2 = Unwrap(ra1, ra2);
+            ra1 = RiseSetMath.Unwrap(ra0, ra1);
+            ra2 = RiseSetMath.Unwrap(ra1, ra2);
 
             double L = -lonEastDeg;  // Meeus uses west-positive longitudes
             double phi = latDeg;
 
             double m0 = (ra1 + L - theta0) / 360.0;
-            m0 = Frac(m0);
+            m0 = RiseSetMath.Frac(m0);
 
             double cosH0 = Math.FusedMultiplyAdd(
                               -Math.Sin(phi * MeeusUtility.DegToRad),
@@ -362,8 +362,8 @@ namespace Astronomy.Core.Astrometry.Meeus
             if (cosH0 >= -1.0 && cosH0 <= 1.0)
             {
                 double H0deg = Math.Acos(cosH0) * MeeusUtility.RadToDeg;
-                double m1 = Frac(m0 - H0deg / 360.0);
-                double m2 = Frac(m0 + H0deg / 360.0);
+                double m1 = RiseSetMath.Frac(m0 - H0deg / 360.0);
+                double m2 = RiseSetMath.Frac(m0 + H0deg / 360.0);
 
                 // 5 iterations -- the moon moves fast enough that 3 (the sun's count)
                 // doesn't always converge to within 30 sec.
@@ -380,8 +380,8 @@ namespace Astronomy.Core.Astrometry.Meeus
             return (rise, set);
         }
 
-        // Same idea as SunEphemeris.RefineEvent but inlined here so MoonPosition stays
-        // self-contained -- callers don't need to know which Meeus class owns the helper.
+        // Mirror of SunEphemeris.RefineEvent for the Moon (drops isTransit; the
+        // chapter-15 horizon refinement only runs for rise/set events).
         private static double RefineMoonEvent(
             double m, double theta0, double L, double phi,
             double ra0, double ra1, double ra2, double dec0, double dec1, double dec2,
@@ -390,8 +390,8 @@ namespace Astronomy.Core.Astrometry.Meeus
             double thetaM = MeeusUtility.Norm360(theta0 + 360.985647 * m);
 
             double n = m;
-            double raInterp  = Interp3(ra0,  ra1,  ra2,  n);
-            double decInterp = Interp3(dec0, dec1, dec2, n);
+            double raInterp  = RiseSetMath.Interp3(ra0,  ra1,  ra2,  n);
+            double decInterp = RiseSetMath.Interp3(dec0, dec1, dec2, n);
 
             double H = MeeusUtility.NormPm180(thetaM - L - raInterp);
 
@@ -406,25 +406,9 @@ namespace Astronomy.Core.Astrometry.Meeus
                                  * Math.Sin(H        * MeeusUtility.DegToRad);
             if (Math.Abs(denom) < 1e-12) return m;
             double dm = (altDeg - h0Deg) / denom;
-            return Frac(m + dm);
+            return RiseSetMath.Frac(m + dm);
         }
 
-        private static double Interp3(double y0, double y1, double y2, double n)
-        {
-            double a = y1 - y0;
-            double b = y2 - y1;
-            double c = b - a;
-            return y1 + 0.5 * n * (a + b + n * c);
-        }
-
-        private static double Unwrap(double prev, double cur)
-        {
-            if (cur - prev > 180.0) return cur - 360.0;
-            if (prev - cur > 180.0) return cur + 360.0;
-            return cur;
-        }
-
-        private static double Frac(double m) => m - Math.Floor(m);
 
         /// <summary>
         /// Topocentric apparent equatorial coordinates of the Moon, applying parallax

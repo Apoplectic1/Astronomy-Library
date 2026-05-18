@@ -114,8 +114,8 @@ namespace Astronomy.Core.Astrometry.Meeus
 
             // Resolve the +-180 wrap in RA between consecutive days (sun moves ~1 deg/day,
             // so the sole concern is the seam near 0h/360h). Force monotonic sequence.
-            ra1 = Unwrap(ra0, ra1);
-            ra2 = Unwrap(ra1, ra2);
+            ra1 = RiseSetMath.Unwrap(ra0, ra1);
+            ra2 = RiseSetMath.Unwrap(ra1, ra2);
 
             // Approximate transit time fraction (Meeus 15.2). lonDeg east-positive; Meeus
             // uses west-positive so negate.
@@ -123,7 +123,7 @@ namespace Astronomy.Core.Astrometry.Meeus
             double phi = latDeg;
 
             double m0 = (ra1 + L - theta0) / 360.0;
-            m0 = Frac(m0);
+            m0 = RiseSetMath.Frac(m0);
 
             // Hour angle at the threshold altitude (Meeus 15.1).
             double cosH0 = Math.FusedMultiplyAdd(
@@ -141,8 +141,8 @@ namespace Astronomy.Core.Astrometry.Meeus
             if (!circumpolarAbove && !circumpolarBelow)
             {
                 double H0deg = Math.Acos(cosH0) * MeeusUtility.RadToDeg;
-                double m1 = Frac(m0 - H0deg / 360.0);
-                double m2 = Frac(m0 + H0deg / 360.0);
+                double m1 = RiseSetMath.Frac(m0 - H0deg / 360.0);
+                double m2 = RiseSetMath.Frac(m0 + H0deg / 360.0);
 
                 // Iterate two rounds; each correction is small (< 1 minute typical).
                 for (int iter = 0; iter < 3; iter++)
@@ -175,8 +175,8 @@ namespace Astronomy.Core.Astrometry.Meeus
             // where DeltaT is TT-UT in seconds. For our scheduler use, DeltaT ~ 70s; the
             // resulting position error is well below 30s timing precision so we ignore it.
             double n = m;
-            double raInterp  = Interpolate3(ra0,  ra1,  ra2,  n);
-            double decInterp = Interpolate3(dec0, dec1, dec2, n);
+            double raInterp  = RiseSetMath.Interp3(ra0,  ra1,  ra2,  n);
+            double decInterp = RiseSetMath.Interp3(dec0, dec1, dec2, n);
 
             // Local hour angle at the sun.
             double H = MeeusUtility.NormPm180(thetaM - L - raInterp);
@@ -204,33 +204,8 @@ namespace Astronomy.Core.Astrometry.Meeus
                 dm = (altDeg - targetAltDeg) / denom;
             }
 
-            return Frac(m + dm);
+            return RiseSetMath.Frac(m + dm);
         }
 
-        // Three-point quadratic interpolation through (-1, y0), (0, y1), (+1, y2) at t = n.
-        // Meeus 3.3.
-        private static double Interpolate3(double y0, double y1, double y2, double n)
-        {
-            double a = y1 - y0;
-            double b = y2 - y1;
-            double c = b - a;
-            return y1 + 0.5 * n * (a + b + n * c);
-        }
-
-        // Force x2 to be on the same side of the 360-deg seam as x1 (so a near-360 vs
-        // near-0 pair becomes monotonic).
-        private static double Unwrap(double prev, double cur)
-        {
-            if (cur - prev > 180.0) return cur - 360.0;
-            if (prev - cur > 180.0) return cur + 360.0;
-            return cur;
-        }
-
-        // Reduce a fraction-of-day to [0, 1).
-        private static double Frac(double m)
-        {
-            double r = m - Math.Floor(m);
-            return r;
-        }
     }
 }
