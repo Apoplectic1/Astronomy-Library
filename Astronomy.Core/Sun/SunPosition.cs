@@ -105,14 +105,16 @@ namespace Astronomy.Core.Sun
         }
 
         /// <summary>
-        /// Apparent (refraction-corrected) altitude of the Sun in degrees. Adds Bennett's
-        /// atmospheric refraction to the geometric altitude returned by
+        /// Apparent (refraction-corrected) altitude of the Sun in degrees. Adds
+        /// Saemundsson 1986 atmospheric refraction (via
+        /// <see cref="Refraction.SaemundssonDeg"/>) to the geometric altitude returned by
         /// <see cref="AltAzAt"/>.
         /// </summary>
         /// <remarks>
-        /// Bennett's formula is defined for apparent altitude as input; we feed the
-        /// geometric altitude as the standard approximation (Meeus AA p. 105). Error is
-        /// below 0.01&#176; at all altitudes -- well below tracker precision.
+        /// Saemundsson is defined for geometric (true) altitude as input -- matches
+        /// <see cref="AltAzAt"/>'s output convention directly, no approximation pass
+        /// needed (unlike Bennett, which expects apparent altitude and required the
+        /// pre-2026-05-18 "standard approximation" pass).
         /// </remarks>
         /// <param name="location">Observer position. Non-null.</param>
         /// <param name="utc">Instant to evaluate at. Must be UTC.</param>

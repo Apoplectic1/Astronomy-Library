@@ -77,8 +77,9 @@ namespace Astronomy.Core
         }
 
         /// <summary>
-        /// Overload that reads the UTC instant from
-        /// <c>location.DateTime.ToUniversalTime()</c>. Accepts
+        /// Overload that resolves the UTC instant from <c>location.DateTime</c> via
+        /// <c>TimeKindGuard.AsUtc</c> (the canonical assembly-internal Kind-normalisation
+        /// helper -- see CLAUDE.md's "DateTime kinds" bullet). Accepts
         /// <see cref="Location.DateTime"/> with any <see cref="DateTimeKind"/>: Local and
         /// Unspecified are treated as local and converted via Windows rules; Utc is a
         /// no-op. Callers that want to evaluate at a <see cref="Night.NightWindow"/>-sourced
