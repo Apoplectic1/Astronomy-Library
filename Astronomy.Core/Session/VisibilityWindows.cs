@@ -77,10 +77,8 @@ namespace Astronomy.Core.Session
         {
             var result = new List<(DateTime Start, DateTime End)>();
 
-            double latDeg     = location.North ?  location.Latitude  : -location.Latitude;
-            double decDeg     = target.North   ?  target.Declination : -target.Declination;
-            double lonDegEast = location.West  ? -location.Longitude :  location.Longitude;
-            double raHours    = target.RightAscension;
+            var (latDeg, lonDegEast) = location.AsSignedDegrees();
+            var (decDeg, raHours) = target.AsSignedRaDec();
 
             double haHorizon = TargetGeometry.HourAngleAtAltitude(latDeg, decDeg, horizonDeg);
             if (double.IsNaN(haHorizon)) return result; // never reaches horizon

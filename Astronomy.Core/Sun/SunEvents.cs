@@ -256,8 +256,7 @@ namespace Astronomy.Core.Sun
         private static RiseAndSetEvent CrossingsOnInternal(
             Location location, DateOnly utcDate, double altitudeDeg)
         {
-            double latSigned = location.North ?  location.Latitude  : -location.Latitude;
-            double lonEast   = location.West  ? -location.Longitude :  location.Longitude;
+            var (latSigned, lonEast) = location.AsSignedDegrees();
             DateTime midnight = new DateTime(utcDate.Year, utcDate.Month, utcDate.Day, 0, 0, 0, DateTimeKind.Utc);
 
             (DateTime? rise, DateTime? set) = SunEphemeris.RiseSet(midnight, latSigned, lonEast, altitudeDeg);

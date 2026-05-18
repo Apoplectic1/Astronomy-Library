@@ -52,10 +52,8 @@ namespace Astronomy.Core.Session
             ArgumentNullException.ThrowIfNull(location);
             ArgumentNullException.ThrowIfNull(altitudeQuality);
 
-            double latDeg = location.North ? location.Latitude : -location.Latitude;
-            double decDeg = target.North ? target.Declination : -target.Declination;
-            double lonDegEast = location.West ? -location.Longitude : location.Longitude;
-            double raHours = target.RightAscension;
+            var (latDeg, lonDegEast) = location.AsSignedDegrees();
+            var (decDeg, raHours) = target.AsSignedRaDec();
 
             const int n = 20; // even
             double totalHours = duration.TotalHours;
@@ -96,10 +94,8 @@ namespace Astronomy.Core.Session
             ArgumentNullException.ThrowIfNull(target);
             ArgumentNullException.ThrowIfNull(location);
 
-            double latDeg = location.North ? location.Latitude : -location.Latitude;
-            double decDeg = target.North ? target.Declination : -target.Declination;
-            double lonDegEast = location.West ? -location.Longitude : location.Longitude;
-            double raHours = target.RightAscension;
+            var (latDeg, lonDegEast) = location.AsSignedDegrees();
+            var (decDeg, raHours) = target.AsSignedRaDec();
 
             double phi = latDeg * Math.PI / 180.0;
             double delta = decDeg * Math.PI / 180.0;

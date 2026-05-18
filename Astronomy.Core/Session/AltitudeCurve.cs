@@ -69,10 +69,8 @@ namespace Astronomy.Core.Session
                 throw new ArgumentException("count must be >= 0", nameof(count));
             if (count == 0) return Array.Empty<double>();
 
-            double latSigned  = location.North ?  location.Latitude  : -location.Latitude;
-            double decSigned  = target.North   ?  target.Declination : -target.Declination;
-            double lonDegEast = location.West  ? -location.Longitude :  location.Longitude;
-            double raHours    = target.RightAscension;
+            var (latSigned, lonDegEast) = location.AsSignedDegrees();
+            var (decSigned, raHours) = target.AsSignedRaDec();
 
             double lstStart = SiderealTime.Local(startUtc, lonDegEast);
             // LST advances at the sidereal rate: one solar hour of UT elapses

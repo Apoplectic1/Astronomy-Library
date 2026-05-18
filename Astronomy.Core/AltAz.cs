@@ -65,10 +65,8 @@ namespace Astronomy.Core
             ArgumentNullException.ThrowIfNull(target);
             ArgumentNullException.ThrowIfNull(location);
 
-            double raHours = target.RightAscension;
-            double decDeg = target.North ? target.Declination : -target.Declination;
-            double latDeg = location.North ? location.Latitude : -location.Latitude;
-            double lonDegEast = location.West ? -location.Longitude : location.Longitude;
+            var (decDeg, raHours) = target.AsSignedRaDec();
+            var (latDeg, lonDegEast) = location.AsSignedDegrees();
 
             double lst = SiderealTime.Local(utc, lonDegEast);
             double hourAngle = lst - raHours;

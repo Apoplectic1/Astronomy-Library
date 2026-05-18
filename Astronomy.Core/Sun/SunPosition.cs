@@ -51,8 +51,7 @@ namespace Astronomy.Core.Sun
             DateTime utcOnly = TimeKindGuard.AsUtc(utc);
             double jd = JulianDate.FromUtc(utcOnly);
 
-            double latSigned = location.North ?  location.Latitude  : -location.Latitude;
-            double lonEast   = location.West  ? -location.Longitude :  location.Longitude;
+            var (latSigned, lonEast) = location.AsSignedDegrees();
 
             double lstDeg = SiderealTime.Local(utcOnly, lonEast) * 15.0;
             (double raDeg, double decDeg, _) = SunEphemeris.Apparent(jd);
