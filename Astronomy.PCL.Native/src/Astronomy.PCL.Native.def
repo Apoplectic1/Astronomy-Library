@@ -1,3 +1,7 @@
+; Keep this list in sync with include/Astronomy/PCL/XisfCApi.h (C declarations)
+; and Astronomy.PCL/Interop/NativeMethods.cs ([DllImport] wrappers). Adding a new
+; export means touching all three files; missing the .def silently strips the
+; symbol from the DLL even though the .h still declares it.
 EXPORTS
     AstronomyXisf_Open
     AstronomyXisf_Close

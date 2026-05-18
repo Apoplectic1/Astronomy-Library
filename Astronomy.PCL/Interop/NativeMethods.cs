@@ -3,6 +3,11 @@ using System.Text;
 
 namespace Astronomy.PCL.Interop
 {
+    // Cross-thread caveat for AstronomyXisf_GetLastErrorMessage: the native side
+    // stores the last error in `thread_local` storage (src/LastError.cpp). A caller
+    // that catches an exception on thread A and queries the message from thread B
+    // will read an empty string -- not a bug, just the per-call-status semantics.
+    // Stick to retrieving the message on the same thread that made the failing call.
     internal static class NativeMethods
     {
         private const string Lib = "Astronomy.PCL.Native";

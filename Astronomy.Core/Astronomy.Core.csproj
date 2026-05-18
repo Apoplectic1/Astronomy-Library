@@ -9,6 +9,9 @@
     <WarningsAsErrors>$(WarningsAsErrors);CS1591</WarningsAsErrors>
     <AnalysisLevel>latest</AnalysisLevel>
     <AnalysisMode>Recommended</AnalysisMode>
+    <!-- AnyCPU enables `dotnet build Astronomy.Core/Astronomy.Core.csproj` for the
+         pure-managed standalone build (no NuGet, no C++); the SLN-driven build is
+         x64-only and selects x64 explicitly via Platforms multi-list. -->
     <Platforms>AnyCPU;x64</Platforms>
     <ProjectGuid>{B7F2A9D4-3C18-4E5F-9A2B-6D8F1C3E7A52}</ProjectGuid>
   </PropertyGroup>
