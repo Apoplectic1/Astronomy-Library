@@ -5,17 +5,32 @@ using Astronomy.Core.Time;
 namespace Astronomy.Core.Astrometry
 {
     /// <summary>
-    /// Public, NINA-API-compatible Moon surface. Pure C#, thread-safe by construction
+    /// Public Moon surface, partially NINA-mirroring. Pure C#, thread-safe by construction
     /// (no static mutable state, no init dance), so callers can hammer this from many
     /// threads without coordination.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Function names and signatures mirror the moon-related parts of
-    /// <c>NINA.Astrometry.AstroUtil</c>. Internals are Meeus-based (chapters 47, 48);
-    /// accuracy is ~10 arcsec on moon position -- ample for scheduler use, well below
-    /// any UI-level decision threshold. The Sun-related members that previously lived
-    /// here have moved to <see cref="Astronomy.Core.Sun.SunPosition"/> /
+    /// <b>NINA mirror status (audited against NINA.Astrometry/AstroUtil.cs on 2026-05-18):</b>
+    /// <see cref="GetMoonAltitude"/>, <see cref="GetMoonIllumination"/>, and
+    /// <see cref="GetMoonRiseAndSet"/> mirror NINA's current surface so a NINA-style
+    /// consumer can drop the Library types in without changing call sites. NINA's
+    /// preferred overloads take an <see cref="ObserverInfo"/> for topocentric corrections;
+    /// we expose only the variants TP actually uses (geocentric
+    /// <see cref="GetMoonIllumination"/>; <see cref="ObserverInfo"/>-taking
+    /// <see cref="GetMoonAltitude"/>). The three convenience methods without direct NINA
+    /// equivalents -- <see cref="GetMoonAzimuth"/>, <see cref="GetMoonAltAz"/>, and
+    /// <see cref="GetMoonPhaseName"/> -- round out the public surface for downstream use;
+    /// <see cref="GetMoonPhaseName"/> returns a string rather than NINA's
+    /// <c>MoonPhase</c> enum because we don't reproduce that type, and the bucketing is
+    /// synodic-age-based rather than NINA's Sun-Moon-angle-based -- the names line up but
+    /// boundary instants can differ by hours near a quarter-phase transition.
+    /// </para>
+    /// <para>
+    /// Internals are Meeus-based (chapters 47, 48); accuracy is ~10 arcsec on moon
+    /// position -- ample for scheduler use, well below any UI-level decision threshold.
+    /// The Sun-related members that previously lived here have moved to
+    /// <see cref="Astronomy.Core.Sun.SunPosition"/> /
     /// <see cref="Astronomy.Core.Sun.SunEvents"/>.
     /// </para>
     /// <para>
