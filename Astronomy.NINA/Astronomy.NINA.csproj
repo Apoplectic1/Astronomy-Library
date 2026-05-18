@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Astronomy.NINA</RootNamespace>
+    <AssemblyName>Astronomy.NINA</AssemblyName>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Deterministic>true</Deterministic>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <WarningsAsErrors>$(WarningsAsErrors);CS1591</WarningsAsErrors>
+    <AnalysisLevel>latest</AnalysisLevel>
+    <AnalysisMode>Recommended</AnalysisMode>
+    <!-- AnyCPU enables `dotnet build Astronomy.NINA/Astronomy.NINA.csproj` for the
+         pure-managed standalone build; the SLN-driven build is x64-only and selects
+         x64 explicitly via Platforms multi-list. Matches Astronomy.Core. -->
+    <Platforms>AnyCPU;x64</Platforms>
+    <ProjectGuid>{C2A5D8E3-7F84-4B92-9D16-3E5A8C9B2D14}</ProjectGuid>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Astronomy.Core\Astronomy.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Astronomy.NINA.Tests" />
+  </ItemGroup>
+
+  <!-- NINA.Plugin PackageReference deferred to Phase D (InputTargetAdapter).
+       Phase A (XISF reader/scanner) + Phase B (Target shape) are pure managed
+       with no NINA assembly dependency. -->
+
+</Project>
