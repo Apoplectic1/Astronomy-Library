@@ -66,7 +66,7 @@ There are TWO assemblies with "Astronomy.PCL" in the name. They serve different 
 using Astronomy.Core;          // existing managed astronomy math
 using Astronomy.PCL;           // new: managed wrappers over PCL features
 
-var altaz = AltAzCalculator.Of(target, location);   // pure C# (Astronomy.Core)
+var altaz = AltAzCalculator.At(target, location, utc);  // pure C# (Astronomy.Core)
 var img   = Astronomy.PCL.Xisf.Load(path);          // P/Invoke → native PCL
 ```
 

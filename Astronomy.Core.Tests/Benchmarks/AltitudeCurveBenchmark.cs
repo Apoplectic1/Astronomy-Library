@@ -12,9 +12,9 @@ namespace Astronomy.Core.Tests.Benchmarks
     // time grid" to settle the keep-or-revert question on AltitudeCurve.cs (the Core helper
     // that was added and then reverted -- see git log around commit 9c94612).
     //
-    //   PerMinuteAltAz : today's BuildDaySeries loop -- one AltAzCalculator.Of call per
-    //                    sample, with a Location.With(dateTime: point) allocation each
-    //                    iteration. Per-sample SiderealTime.Local recomputation.
+    //   PerMinuteAltAz : today's BuildDaySeries loop -- one AltAzCalculator.At call per
+    //                    sample with the per-iteration startUtc.AddMinutes(i) UTC instant.
+    //                    Per-sample SiderealTime.Local recomputation.
     //
     //   LstAdvance     : the proposed Core helper's body -- one SiderealTime.Local at the
     //                    start, then linear LST advance (i * lstStepHours) per sample,
@@ -57,7 +57,7 @@ namespace Astronomy.Core.Tests.Benchmarks
             for (int i = 0; i < Count; i++)
             {
                 DateTime point = _startUtc.AddMinutes(i);
-                AltAz pos = AltAzCalculator.Of(_target, _location.With(dateTime: point));
+                AltAz pos = AltAzCalculator.At(_target, _location, point);
                 altitudes[i] = pos.Altitude;
             }
             return altitudes;

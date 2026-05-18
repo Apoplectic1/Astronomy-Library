@@ -13,9 +13,9 @@ namespace Astronomy.Core.Tests.Tests
     // matter at the IS / scheduler call site -- exercise them here.
     public class CoarseVisibilityTests
     {
-        private static Location MakeLocation(int year = 2026, int month = 11, int day = 15)
-            => TestLocations.PennsPark.With(
-                dateTime: new DateTime(year, month, day, 0, 0, 0, DateTimeKind.Utc));
+        private static Location MakeLocation() => TestLocations.PennsPark;
+        private static DateTime MakeSeed(int year = 2026, int month = 11, int day = 15)
+            => new DateTime(year, month, day, 0, 0, 0, DateTimeKind.Utc);
 
         // ---- IsEverVisible (no horizon profile, alt >= 0 threshold) ----
 
@@ -23,7 +23,7 @@ namespace Astronomy.Core.Tests.Tests
         public void IsEverVisible_M31AtPennsParkInNovember_ReturnsTrue()
         {
             var loc = MakeLocation();
-            var night = NightCalculator.ComputeNight(loc);
+            var night = NightCalculator.ComputeNight(loc, MakeSeed());
 
             Assert.True(CoarseVisibility.IsEverVisible(Target.Default, loc, night));
         }
@@ -34,7 +34,7 @@ namespace Astronomy.Core.Tests.Tests
             // Far-southern declination at a northern latitude -- target's max altitude
             // is below 0 deg, the closed-form HourAngleAtAltitude returns NaN.
             var loc = MakeLocation();
-            var night = NightCalculator.ComputeNight(loc);
+            var night = NightCalculator.ComputeNight(loc, MakeSeed());
             var southern = Target.Default.With(declination: 80.0, north: false);
 
             Assert.False(CoarseVisibility.IsEverVisible(southern, loc, night));
@@ -46,7 +46,7 @@ namespace Astronomy.Core.Tests.Tests
             // Polaris-like (Dec ~89 N) -- always above horizon at temperate latitudes,
             // HourAngleAtAltitude returns +Infinity.
             var loc = MakeLocation();
-            var night = NightCalculator.ComputeNight(loc);
+            var night = NightCalculator.ComputeNight(loc, MakeSeed());
             var polaris = Target.Default.With(
                 rightAscension: 2.530194, declination: 89.264111, north: true);
 
@@ -58,10 +58,9 @@ namespace Astronomy.Core.Tests.Tests
         {
             // No astronomical night above the Arctic Circle in mid-summer -- the
             // method short-circuits on !night.IsValid.
-            var loc = TestLocations.PennsPark.With(
-                latitude: 80.0, north: true,
-                dateTime: new DateTime(2026, 6, 21, 0, 0, 0, DateTimeKind.Utc));
-            var night = NightCalculator.ComputeNight(loc);
+            var loc = TestLocations.PennsPark.With(latitude: 80.0, north: true);
+            var solsticeSeed = new DateTime(2026, 6, 21, 0, 0, 0, DateTimeKind.Utc);
+            var night = NightCalculator.ComputeNight(loc, solsticeSeed);
 
             Assert.False(night.IsValid);
             Assert.False(CoarseVisibility.IsEverVisible(Target.Default, loc, night));
@@ -71,7 +70,7 @@ namespace Astronomy.Core.Tests.Tests
         public void IsEverVisible_NullArgs_Throws()
         {
             var loc = MakeLocation();
-            var night = NightCalculator.ComputeNight(loc);
+            var night = NightCalculator.ComputeNight(loc, MakeSeed());
 
             Assert.Throws<ArgumentNullException>(() =>
                 CoarseVisibility.IsEverVisible(null, loc, night));
@@ -85,7 +84,7 @@ namespace Astronomy.Core.Tests.Tests
         public void IsEverAboveHorizon_M31AbovePennsParkAt20Deg_ReturnsTrue()
         {
             var loc = MakeLocation();
-            var night = NightCalculator.ComputeNight(loc);
+            var night = NightCalculator.ComputeNight(loc, MakeSeed());
             var horizon = new ScalarHorizonProfile(20.0);
 
             Assert.True(CoarseVisibility.IsEverAboveHorizon(Target.Default, loc, night, horizon));
@@ -97,7 +96,7 @@ namespace Astronomy.Core.Tests.Tests
             // M42 (RA 5.6h, Dec -5.4) peaks at ~44 deg from Penns Park (lat 40.3 N).
             // A 60-deg horizon is well above its meridian altitude, so it never clears.
             var loc = MakeLocation();
-            var night = NightCalculator.ComputeNight(loc);
+            var night = NightCalculator.ComputeNight(loc, MakeSeed());
             var m42 = Target.Default.With(
                 name: "M42", rightAscension: 5.588139, declination: 5.391, north: false);
             var horizon = new ScalarHorizonProfile(60.0);
@@ -108,10 +107,9 @@ namespace Astronomy.Core.Tests.Tests
         [Fact]
         public void IsEverAboveHorizon_PolarDay_ReturnsFalse()
         {
-            var loc = TestLocations.PennsPark.With(
-                latitude: 80.0, north: true,
-                dateTime: new DateTime(2026, 6, 21, 0, 0, 0, DateTimeKind.Utc));
-            var night = NightCalculator.ComputeNight(loc);
+            var loc = TestLocations.PennsPark.With(latitude: 80.0, north: true);
+            var solsticeSeed = new DateTime(2026, 6, 21, 0, 0, 0, DateTimeKind.Utc);
+            var night = NightCalculator.ComputeNight(loc, solsticeSeed);
             var horizon = new ScalarHorizonProfile(20.0);
 
             Assert.False(CoarseVisibility.IsEverAboveHorizon(Target.Default, loc, night, horizon));
@@ -121,7 +119,7 @@ namespace Astronomy.Core.Tests.Tests
         public void IsEverAboveHorizon_NullArgs_Throws()
         {
             var loc = MakeLocation();
-            var night = NightCalculator.ComputeNight(loc);
+            var night = NightCalculator.ComputeNight(loc, MakeSeed());
             var horizon = new ScalarHorizonProfile(20.0);
 
             Assert.Throws<ArgumentNullException>(() =>
@@ -138,7 +136,7 @@ namespace Astronomy.Core.Tests.Tests
         public void IsAboveHorizonForAtLeast_M31TwoHours_ReturnsTrue()
         {
             var loc = MakeLocation();
-            var night = NightCalculator.ComputeNight(loc);
+            var night = NightCalculator.ComputeNight(loc, MakeSeed());
             var horizon = new ScalarHorizonProfile(20.0);
 
             Assert.True(CoarseVisibility.IsAboveHorizonForAtLeast(
@@ -151,7 +149,7 @@ namespace Astronomy.Core.Tests.Tests
             // No 20-hour single window exists at Penns Park in November (full night
             // is ~13 hours); so this must fail even though M31 is well-placed.
             var loc = MakeLocation();
-            var night = NightCalculator.ComputeNight(loc);
+            var night = NightCalculator.ComputeNight(loc, MakeSeed());
             var horizon = new ScalarHorizonProfile(20.0);
 
             Assert.False(CoarseVisibility.IsAboveHorizonForAtLeast(
@@ -164,7 +162,7 @@ namespace Astronomy.Core.Tests.Tests
             // M42 peaks at ~44 deg from Penns Park; a 60-deg horizon excludes it
             // entirely, so the "at least 1 minute above" predicate must fail.
             var loc = MakeLocation();
-            var night = NightCalculator.ComputeNight(loc);
+            var night = NightCalculator.ComputeNight(loc, MakeSeed());
             var m42 = Target.Default.With(
                 name: "M42", rightAscension: 5.588139, declination: 5.391, north: false);
             var horizon = new ScalarHorizonProfile(60.0);
@@ -176,10 +174,9 @@ namespace Astronomy.Core.Tests.Tests
         [Fact]
         public void IsAboveHorizonForAtLeast_PolarDay_ReturnsFalse()
         {
-            var loc = TestLocations.PennsPark.With(
-                latitude: 80.0, north: true,
-                dateTime: new DateTime(2026, 6, 21, 0, 0, 0, DateTimeKind.Utc));
-            var night = NightCalculator.ComputeNight(loc);
+            var loc = TestLocations.PennsPark.With(latitude: 80.0, north: true);
+            var solsticeSeed = new DateTime(2026, 6, 21, 0, 0, 0, DateTimeKind.Utc);
+            var night = NightCalculator.ComputeNight(loc, solsticeSeed);
             var horizon = new ScalarHorizonProfile(20.0);
 
             Assert.False(CoarseVisibility.IsAboveHorizonForAtLeast(
@@ -190,7 +187,7 @@ namespace Astronomy.Core.Tests.Tests
         public void IsAboveHorizonForAtLeast_NullArgs_Throws()
         {
             var loc = MakeLocation();
-            var night = NightCalculator.ComputeNight(loc);
+            var night = NightCalculator.ComputeNight(loc, MakeSeed());
             var horizon = new ScalarHorizonProfile(20.0);
             var dur = TimeSpan.FromHours(1);
 

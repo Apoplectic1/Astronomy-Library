@@ -8,7 +8,7 @@ using Xunit;
 namespace Astronomy.Core.Tests.Tests
 {
     // Correctness guard for AltitudeCurve.Sample: its output must match a per-minute
-    // AltAzCalculator.Of loop to well below chart pixel resolution at every sample. The two
+    // AltAzCalculator.At loop to well below chart pixel resolution at every sample. The two
     // paths share the underlying TargetGeometry.AltitudeAtHourAngle formula; the only place
     // they can diverge is the LST computation (per-sample SiderealTime.Local in the baseline
     // vs one-shot + linear advance in AltitudeCurve). GMST is linear in UT to far below
@@ -34,7 +34,7 @@ namespace Astronomy.Core.Tests.Tests
             {
                 DateTime point = startUtc.Add(TimeSpan.FromTicks(step.Ticks * i));
                 double expected = AltAzCalculator
-                    .Of(target, location.With(dateTime: point)).Altitude;
+                    .At(target, location, point).Altitude;
                 double actual = batched[i];
                 Assert.True(
                     Math.Abs(expected - actual) < 1e-6,
@@ -64,7 +64,7 @@ namespace Astronomy.Core.Tests.Tests
             {
                 DateTime point = startUtc.Add(TimeSpan.FromTicks(step.Ticks * i));
                 double expected = AltAzCalculator
-                    .Of(target, location.With(dateTime: point)).Altitude;
+                    .At(target, location, point).Altitude;
                 double actual = batched[i];
                 Assert.True(
                     Math.Abs(expected - actual) < 1e-6,

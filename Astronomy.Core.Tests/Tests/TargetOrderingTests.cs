@@ -13,9 +13,7 @@ namespace Astronomy.Core.Tests.Tests
     // NeverRises sinks, null entries skipped) need pinning.
     public class TargetOrderingTests
     {
-        private static Location MakeLocation()
-            => TestLocations.PennsPark.With(
-                dateTime: new DateTime(2026, 11, 15, 0, 0, 0, DateTimeKind.Utc));
+        private static Location MakeLocation() => TestLocations.PennsPark;
 
         // M31 (RA 0.7h), M42 (RA 5.6h), M81 (RA 9.9h), M51 (RA 13.5h) are spread
         // around the sky and provide a non-trivial ordering by transit / rise.

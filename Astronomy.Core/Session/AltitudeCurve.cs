@@ -19,11 +19,9 @@ namespace Astronomy.Core.Session
     /// difference is far below chart pixel resolution.
     /// </para>
     /// <para>
-    /// Also saves the per-sample <c>Location.With(dateTime: ...)</c> allocation that a
-    /// caller would otherwise do to feed <see cref="AltAzCalculator.Of"/> in a loop.
     /// Measured (<c>Astronomy.Core.Tests/Benchmarks/AltitudeCurveBenchmark</c>, net10.0,
     /// Release, 2026-04-23): ~2.6x faster than a per-minute
-    /// <see cref="AltAzCalculator.Of"/> loop and ~11x less allocation at 600 / 1000 / 6000
+    /// <see cref="AltAzCalculator.At"/> loop and ~11x less allocation at 600 / 1000 / 6000
     /// sample counts.
     /// </para>
     /// <para>

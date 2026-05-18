@@ -69,11 +69,6 @@ namespace Astronomy.Core.Tests.Tests
                 name:         "test",
                 latitude:     latitude, north: north,
                 longitude:    longitude, west:  west,
-#pragma warning disable CS0618 // Test fixture must seed Horizon/Duration; the obsolete bridge is intentional here.
-                horizon:      30,
-                duration:     TimeSpan.FromMinutes(240),
-#pragma warning restore CS0618
-                dateTime:     new DateTime(2026, 5, 18, 21, 0, 0, DateTimeKind.Utc),
                 timeZoneInfo: TimeZoneInfo.Utc,
                 elevation:    0.0,
                 bortleClass:  5,

@@ -11,9 +11,7 @@ namespace Astronomy.Core.Tests.Tests
     // to retest it here.
     public class IntegratedQualityTests
     {
-        private static Location MakeLocation()
-            => TestLocations.PennsPark.With(
-                dateTime: new DateTime(2026, 11, 15, 0, 0, 0, DateTimeKind.Utc));
+        private static Location MakeLocation() => TestLocations.PennsPark;
 
         // sin(alt * pi/180) -- smooth, monotone in altitude. Standard quality proxy.
         private static readonly Func<double, double> SinAltitude =

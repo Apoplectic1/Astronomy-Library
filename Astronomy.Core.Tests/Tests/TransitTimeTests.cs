@@ -10,9 +10,7 @@ namespace Astronomy.Core.Tests.Tests
     // exercised across the existing Session* test suite; no need to retest it here.
     public class TransitTimeTests
     {
-        private static Location MakeLocation()
-            => TestLocations.PennsPark.With(
-                dateTime: new DateTime(2026, 11, 15, 0, 0, 0, DateTimeKind.Utc));
+        private static Location MakeLocation() => TestLocations.PennsPark;
 
         // Tolerance note: TransitTime.UtcAtOrAfter is an analytic LST=RA inversion
         // whose FP precision depends on the searchFromUtc input. The test computes

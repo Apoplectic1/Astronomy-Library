@@ -41,10 +41,8 @@ namespace Astronomy.Core.Time
         /// Local Sidereal Time in hours <c>[0, 24)</c> at the given UTC instant and
         /// east-positive longitude in degrees.
         /// </summary>
-        /// <param name="utc">Instant to evaluate. Must be UTC -- callers that hold a
-        /// <see cref="Astronomy.Core.Locations.Location"/> with a non-UTC
-        /// <see cref="Astronomy.Core.Locations.Location.DateTime"/> should
-        /// <c>.ToUniversalTime()</c> first.</param>
+        /// <param name="utc">Instant to evaluate. Must be UTC -- callers holding a
+        /// local-frame instant should route through <c>TimeKindGuard.AsUtc</c> first.</param>
         /// <param name="longitudeDegEast">Longitude in decimal degrees, east-positive (so a
         /// western-hemisphere longitude is negative).</param>
         public static double Local(DateTime utc, double longitudeDegEast)

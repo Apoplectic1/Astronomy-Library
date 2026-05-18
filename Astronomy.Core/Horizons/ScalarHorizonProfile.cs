@@ -1,10 +1,9 @@
 namespace Astronomy.Core.Horizons
 {
     /// <summary>
-    /// Constant horizon altitude regardless of azimuth. Wraps the legacy "just a single
-    /// <see cref="Astronomy.Core.Locations.Location.Horizon"/> number" case in the
-    /// <see cref="IHorizonProfile"/> abstraction so callers can ignore the scalar-vs-profile
-    /// distinction entirely.
+    /// Constant horizon altitude regardless of azimuth. Wraps the simple "single floor
+    /// number" case in the <see cref="IHorizonProfile"/> abstraction so callers can ignore
+    /// the scalar-vs-profile distinction entirely.
     /// </summary>
     public sealed class ScalarHorizonProfile : IHorizonProfile
     {

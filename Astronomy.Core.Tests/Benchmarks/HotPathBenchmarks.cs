@@ -52,9 +52,9 @@ namespace Astronomy.Core.Tests.Benchmarks
         public void Setup()
         {
             _target = Target.Default;
-            _location = Location.Default.With(
-                dateTime: new DateTime(2026, 11, 15, 0, 0, 0, DateTimeKind.Utc));
-            _night = NightCalculator.ComputeNight(_location);
+            _location = Location.Default;
+            DateTime nightAnchor = new DateTime(2026, 11, 15, 0, 0, 0, DateTimeKind.Utc);
+            _night = NightCalculator.ComputeNight(_location, nightAnchor);
             _horizon = new ScalarHorizonProfile(20.0);
             // Mid-night anchor inside the visibility window for a typical case.
             _utc = new DateTime(2026, 11, 15, 4, 0, 0, DateTimeKind.Utc);

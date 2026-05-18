@@ -56,7 +56,7 @@ namespace Astronomy.Core.Tests.Tests.Astrometry
             ParityFixtures.Case c = FindCase(caseName);
             Location loc = MakeLocation(c);
 
-            NightWindow night = NightCalculator.ComputeNight(loc);
+            NightWindow night = NightCalculator.ComputeNight(loc, c.UtcMoment);
 
             // Log captured values so the dump for baseline regeneration is recoverable
             // from a normal test run too (xunit shows these on failure and -- with
@@ -88,7 +88,7 @@ namespace Astronomy.Core.Tests.Tests.Astrometry
             ParityFixtures.Case c = FindCase(caseName);
             ParityFixtures.BaselineSnapshot bl = ParityFixtures.Baselines[caseName];
             Location loc = MakeLocation(c);
-            NightWindow night = NightCalculator.ComputeNight(loc);
+            NightWindow night = NightCalculator.ComputeNight(loc, c.UtcMoment);
 
             // Dusk/Dawn baseline only applies to non-polar cases. For polar cases the
             // PlausibilityBaseline already pins IsValid=false; the baseline's MinValue
@@ -157,7 +157,7 @@ namespace Astronomy.Core.Tests.Tests.Astrometry
             foreach (var c in ParityFixtures.All)
             {
                 Location loc = MakeLocation(c);
-                NightWindow night = NightCalculator.ComputeNight(loc);
+                NightWindow night = NightCalculator.ComputeNight(loc, c.UtcMoment);
                 (double sep, double moonAlt, _) = MoonSeparation.ObserveAt(Target.Default, loc, c.UtcMoment);
 
                 mLog.WriteLine($"[\"{c.Name}\"] = new BaselineSnapshot(");
@@ -184,11 +184,6 @@ namespace Astronomy.Core.Tests.Tests.Astrometry
                 name:         c.Name,
                 latitude:     c.Latitude,  north: c.North,
                 longitude:    c.Longitude, west:  c.West,
-#pragma warning disable CS0618 // Test fixture seeds the obsolete Horizon/Duration; intentional bridge.
-                horizon:      30.0,
-                duration:     TimeSpan.FromHours(4),
-#pragma warning restore CS0618
-                dateTime:     c.UtcMoment,           // Kind=Utc.
                 timeZoneInfo: TimeZoneInfo.Utc);     // NightCalculator (post-Meeus) reads no
                                                      // TZ state, so this is machine-portable.
         }

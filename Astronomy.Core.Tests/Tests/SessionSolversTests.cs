@@ -16,9 +16,9 @@ namespace Astronomy.Core.Tests.Tests
         private static readonly Func<double, double> SinAltQuality =
             alt => Math.Sin(alt * Math.PI / 180.0);
 
-        private static Location MakeLocation(int year = 2026, int month = 11, int day = 15)
-            => TestLocations.PennsPark.With(
-                dateTime: new DateTime(year, month, day, 0, 0, 0, DateTimeKind.Utc));
+        private static Location MakeLocation() => TestLocations.PennsPark;
+        private static DateTime MakeSeed(int year = 2026, int month = 11, int day = 15)
+            => new DateTime(year, month, day, 0, 0, 0, DateTimeKind.Utc);
 
         // ====================================================================
         // LongestDurationIn (pre-resolved flavor)
@@ -118,7 +118,7 @@ namespace Astronomy.Core.Tests.Tests
         public void LongestDuration_NullProfile_MatchesVisibilityLongestArm()
         {
             var loc = MakeLocation();
-            var night = NightCalculator.ComputeNight(loc);
+            var night = NightCalculator.ComputeNight(loc, MakeSeed());
             var horizon = new ScalarHorizonProfile(20.0);
 
             var auto = SessionSolvers.LongestDuration(
@@ -143,7 +143,7 @@ namespace Astronomy.Core.Tests.Tests
         public void LongestDuration_EnabledProfile_ReturnsResultWhenMoonClear()
         {
             var loc = MakeLocation();
-            var night = NightCalculator.ComputeNight(loc);
+            var night = NightCalculator.ComputeNight(loc, MakeSeed());
             var horizon = new ScalarHorizonProfile(20.0);
 
             var result = SessionSolvers.LongestDuration(
@@ -162,9 +162,9 @@ namespace Astronomy.Core.Tests.Tests
             // Northern polar location in summer where the sun never sets.
             var loc = TestLocations.PennsPark.With(
                 latitude: 80.0, north: true,
-                longitude: 0.0, west: false,
-                dateTime: new DateTime(2026, 6, 21, 0, 0, 0, DateTimeKind.Utc));
-            var night = NightCalculator.ComputeNight(loc);
+                longitude: 0.0, west: false);
+            var solsticeSeed = new DateTime(2026, 6, 21, 0, 0, 0, DateTimeKind.Utc);
+            var night = NightCalculator.ComputeNight(loc, solsticeSeed);
             var horizon = new ScalarHorizonProfile(20.0);
 
             var result = SessionSolvers.LongestDuration(
@@ -185,7 +185,7 @@ namespace Astronomy.Core.Tests.Tests
         public void LowestHorizon_TargetClearsHorizonComfortably_ReturnsLowAngle()
         {
             var loc = MakeLocation();
-            var night = NightCalculator.ComputeNight(loc);
+            var night = NightCalculator.ComputeNight(loc, MakeSeed());
 
             var result = SessionSolvers.LowestHorizon(
                 Target.Default, loc, night, TimeSpan.FromHours(2));
@@ -203,7 +203,7 @@ namespace Astronomy.Core.Tests.Tests
         public void LowestHorizon_DurationExceedsAvailableTime_ReturnsNull()
         {
             var loc = MakeLocation();
-            var night = NightCalculator.ComputeNight(loc);
+            var night = NightCalculator.ComputeNight(loc, MakeSeed());
 
             var result = SessionSolvers.LowestHorizon(
                 Target.Default, loc, night, TimeSpan.FromHours(48));
@@ -218,7 +218,7 @@ namespace Astronomy.Core.Tests.Tests
         public void LowestHorizon_BisectionPrecision_AchievesSubDegreePrecision()
         {
             var loc = MakeLocation();
-            var night = NightCalculator.ComputeNight(loc);
+            var night = NightCalculator.ComputeNight(loc, MakeSeed());
             var dur = TimeSpan.FromHours(2);
 
             var result = SessionSolvers.LowestHorizon(Target.Default, loc, night, dur);
@@ -246,7 +246,7 @@ namespace Astronomy.Core.Tests.Tests
         public void LowestHorizon_NullArgs_Throws()
         {
             var loc = MakeLocation();
-            var night = NightCalculator.ComputeNight(loc);
+            var night = NightCalculator.ComputeNight(loc, MakeSeed());
             var dur = TimeSpan.FromHours(2);
 
             Assert.Throws<ArgumentNullException>(() =>
@@ -410,7 +410,7 @@ namespace Astronomy.Core.Tests.Tests
         public void LongestDurationCentered_NullProfile_ReturnsResultMatchingTransitGeometry()
         {
             var loc = MakeLocation();
-            var night = NightCalculator.ComputeNight(loc);
+            var night = NightCalculator.ComputeNight(loc, MakeSeed());
             var horizon = new ScalarHorizonProfile(20.0);
 
             var result = SessionSolvers.LongestDurationCentered(
@@ -433,9 +433,9 @@ namespace Astronomy.Core.Tests.Tests
         {
             var loc = TestLocations.PennsPark.With(
                 latitude: 80.0, north: true,
-                longitude: 0.0, west: false,
-                dateTime: new DateTime(2026, 6, 21, 0, 0, 0, DateTimeKind.Utc));
-            var night = NightCalculator.ComputeNight(loc);
+                longitude: 0.0, west: false);
+            var solsticeSeed = new DateTime(2026, 6, 21, 0, 0, 0, DateTimeKind.Utc);
+            var night = NightCalculator.ComputeNight(loc, solsticeSeed);
             var horizon = new ScalarHorizonProfile(20.0);
 
             var result = SessionSolvers.LongestDurationCentered(
@@ -456,7 +456,7 @@ namespace Astronomy.Core.Tests.Tests
         public void LowestHorizonCentered_TargetClearsHorizonComfortably_ReturnsLowAngle()
         {
             var loc = MakeLocation();
-            var night = NightCalculator.ComputeNight(loc);
+            var night = NightCalculator.ComputeNight(loc, MakeSeed());
 
             var result = SessionSolvers.LowestHorizonCentered(
                 Target.Default, loc, night, TimeSpan.FromHours(2));
@@ -473,7 +473,7 @@ namespace Astronomy.Core.Tests.Tests
         public void LowestHorizonCentered_DurationExceedsAvailableTime_ReturnsNull()
         {
             var loc = MakeLocation();
-            var night = NightCalculator.ComputeNight(loc);
+            var night = NightCalculator.ComputeNight(loc, MakeSeed());
 
             var result = SessionSolvers.LowestHorizonCentered(
                 Target.Default, loc, night, TimeSpan.FromHours(48));
@@ -485,7 +485,7 @@ namespace Astronomy.Core.Tests.Tests
         public void LowestHorizonCentered_NullArgs_Throws()
         {
             var loc = MakeLocation();
-            var night = NightCalculator.ComputeNight(loc);
+            var night = NightCalculator.ComputeNight(loc, MakeSeed());
             var dur = TimeSpan.FromHours(2);
 
             Assert.Throws<ArgumentNullException>(() =>

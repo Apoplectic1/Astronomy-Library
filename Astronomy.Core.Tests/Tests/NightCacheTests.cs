@@ -62,24 +62,23 @@ namespace Astronomy.Core.Tests.Tests
         public void Ctor_NullLocation_Throws()
         {
             Assert.Throws<ArgumentNullException>(() =>
-                new NightCache(null!, DateTime.UtcNow, 1));
+                new NightCache(null!, DateTime.UtcNow, DateTime.UtcNow, 1));
         }
 
         [Fact]
         public void Ctor_NegativeYearDaysCount_Throws()
         {
             Assert.Throws<ArgumentOutOfRangeException>(() =>
-                new NightCache(TestLocations.PennsPark, DateTime.UtcNow, -1));
+                new NightCache(TestLocations.PennsPark, DateTime.UtcNow, DateTime.UtcNow, -1));
         }
 
         // Zero is the degenerate-but-valid case: no per-day entries, just the
-        // Starting window for the location's own DateTime.
+        // Starting window for the supplied moment.
         [Fact]
         public void Ctor_ZeroYearDaysCount_BuildsEmptyYear()
         {
             var seed = new DateTime(2026, 5, 1, 21, 0, 0, DateTimeKind.Local);
-            var loc = TestLocations.PennsPark.With(dateTime: seed);
-            var cache = new NightCache(loc, seed, 0);
+            var cache = new NightCache(TestLocations.PennsPark, seed, seed, 0);
 
             Assert.Empty(cache.YearDays);
             Assert.Equal(seed, cache.YearStartDay);
@@ -89,8 +88,7 @@ namespace Astronomy.Core.Tests.Tests
         public void Ctor_SmallYear_PopulatesYearDaysAndEchoesStart()
         {
             var seed = new DateTime(2026, 5, 1, 21, 0, 0, DateTimeKind.Local);
-            var loc = TestLocations.PennsPark.With(dateTime: seed);
-            var cache = new NightCache(loc, seed, 7);
+            var cache = new NightCache(TestLocations.PennsPark, seed, seed, 7);
 
             Assert.Equal(seed, cache.YearStartDay);
             Assert.Equal(7, cache.YearDays.Count);
@@ -108,10 +106,9 @@ namespace Astronomy.Core.Tests.Tests
             using var cts = new CancellationTokenSource();
             cts.Cancel();
             var seed = new DateTime(2026, 5, 1, 21, 0, 0, DateTimeKind.Local);
-            var loc = TestLocations.PennsPark.With(dateTime: seed);
 
             Assert.Throws<OperationCanceledException>(() =>
-                new NightCache(loc, seed, 30, cts.Token));
+                new NightCache(TestLocations.PennsPark, seed, seed, 30, cts.Token));
         }
     }
 }

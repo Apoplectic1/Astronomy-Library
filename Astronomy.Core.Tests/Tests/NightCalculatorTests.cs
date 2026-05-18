@@ -28,8 +28,8 @@ namespace Astronomy.Core.Tests.Tests
             for (int day = 6; day <= 14; day++)
             {
                 var seed = new DateTime(2026, 10, day, 21, 0, 0, DateTimeKind.Local);
-                var loc = TestLocations.PennsPark.With(dateTime: seed);
-                var night = NightCalculator.ComputeNight(loc);
+                var loc = TestLocations.PennsPark;
+                var night = NightCalculator.ComputeNight(loc, seed);
 
                 Assert.True(night.IsValid, $"Oct {day}: expected a valid night at Penns Park EDT");
 
@@ -56,8 +56,8 @@ namespace Astronomy.Core.Tests.Tests
             for (int day = 6; day <= 14; day++)
             {
                 var seed = new DateTime(2026, 10, day, 21, 0, 0, DateTimeKind.Local);
-                var loc = TestLocations.PennsPark.With(dateTime: seed);
-                var night = NightCalculator.ComputeNight(loc);
+                var loc = TestLocations.PennsPark;
+                var night = NightCalculator.ComputeNight(loc, seed);
 
                 Assert.True(night.IsValid, $"Oct {day}: expected a valid night");
                 var span = night.AstronomicalDawn - night.AstronomicalDusk;

@@ -16,15 +16,15 @@ namespace Astronomy.Core.Tests.Tests
         private static readonly Func<double, double> SinAltQuality =
             alt => Math.Sin(alt * Math.PI / 180.0);
 
-        private static Location MakeLocation(int year = 2026, int month = 11, int day = 15)
-            => TestLocations.PennsPark.With(
-                dateTime: new DateTime(year, month, day, 0, 0, 0, DateTimeKind.Utc));
+        private static Location MakeLocation() => TestLocations.PennsPark;
+        private static DateTime MakeSeed(int year = 2026, int month = 11, int day = 15)
+            => new DateTime(year, month, day, 0, 0, 0, DateTimeKind.Utc);
 
         [Fact]
         public void OverNight_HourSlots_ProducesContiguousCoverageOfTheNight()
         {
             var loc = MakeLocation();
-            var night = NightCalculator.ComputeNight(loc);
+            var night = NightCalculator.ComputeNight(loc, MakeSeed());
 
             var samples = QualitySamples.OverNight(
                 Target.Default, loc, night, TimeSpan.FromHours(1), SinAltQuality);
@@ -47,7 +47,7 @@ namespace Astronomy.Core.Tests.Tests
             // an integer number of 1-hour slots. The last slot must be truncated
             // to fit inside [dusk, dawn]; all earlier slots must be exactly slotSize.
             var loc = MakeLocation();
-            var night = NightCalculator.ComputeNight(loc);
+            var night = NightCalculator.ComputeNight(loc, MakeSeed());
             var slot = TimeSpan.FromHours(1);
 
             var samples = QualitySamples.OverNight(
@@ -69,7 +69,7 @@ namespace Astronomy.Core.Tests.Tests
             // Equivalence check: each slot's QualityPerHour must equal
             // IntegratedQuality.OverSession(slot) / slot.TotalHours.
             var loc = MakeLocation();
-            var night = NightCalculator.ComputeNight(loc);
+            var night = NightCalculator.ComputeNight(loc, MakeSeed());
 
             var samples = QualitySamples.OverNight(
                 Target.Default, loc, night, TimeSpan.FromMinutes(30), SinAltQuality);
@@ -86,10 +86,9 @@ namespace Astronomy.Core.Tests.Tests
         [Fact]
         public void OverNight_PolarDay_ReturnsEmptyList()
         {
-            var loc = TestLocations.PennsPark.With(
-                latitude: 80.0, north: true,
-                dateTime: new DateTime(2026, 6, 21, 0, 0, 0, DateTimeKind.Utc));
-            var night = NightCalculator.ComputeNight(loc);
+            var loc = TestLocations.PennsPark.With(latitude: 80.0, north: true);
+            var solsticeSeed = new DateTime(2026, 6, 21, 0, 0, 0, DateTimeKind.Utc);
+            var night = NightCalculator.ComputeNight(loc, solsticeSeed);
 
             var samples = QualitySamples.OverNight(
                 Target.Default, loc, night, TimeSpan.FromHours(1), SinAltQuality);
@@ -102,7 +101,7 @@ namespace Astronomy.Core.Tests.Tests
         public void OverNight_NonPositiveSlotSize_Throws()
         {
             var loc = MakeLocation();
-            var night = NightCalculator.ComputeNight(loc);
+            var night = NightCalculator.ComputeNight(loc, MakeSeed());
 
             Assert.Throws<ArgumentException>(() => QualitySamples.OverNight(
                 Target.Default, loc, night, TimeSpan.Zero, SinAltQuality));
@@ -114,7 +113,7 @@ namespace Astronomy.Core.Tests.Tests
         public void OverNight_NullArgs_Throws()
         {
             var loc = MakeLocation();
-            var night = NightCalculator.ComputeNight(loc);
+            var night = NightCalculator.ComputeNight(loc, MakeSeed());
             var slot = TimeSpan.FromHours(1);
 
             Assert.Throws<ArgumentNullException>(() => QualitySamples.OverNight(

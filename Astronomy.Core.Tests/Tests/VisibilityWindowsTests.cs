@@ -14,9 +14,9 @@ namespace Astronomy.Core.Tests.Tests
     // "night invalid" early-out branches, and the null contract.
     public class VisibilityWindowsTests
     {
-        private static Location MakeLocation(int year = 2026, int month = 11, int day = 15)
-            => TestLocations.PennsPark.With(
-                dateTime: new DateTime(year, month, day, 0, 0, 0, DateTimeKind.Utc));
+        private static Location MakeLocation() => TestLocations.PennsPark;
+        private static DateTime MakeSeed(int year = 2026, int month = 11, int day = 15)
+            => new DateTime(year, month, day, 0, 0, 0, DateTimeKind.Utc);
 
         [Fact]
         public void For_M31AtPennsParkInNovember_ReturnsOneWindow()
@@ -24,7 +24,7 @@ namespace Astronomy.Core.Tests.Tests
             // Canonical "well-placed for the night" case. M31 (RA 0.7h, Dec +41°) sits
             // near transit shortly after sunset in mid-November at Penns Park.
             var loc = MakeLocation();
-            var night = NightCalculator.ComputeNight(loc);
+            var night = NightCalculator.ComputeNight(loc, MakeSeed());
             var horizon = new ScalarHorizonProfile(20.0);
 
             var windows = VisibilityWindows.For(Target.Default, loc, night, horizon);
@@ -42,7 +42,7 @@ namespace Astronomy.Core.Tests.Tests
             // any returned interval is contained in [dusk, dawn]. This is the
             // observable consequence of the "inclusive boundary" semantics.
             var loc = MakeLocation();
-            var night = NightCalculator.ComputeNight(loc);
+            var night = NightCalculator.ComputeNight(loc, MakeSeed());
             var horizon = new ScalarHorizonProfile(20.0);
 
             var windows = VisibilityWindows.For(Target.Default, loc, night, horizon);
@@ -64,7 +64,7 @@ namespace Astronomy.Core.Tests.Tests
             // mid-northern latitudes. VisibilityWindows.For takes the
             // PositiveInfinity branch and returns a single (dusk, dawn) interval.
             var loc = MakeLocation();
-            var night = NightCalculator.ComputeNight(loc);
+            var night = NightCalculator.ComputeNight(loc, MakeSeed());
             var horizon = new ScalarHorizonProfile(20.0);
             var polaris = Target.Default.With(
                 name: "Polaris", rightAscension: 2.530194, declination: 89.264111, north: true);
@@ -83,7 +83,7 @@ namespace Astronomy.Core.Tests.Tests
             // reaches the horizon altitude. HourAngleAtAltitude returns NaN and
             // VisibilityWindows.For takes the early-out branch.
             var loc = MakeLocation();
-            var night = NightCalculator.ComputeNight(loc);
+            var night = NightCalculator.ComputeNight(loc, MakeSeed());
             var horizon = new ScalarHorizonProfile(20.0);
             var southern = Target.Default.With(
                 name: "deep south", rightAscension: 6.0, declination: 80.0, north: false);
@@ -99,10 +99,9 @@ namespace Astronomy.Core.Tests.Tests
             // Above the Arctic Circle at June solstice -- no astronomical night.
             // NightWindow.IsValid is false, so VisibilityWindows.For early-outs
             // before doing any geometry work.
-            var loc = TestLocations.PennsPark.With(
-                latitude: 80.0, north: true,
-                dateTime: new DateTime(2026, 6, 21, 0, 0, 0, DateTimeKind.Utc));
-            var night = NightCalculator.ComputeNight(loc);
+            var loc = TestLocations.PennsPark.With(latitude: 80.0, north: true);
+            var solsticeSeed = new DateTime(2026, 6, 21, 0, 0, 0, DateTimeKind.Utc);
+            var night = NightCalculator.ComputeNight(loc, solsticeSeed);
             var horizon = new ScalarHorizonProfile(20.0);
 
             Assert.False(night.IsValid);
@@ -117,7 +116,7 @@ namespace Astronomy.Core.Tests.Tests
             // Either outcome is acceptable; the contract is that the window can
             // only get smaller as the horizon rises.
             var loc = MakeLocation();
-            var night = NightCalculator.ComputeNight(loc);
+            var night = NightCalculator.ComputeNight(loc, MakeSeed());
             var lowHorizon = new ScalarHorizonProfile(20.0);
             var highHorizon = new ScalarHorizonProfile(70.0);
 
@@ -139,7 +138,7 @@ namespace Astronomy.Core.Tests.Tests
             // HourAngleAtAltitude solve. Two different scalar horizons must
             // produce two different windows for the same target / night.
             var loc = MakeLocation();
-            var night = NightCalculator.ComputeNight(loc);
+            var night = NightCalculator.ComputeNight(loc, MakeSeed());
             var lowHorizon = new ScalarHorizonProfile(15.0);
             var midHorizon = new ScalarHorizonProfile(40.0);
 
@@ -159,7 +158,7 @@ namespace Astronomy.Core.Tests.Tests
             // hold the reference indefinitely; another VisibilityWindows.For call
             // must not mutate the previously-returned list.
             var loc = MakeLocation();
-            var night = NightCalculator.ComputeNight(loc);
+            var night = NightCalculator.ComputeNight(loc, MakeSeed());
             var horizon = new ScalarHorizonProfile(20.0);
 
             var first = VisibilityWindows.For(Target.Default, loc, night, horizon);
@@ -178,7 +177,7 @@ namespace Astronomy.Core.Tests.Tests
         public void For_NullTarget_Throws()
         {
             var loc = MakeLocation();
-            var night = NightCalculator.ComputeNight(loc);
+            var night = NightCalculator.ComputeNight(loc, MakeSeed());
             var horizon = new ScalarHorizonProfile(20.0);
 
             Assert.Throws<ArgumentNullException>(() =>
@@ -188,7 +187,7 @@ namespace Astronomy.Core.Tests.Tests
         [Fact]
         public void For_NullLocation_Throws()
         {
-            var night = NightCalculator.ComputeNight(MakeLocation());
+            var night = NightCalculator.ComputeNight(MakeLocation(), MakeSeed());
             var horizon = new ScalarHorizonProfile(20.0);
 
             Assert.Throws<ArgumentNullException>(() =>
@@ -199,7 +198,7 @@ namespace Astronomy.Core.Tests.Tests
         public void For_NullHorizon_Throws()
         {
             var loc = MakeLocation();
-            var night = NightCalculator.ComputeNight(loc);
+            var night = NightCalculator.ComputeNight(loc, MakeSeed());
 
             Assert.Throws<ArgumentNullException>(() =>
                 VisibilityWindows.For(Target.Default, loc, night, null));
@@ -214,7 +213,7 @@ namespace Astronomy.Core.Tests.Tests
             // as ScalarHorizonProfile(samples[0]) -- the bisection refinement converges
             // to the closed-form crossing.
             var loc = MakeLocation();
-            var night = NightCalculator.ComputeNight(loc);
+            var night = NightCalculator.ComputeNight(loc, MakeSeed());
             var scalar = new ScalarHorizonProfile(20.0);
             var flatPolyline = new PolylineHorizonProfile(
                 azimuthsDeg:  new[] {  0.0,  90.0, 180.0, 270.0 },
@@ -240,7 +239,7 @@ namespace Astronomy.Core.Tests.Tests
             // with a 35-deg ridge spanning the southern azimuth band cuts into the
             // visible time vs the scalar 20-deg baseline.
             var loc = MakeLocation();
-            var night = NightCalculator.ComputeNight(loc);
+            var night = NightCalculator.ComputeNight(loc, MakeSeed());
             var m42 = Target.Default.With(
                 name: "M42", rightAscension: 5.588139, declination: 5.391, north: false);
             var scalar = new ScalarHorizonProfile(20.0);
@@ -271,7 +270,7 @@ namespace Astronomy.Core.Tests.Tests
             // altitude, splitting the single scalar window into a rising-side and a
             // setting-side sub-window.
             var loc = MakeLocation();
-            var night = NightCalculator.ComputeNight(loc);
+            var night = NightCalculator.ComputeNight(loc, MakeSeed());
             var m42 = Target.Default.With(
                 name: "M42", rightAscension: 5.588139, declination: 5.391, north: false);
             var profile = new ObstructionTableHorizonProfile(new[]
@@ -298,7 +297,7 @@ namespace Astronomy.Core.Tests.Tests
             // The profile path's outer-envelope short-circuit must survive: a target
             // that never reaches MinAltitude returns empty without invoking the scan.
             var loc = MakeLocation();
-            var night = NightCalculator.ComputeNight(loc);
+            var night = NightCalculator.ComputeNight(loc, MakeSeed());
             var southern = Target.Default.With(declination: 80.0, north: false);
             var profile = new PolylineHorizonProfile(
                 new[] {  0.0,  90.0, 180.0, 270.0 },

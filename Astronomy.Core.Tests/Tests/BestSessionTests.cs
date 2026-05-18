@@ -18,9 +18,9 @@ namespace Astronomy.Core.Tests.Tests
         private static readonly Func<double, double> SinAltQuality =
             alt => Math.Sin(alt * Math.PI / 180.0);
 
-        private static Location MakeLocation(int year = 2026, int month = 11, int day = 15)
-            => TestLocations.PennsPark.With(
-                dateTime: new DateTime(year, month, day, 0, 0, 0, DateTimeKind.Utc));
+        private static Location MakeLocation() => TestLocations.PennsPark;
+        private static DateTime MakeSeed(int year = 2026, int month = 11, int day = 15)
+            => new DateTime(year, month, day, 0, 0, 0, DateTimeKind.Utc);
 
         // M31 is well-placed at Penns Park in November; tests use it as the canonical
         // "always visible for several hours" target.
@@ -28,7 +28,7 @@ namespace Astronomy.Core.Tests.Tests
         public void For_LegacyPath_NullProfile_ReturnsResult()
         {
             var loc = MakeLocation();
-            var night = NightCalculator.ComputeNight(loc);
+            var night = NightCalculator.ComputeNight(loc, MakeSeed());
             var horizon = new ScalarHorizonProfile(20.0);
 
             var result = BestSession.For(
@@ -43,7 +43,7 @@ namespace Astronomy.Core.Tests.Tests
         public void For_DisabledProfile_ProducesSameResultAsNullProfile()
         {
             var loc = MakeLocation();
-            var night = NightCalculator.ComputeNight(loc);
+            var night = NightCalculator.ComputeNight(loc, MakeSeed());
             var horizon = new ScalarHorizonProfile(20.0);
 
             var nullResult = BestSession.For(
@@ -75,7 +75,7 @@ namespace Astronomy.Core.Tests.Tests
             // sub-interval boundaries can shift by up to 10 minutes via the sweep, so
             // exact-match would be brittle. We only assert "still got a session".
             var loc = MakeLocation();
-            var night = NightCalculator.ComputeNight(loc);
+            var night = NightCalculator.ComputeNight(loc, MakeSeed());
             var horizon = new ScalarHorizonProfile(20.0);
 
             var result = BestSession.For(
@@ -90,7 +90,7 @@ namespace Astronomy.Core.Tests.Tests
         public void For_NullTarget_Throws()
         {
             var loc = MakeLocation();
-            var night = NightCalculator.ComputeNight(loc);
+            var night = NightCalculator.ComputeNight(loc, MakeSeed());
             var horizon = new ScalarHorizonProfile(20.0);
 
             Assert.Throws<ArgumentNullException>(() => BestSession.For(
@@ -102,7 +102,7 @@ namespace Astronomy.Core.Tests.Tests
         [Fact]
         public void For_NullLocation_Throws()
         {
-            var night = NightCalculator.ComputeNight(MakeLocation());
+            var night = NightCalculator.ComputeNight(MakeLocation(), MakeSeed());
             var horizon = new ScalarHorizonProfile(20.0);
 
             Assert.Throws<ArgumentNullException>(() => BestSession.For(
@@ -120,7 +120,7 @@ namespace Astronomy.Core.Tests.Tests
             // uniform null return rather than translating an exception into the
             // same null themselves.
             var loc = MakeLocation();
-            var night = NightCalculator.ComputeNight(loc);
+            var night = NightCalculator.ComputeNight(loc, MakeSeed());
             var horizon = new ScalarHorizonProfile(20.0);
 
             Assert.Null(BestSession.For(
@@ -137,7 +137,7 @@ namespace Astronomy.Core.Tests.Tests
         public void For_MinExceedsMax_Throws()
         {
             var loc = MakeLocation();
-            var night = NightCalculator.ComputeNight(loc);
+            var night = NightCalculator.ComputeNight(loc, MakeSeed());
             var horizon = new ScalarHorizonProfile(20.0);
 
             Assert.Throws<ArgumentException>(() => BestSession.For(
@@ -154,7 +154,7 @@ namespace Astronomy.Core.Tests.Tests
         public void PlaceBest_PublicExposure_MatchesForOutput()
         {
             var loc = MakeLocation();
-            var night = NightCalculator.ComputeNight(loc);
+            var night = NightCalculator.ComputeNight(loc, MakeSeed());
             var horizon = new ScalarHorizonProfile(20.0);
             var minDur = TimeSpan.FromHours(2);
             var maxDur = TimeSpan.FromHours(4);
@@ -370,7 +370,7 @@ namespace Astronomy.Core.Tests.Tests
         public void ResolveCandidates_PlusPlaceBest_MatchesFor_NullProfile()
         {
             var loc = MakeLocation();
-            var night = NightCalculator.ComputeNight(loc);
+            var night = NightCalculator.ComputeNight(loc, MakeSeed());
             var horizon = new ScalarHorizonProfile(20.0);
             var dur = TimeSpan.FromHours(2);
 
@@ -393,7 +393,7 @@ namespace Astronomy.Core.Tests.Tests
         public void ResolveCandidates_PlusPlaceBest_MatchesFor_NarrowbandProfile()
         {
             var loc = MakeLocation();
-            var night = NightCalculator.ComputeNight(loc);
+            var night = NightCalculator.ComputeNight(loc, MakeSeed());
             var horizon = new ScalarHorizonProfile(20.0);
             var dur = TimeSpan.FromHours(2);
             var profile = MoonAvoidanceProfile.Narrowband;
@@ -423,7 +423,7 @@ namespace Astronomy.Core.Tests.Tests
             // With profile == null (or Disabled), ResolveCandidates returns visibility
             // unchanged -- byte-equal to VisibilityWindows.For's output.
             var loc = MakeLocation();
-            var night = NightCalculator.ComputeNight(loc);
+            var night = NightCalculator.ComputeNight(loc, MakeSeed());
             var horizon = new ScalarHorizonProfile(20.0);
 
             var visibility = VisibilityWindows.For(Target.Default, loc, night, horizon);
@@ -442,7 +442,7 @@ namespace Astronomy.Core.Tests.Tests
         public void ResolveCandidates_NullArgs_Throws()
         {
             var loc = MakeLocation();
-            var night = NightCalculator.ComputeNight(loc);
+            var night = NightCalculator.ComputeNight(loc, MakeSeed());
             var horizon = new ScalarHorizonProfile(20.0);
 
             Assert.Throws<ArgumentNullException>(() =>

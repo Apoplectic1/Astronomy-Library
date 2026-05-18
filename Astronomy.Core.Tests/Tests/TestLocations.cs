@@ -20,11 +20,6 @@ namespace Astronomy.Core.Tests.Tests
             name:         "Penns Park",
             latitude:     40.282835, north: true,
             longitude:    74.997369, west:  true,
-#pragma warning disable CS0618 // Test fixture seeds the obsolete Horizon/Duration; intentional bridge.
-            horizon:      30,
-            duration:     TimeSpan.FromMinutes(240),
-#pragma warning restore CS0618
-            dateTime:     DateTime.Now,
             timeZoneInfo: TimeZoneInfo.Local,
             elevation:    80.67,
             bortleClass:  5,
@@ -35,11 +30,6 @@ namespace Astronomy.Core.Tests.Tests
             name:         "Sydney",
             latitude:     33.8568, north: false,
             longitude:    151.2153, west: false,
-#pragma warning disable CS0618
-            horizon:      30,
-            duration:     TimeSpan.FromMinutes(240),
-#pragma warning restore CS0618
-            dateTime:     DateTime.Now,
             timeZoneInfo: TimeZoneInfo.Utc,
             elevation:    20.0,
             bortleClass:  7,
@@ -52,11 +42,6 @@ namespace Astronomy.Core.Tests.Tests
             name:         "Quito",
             latitude:     0.1807, north: false,
             longitude:    78.4678, west: true,
-#pragma warning disable CS0618
-            horizon:      30,
-            duration:     TimeSpan.FromMinutes(240),
-#pragma warning restore CS0618
-            dateTime:     DateTime.Now,
             timeZoneInfo: TimeZoneInfo.Utc,
             elevation:    2850.0,
             bortleClass:  6,
@@ -68,11 +53,6 @@ namespace Astronomy.Core.Tests.Tests
             name:         "Reykjavik",
             latitude:     64.1466, north: true,
             longitude:    21.9426, west: true,
-#pragma warning disable CS0618
-            horizon:      30,
-            duration:     TimeSpan.FromMinutes(240),
-#pragma warning restore CS0618
-            dateTime:     DateTime.Now,
             timeZoneInfo: TimeZoneInfo.Utc,
             elevation:    10.0,
             bortleClass:  4,
@@ -87,11 +67,6 @@ namespace Astronomy.Core.Tests.Tests
             name:         "McMurdo",
             latitude:     77.8419, north: false,
             longitude:    166.6863, west: false,
-#pragma warning disable CS0618
-            horizon:      30,
-            duration:     TimeSpan.FromMinutes(240),
-#pragma warning restore CS0618
-            dateTime:     DateTime.Now,
             timeZoneInfo: TimeZoneInfo.Utc,
             elevation:    24.0,
             bortleClass:  2,

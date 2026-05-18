@@ -11,9 +11,7 @@ namespace Astronomy.Core.Tests.Tests
     // hand-computed AltAz / MeridianAltitude values directly.
     public class SessionAltitudeTests
     {
-        private static Location MakeLocation()
-            => TestLocations.PennsPark.With(
-                dateTime: new DateTime(2026, 11, 15, 0, 0, 0, DateTimeKind.Utc));
+        private static Location MakeLocation() => TestLocations.PennsPark;
 
         // Transit-centered session: [transit - 1h, transit + 1h]. Altitude is monotone
         // increasing on each half-arc of transit, so endpoints are equally distant

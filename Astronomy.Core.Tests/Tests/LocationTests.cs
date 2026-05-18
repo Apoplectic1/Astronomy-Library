@@ -46,9 +46,7 @@ namespace Astronomy.Core.Tests.Tests
             Assert.Equal(74.0, loc.LonDegrees);
         }
 
-        // With() with no arguments must reproduce every field, including
-        // the [Obsolete] Horizon/Duration that still round-trip through
-        // the builder for caller-side persistence.
+        // With() with no arguments must reproduce every field.
         [Fact]
         public void With_NoArgs_RoundTripsAllFields()
         {
@@ -62,12 +60,8 @@ namespace Astronomy.Core.Tests.Tests
             Assert.Equal(original.North,        copy.North);
             Assert.Equal(original.Longitude,    copy.Longitude);
             Assert.Equal(original.West,         copy.West);
-#pragma warning disable CS0618 // Round-trip must read the obsolete Horizon/Duration to verify they preserve.
-            Assert.Equal(original.Horizon,      copy.Horizon);
-            Assert.Equal(original.Duration,     copy.Duration);
-#pragma warning restore CS0618
-            Assert.Equal(original.DateTime,     copy.DateTime);
             Assert.Equal(original.TimeZoneInfo, copy.TimeZoneInfo);
+            Assert.Same (original.LocalHorizon, copy.LocalHorizon);
             Assert.Equal(original.Elevation,    copy.Elevation);
             Assert.Equal(original.BortleClass,  copy.BortleClass);
             Assert.Equal(original.ExtinctionK,  copy.ExtinctionK);
@@ -96,11 +90,6 @@ namespace Astronomy.Core.Tests.Tests
                 name:         "test",
                 latitude:     latitude, north: north,
                 longitude:    longitude, west:  west,
-#pragma warning disable CS0618 // Test fixture seeds the obsolete Horizon/Duration; intentional bridge.
-                horizon:      30,
-                duration:     TimeSpan.FromMinutes(240),
-#pragma warning restore CS0618
-                dateTime:     new DateTime(2026, 5, 18, 21, 0, 0, DateTimeKind.Utc),
                 timeZoneInfo: TimeZoneInfo.Utc,
                 elevation:    elevation,
                 bortleClass:  bortleClass,

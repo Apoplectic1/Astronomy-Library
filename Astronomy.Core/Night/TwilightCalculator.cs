@@ -26,12 +26,14 @@ namespace Astronomy.Core.Night
         public const double CivilTwilightSunAlt        =  -6.0;
 
         /// <summary>
-        /// Returns the night window (dusk -> dawn bracketing <paramref name="location"/>'s
-        /// moment) where the sun is at or below <paramref name="sunAltBelowDeg"/>. Matches
+        /// Returns the night window (dusk -> dawn bracketing <paramref name="utc"/>)
+        /// at <paramref name="location"/> where the sun is at or below
+        /// <paramref name="sunAltBelowDeg"/>. Matches
         /// <see cref="NightCalculator.ComputeNight"/> when <paramref name="sunAltBelowDeg"/>
         /// is <see cref="AstronomicalTwilightSunAlt"/>.
         /// </summary>
-        /// <param name="location">Observer position and local moment. Non-null.</param>
+        /// <param name="location">Observer position. Non-null.</param>
+        /// <param name="utc">The instant the night should bracket.</param>
         /// <param name="sunAltBelowDeg">
         /// Geometric altitude threshold in degrees -- typically -18 (astronomical), -12
         /// (nautical), -6 (civil), or -0.833 (official sunrise/sunset). Other values are
@@ -45,10 +47,10 @@ namespace Astronomy.Core.Night
         /// <exception cref="ArgumentNullException">
         /// <paramref name="location"/> is <see langword="null"/>.
         /// </exception>
-        public static NightWindow ComputeNight(Location location, double sunAltBelowDeg)
+        public static NightWindow ComputeNight(Location location, DateTime utc, double sunAltBelowDeg)
         {
             ArgumentNullException.ThrowIfNull(location);
-            return NightCalculator.Compute(location, sunAltBelowDeg);
+            return NightCalculator.Compute(location, utc, sunAltBelowDeg);
         }
     }
 }

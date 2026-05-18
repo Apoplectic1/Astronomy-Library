@@ -33,7 +33,7 @@ namespace Astronomy.Core
 
         /// <summary>
         /// Enables positional deconstruction:
-        /// <c>var (alt, az) = AltAzCalculator.Of(target, location);</c>
+        /// <c>var (alt, az) = AltAzCalculator.At(target, location, utc);</c>
         /// </summary>
         public void Deconstruct(out double altitude, out double azimuth)
         {
@@ -74,26 +74,6 @@ namespace Astronomy.Core
             double altitude = TargetGeometry.AltitudeAtHourAngle(hourAngle, latDeg, decDeg);
             double azimuth  = TargetGeometry.AzimuthAtHourAngle(hourAngle, latDeg, decDeg);
             return new AltAz(altitude, azimuth);
-        }
-
-        /// <summary>
-        /// Overload that resolves the UTC instant from <c>location.DateTime</c> via
-        /// <c>TimeKindGuard.AsUtc</c> (the canonical assembly-internal Kind-normalisation
-        /// helper -- see CLAUDE.md's "DateTime kinds" bullet). Accepts
-        /// <see cref="Location.DateTime"/> with any <see cref="DateTimeKind"/>: Local and
-        /// Unspecified are treated as local and converted via Windows rules; Utc is a
-        /// no-op. Callers that want to evaluate at a <see cref="Night.NightWindow"/>-sourced
-        /// instant (Kind=Utc) can pass it through
-        /// <c>Location.With(dateTime: night.AstronomicalDusk)</c> without converting first.
-        /// </summary>
-        /// <exception cref="ArgumentNullException">
-        /// <paramref name="target"/> or <paramref name="location"/> is <see langword="null"/>.
-        /// </exception>
-        public static AltAz Of(Target target, Location location)
-        {
-            ArgumentNullException.ThrowIfNull(target);
-            ArgumentNullException.ThrowIfNull(location);
-            return At(target, location, TimeKindGuard.AsUtc(location.DateTime));
         }
     }
 }

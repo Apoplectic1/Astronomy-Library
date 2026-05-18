@@ -8,7 +8,7 @@ namespace Astronomy.Core.Night
 {
     /// <summary>
     /// Computes the astronomical night window (sun at or below -18&#176;) bracketing
-    /// <see cref="Location.DateTime"/>, plus the lunar illumination fraction. Pure;
+    /// a caller-supplied moment, plus the lunar illumination fraction. Pure;
     /// no static mutable state; safe to call from concurrent background tasks.
     /// </summary>
     /// <remarks>
@@ -26,10 +26,14 @@ namespace Astronomy.Core.Night
     public static class NightCalculator
     {
         /// <summary>
-        /// Returns the astronomical-twilight night window bracketing
-        /// <paramref name="location"/>'s moment.
+        /// Returns the astronomical-twilight night window bracketing the supplied
+        /// <paramref name="utc"/> at <paramref name="location"/>.
         /// </summary>
-        /// <param name="location">Observer position and local moment. Non-null.</param>
+        /// <param name="location">Observer position. Non-null.</param>
+        /// <param name="utc">The instant the night should bracket. Routed through
+        /// <see cref="TimeKindGuard.AsUtc"/>, so <see cref="DateTimeKind.Local"/> and
+        /// <see cref="DateTimeKind.Unspecified"/> are converted via the machine zone;
+        /// <see cref="DateTimeKind.Utc"/> is a no-op.</param>
         /// <returns>
         /// A <see cref="NightWindow"/> with <see cref="DateTimeKind.Utc"/> dusk/dawn
         /// instants. If the location is in polar day / polar night (no -18&#176;
@@ -40,22 +44,22 @@ namespace Astronomy.Core.Night
         /// <exception cref="ArgumentNullException">
         /// <paramref name="location"/> is <see langword="null"/>.
         /// </exception>
-        public static NightWindow ComputeNight(Location location)
+        public static NightWindow ComputeNight(Location location, DateTime utc)
         {
             ArgumentNullException.ThrowIfNull(location);
-            return Compute(location, -18.0);
+            return Compute(location, utc, -18.0);
         }
 
-        // Shared helper: bracket the night around location.DateTime where the sun
-        // crosses sunAltBelowDeg. Used by TwilightCalculator for the parameterised
+        // Shared helper: bracket the night around utc where the sun crosses
+        // sunAltBelowDeg. Used by TwilightCalculator for the parameterised
         // threshold variants. Operating in pure UTC (no local-frame offset trick)
         // avoids the DST-transition trap the old CoordinateSharp path had to dodge.
-        internal static NightWindow Compute(Location location, double sunAltBelowDeg)
+        internal static NightWindow Compute(Location location, DateTime utc, double sunAltBelowDeg)
         {
             double latSigned = location.North ?  location.Latitude  : -location.Latitude;
             double lonEast   = location.West  ? -location.Longitude :  location.Longitude;
 
-            DateTime locUtc = TimeKindGuard.AsUtc(location.DateTime);
+            DateTime locUtc = TimeKindGuard.AsUtc(utc);
 
             // The night that wraps locUtc could have its dusk on the prior UTC day and
             // its dawn on the next UTC day; sample three consecutive days to cover all

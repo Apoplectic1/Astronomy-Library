@@ -32,7 +32,7 @@ namespace Astronomy.Core.Night
     public sealed class NightCache
     {
         /// <summary>
-        /// NightWindow for the location's own <c>DateTime</c> -- the "tonight" window used
+        /// NightWindow bracketing the supplied <c>startingUtc</c> -- the "tonight" window used
         /// by the Day and Moon series.
         /// </summary>
         public NightWindow Starting { get; }
@@ -46,27 +46,28 @@ namespace Astronomy.Core.Night
         public IReadOnlyList<NightWindow> YearDays { get; }
 
         /// <summary>
-        /// Builds the full cache: one NightCalculator call for <paramref name="location"/>'s
-        /// current DateTime and one per day across <c>[yearStartDay, yearStartDay + yearDaysCount)</c>.
+        /// Builds the full cache: one NightCalculator call bracketing
+        /// <paramref name="startingUtc"/> and one per day across
+        /// <c>[yearStartDay, yearStartDay + yearDaysCount)</c>.
         /// </summary>
         /// <exception cref="ArgumentNullException"><paramref name="location"/> is null.</exception>
         /// <exception cref="ArgumentOutOfRangeException">yearDaysCount is negative.</exception>
         /// <exception cref="OperationCanceledException"><paramref name="ct"/> fired mid-build.</exception>
-        public NightCache(Location location, DateTime yearStartDay, int yearDaysCount,
+        public NightCache(Location location, DateTime startingUtc,
+                          DateTime yearStartDay, int yearDaysCount,
                           CancellationToken ct = default)
         {
             ArgumentNullException.ThrowIfNull(location);
             ArgumentOutOfRangeException.ThrowIfNegative(yearDaysCount);
 
-            Starting = NightCalculator.ComputeNight(location);
+            Starting = NightCalculator.ComputeNight(location, startingUtc);
             YearStartDay = yearStartDay;
 
             NightWindow[] year = new NightWindow[yearDaysCount];
             for (int i = 0; i < yearDaysCount; i++)
             {
                 ct.ThrowIfCancellationRequested();
-                Location dayLoc = location.With(dateTime: yearStartDay.AddDays(i));
-                year[i] = NightCalculator.ComputeNight(dayLoc);
+                year[i] = NightCalculator.ComputeNight(location, yearStartDay.AddDays(i));
             }
             YearDays = year;
         }
