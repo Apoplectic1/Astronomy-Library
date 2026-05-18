@@ -1,4 +1,5 @@
 using System;
+using Astronomy.Core.Astrometry.Meeus;
 
 namespace Astronomy.Core
 {
@@ -129,9 +130,7 @@ namespace Astronomy.Core
         /// </remarks>
         public static double AzimuthAtHourAngle(double haHours, double latDeg, double decDeg)
         {
-            double ha = haHours;
-            while (ha <   0.0) ha += 24.0;
-            while (ha >= 24.0) ha -= 24.0;
+            double ha = MeeusUtility.Norm24(haHours);
             double haRad = ha * Math.PI / 12.0;
 
             double phi = latDeg * Math.PI / 180.0;

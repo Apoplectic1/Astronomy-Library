@@ -1,4 +1,5 @@
 using System;
+using Astronomy.Core.Astrometry.Meeus;
 using Astronomy.Core.Locations;
 using Astronomy.Core.Targets;
 using Astronomy.Core.Time;
@@ -41,9 +42,7 @@ namespace Astronomy.Core.Session
             double raHours = target.RightAscension;
 
             double lstRef = SiderealTime.Local(searchFromUtc, lonDegEast);
-            double deltaLst = raHours - lstRef;
-            while (deltaLst <   0.0) deltaLst += 24.0;
-            while (deltaLst >= 24.0) deltaLst -= 24.0;
+            double deltaLst = MeeusUtility.Norm24(raHours - lstRef);
 
             // Advance UT by the solar-hour equivalent of deltaLst sidereal hours.
             double deltaUtHours = deltaLst * 24.0 / SiderealTime.SiderealHoursPerSolarDay;
