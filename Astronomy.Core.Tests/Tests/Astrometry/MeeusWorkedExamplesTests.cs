@@ -1,5 +1,6 @@
 using System;
 using System.Reflection;
+using Astronomy.Core.Sun;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -91,6 +92,32 @@ namespace Astronomy.Core.Tests.Tests.Astrometry
 
             // Meeus pg. 347: k = 0.6786.
             Assert.InRange(k, 0.6786 - 0.001, 0.6786 + 0.001);
+        }
+
+        // ---------------- SunHeliographic (Meeus "Ephemeris for Physical
+        //                  Observations of the Sun", Carrington's formulas) ----------------
+
+        // Worked example: 1992 October 13.0 TD -> (P, B0, L0) = (26.27, 5.99, 238.63) deg.
+        // Cross-verified against PyMeeus's Sun.ephemeris_physical_observations and the
+        // soniakeys/meeus Go port -- both pin the same triple at this epoch.
+        // Reaches the public SunHeliographic surface directly (no reflection needed)
+        // because the type is public; the existing reflection helpers above bridge to
+        // internal Meeus types.
+        [Fact]
+        public void SunHeliographic_DiskCenterAt_Meeus_1992Oct13_Matches()
+        {
+            DateTime utc = new DateTime(1992, 10, 13, 0, 0, 0, DateTimeKind.Utc);
+            (double p, double b0, double l0) = SunHeliographic.DiskCenterAt(utc);
+
+            mLog.WriteLine($"SunHeliographic 1992-10-13 0h: P={p:F4} B0={b0:F4} L0={l0:F4}");
+
+            // 0.05 deg tolerance per SunHeliographic.cs's documented "well below 0.05 deg"
+            // accuracy budget. Generous enough to absorb the UT-vs-TT epoch interpretation
+            // (deltaT ~58s in 1992 shifts these by < 0.001 deg) and the PyMeeus round-to-2
+            // truncation in the reference values.
+            Assert.InRange(p,   26.27 - 0.05,  26.27 + 0.05);
+            Assert.InRange(b0,   5.99 - 0.05,   5.99 + 0.05);
+            Assert.InRange(l0, 238.63 - 0.05, 238.63 + 0.05);
         }
 
         // ---------------- Reflection helpers ----------------
