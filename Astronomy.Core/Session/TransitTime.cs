@@ -11,8 +11,6 @@ namespace Astronomy.Core.Session
     /// </summary>
     public static class TransitTime
     {
-        private const double SiderealHoursPerSolarDay = 24.06570982441908;
-
         /// <summary>
         /// Returns the first UTC instant at or after <paramref name="searchFromUtc"/> when
         /// the target transits (crosses the local meridian, HA = 0) as seen from the given
@@ -48,7 +46,7 @@ namespace Astronomy.Core.Session
             while (deltaLst >= 24.0) deltaLst -= 24.0;
 
             // Advance UT by the solar-hour equivalent of deltaLst sidereal hours.
-            double deltaUtHours = deltaLst * 24.0 / SiderealHoursPerSolarDay;
+            double deltaUtHours = deltaLst * 24.0 / SiderealTime.SiderealHoursPerSolarDay;
             return searchFromUtc.AddHours(deltaUtHours);
         }
 

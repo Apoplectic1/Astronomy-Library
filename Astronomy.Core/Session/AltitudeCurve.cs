@@ -33,8 +33,6 @@ namespace Astronomy.Core.Session
     /// </remarks>
     public static class AltitudeCurve
     {
-        private const double SiderealHoursPerSolarDay = 24.06570982441908;
-
         /// <summary>
         /// Returns <paramref name="count"/> altitudes at <paramref name="step"/> spacing,
         /// starting at <paramref name="startUtc"/>. Index 0 is the altitude at
@@ -79,7 +77,7 @@ namespace Astronomy.Core.Session
             double lstStart = SiderealTime.Local(startUtc, lonDegEast);
             // LST advances at the sidereal rate: one solar hour of UT elapses
             // SiderealHoursPerSolarDay / 24 sidereal hours of LST.
-            double lstStepHours = step.TotalHours * SiderealHoursPerSolarDay / 24.0;
+            double lstStepHours = step.TotalHours * SiderealTime.SiderealHoursPerSolarDay / 24.0;
 
             double[] altitudes = new double[count];
             for (int i = 0; i < count; i++)

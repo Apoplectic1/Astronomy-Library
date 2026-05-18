@@ -12,8 +12,6 @@ namespace Astronomy.Core.Session
     /// </summary>
     public static class IntegratedQuality
     {
-        private const double SiderealHoursPerSolarDay = 24.06570982441908;
-
         /// <summary>
         /// Integrates <paramref name="altitudeQuality"/><c>(alt(t))</c> over
         /// <c>[startUtc, startUtc + duration]</c> using composite Simpson's rule.
@@ -69,7 +67,7 @@ namespace Astronomy.Core.Session
             for (int i = 0; i <= n; i++)
             {
                 double t = i * dt;                                   // UT hours offset
-                double lst = lstStart + t * SiderealHoursPerSolarDay / 24.0;
+                double lst = lstStart + t * SiderealTime.SiderealHoursPerSolarDay / 24.0;
                 double ha = lst - raHours;
                 double alt = TargetGeometry.AltitudeAtHourAngle(ha, latDeg, decDeg);
                 double q = altitudeQuality(alt);
@@ -108,7 +106,7 @@ namespace Astronomy.Core.Session
 
             double lstStart = SiderealTime.Local(startUtc, lonDegEast);
             double haStart = lstStart - raHours;
-            double durationLst = duration.TotalHours * SiderealHoursPerSolarDay / 24.0;
+            double durationLst = duration.TotalHours * SiderealTime.SiderealHoursPerSolarDay / 24.0;
             double haEnd = haStart + durationLst;
 
             double siderealIntegral =
@@ -117,7 +115,7 @@ namespace Astronomy.Core.Session
                   * (Math.Sin(haEnd * Math.PI / 12.0) - Math.Sin(haStart * Math.PI / 12.0));
 
             // Convert sidereal-hour-based integral to solar-hour-based.
-            return siderealIntegral * 24.0 / SiderealHoursPerSolarDay;
+            return siderealIntegral * 24.0 / SiderealTime.SiderealHoursPerSolarDay;
         }
 
         /// <summary>

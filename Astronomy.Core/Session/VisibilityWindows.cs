@@ -15,8 +15,6 @@ namespace Astronomy.Core.Session
     /// </summary>
     public static class VisibilityWindows
     {
-        private const double SiderealHoursPerSolarDay = 24.06570982441908;
-
         // Outer-scan resolution for profile refinement. 1-minute sampling is fine enough to
         // catch dips below ridge / building features (azimuth changes < 1 deg / min for
         // any practical target) while keeping the sample count for a full night under 1000.
@@ -103,7 +101,7 @@ namespace Astronomy.Core.Session
                 return result;
             }
 
-            double solarPerSidereal = 24.0 / SiderealHoursPerSolarDay;
+            double solarPerSidereal = 24.0 / SiderealTime.SiderealHoursPerSolarDay;
             for (int k = -1; k <= 1; k++)
             {
                 double center  = raHours + 24.0 * k;

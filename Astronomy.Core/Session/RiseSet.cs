@@ -2,6 +2,7 @@ using System;
 using Astronomy.Core.Horizons;
 using Astronomy.Core.Locations;
 using Astronomy.Core.Targets;
+using Astronomy.Core.Time;
 
 namespace Astronomy.Core.Session
 {
@@ -28,9 +29,6 @@ namespace Astronomy.Core.Session
     /// </summary>
     public static class RiseSet
     {
-        private const double SiderealHoursPerSolarDay = 24.06570982441908;
-        private const double SiderealDayInSolarHours  = 24.0 * 24.0 / SiderealHoursPerSolarDay;
-
         /// <summary>
         /// Next UTC rise and set of <paramref name="target"/> at or after
         /// <paramref name="searchFromUtc"/> against a scalar horizon
@@ -61,7 +59,7 @@ namespace Astronomy.Core.Session
             if (double.IsNaN(haHorizon))               return (RiseSetState.NeverRises, null, null);
             if (double.IsPositiveInfinity(haHorizon))  return (RiseSetState.Circumpolar, null, null);
 
-            double haSolarHours = haHorizon * 24.0 / SiderealHoursPerSolarDay;
+            double haSolarHours = haHorizon * 24.0 / SiderealTime.SiderealHoursPerSolarDay;
 
             DateTime nextTransit = TransitTime.UtcAtOrAfter(target, location, searchFromUtc);
             DateTime candidateRise = nextTransit.AddHours(-haSolarHours);
@@ -71,7 +69,7 @@ namespace Astronomy.Core.Session
             // rise from the NEXT transit cycle, which is one sidereal day later.
             DateTime nextRise = candidateRise >= searchFromUtc
                 ? candidateRise
-                : candidateRise.AddHours(SiderealDayInSolarHours);
+                : candidateRise.AddHours(SiderealTime.SiderealDayInSolarHours);
 
             // Set for this transit cycle is >= nextTransit >= searchFromUtc, so always valid.
             return (RiseSetState.Found, nextRise, candidateSet);
