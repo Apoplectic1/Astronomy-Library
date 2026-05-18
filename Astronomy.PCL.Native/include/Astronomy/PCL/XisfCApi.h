@@ -41,7 +41,13 @@ int32_t AstronomyXisf_GetImageInfo(AstronomyXisfHandle handle, AstronomyXisfImag
 int32_t AstronomyXisf_ReadImageF32(AstronomyXisfHandle handle, float* outSamples, int64_t samplesCount);
 int32_t AstronomyXisf_GetLastErrorMessage(wchar_t* outBuffer, int32_t bufferCharCount, int32_t* outRequiredCharCount);
 
-int32_t AstronomyXisf_Add(int32_t a, int32_t b);
+/* P/Invoke smoke probe -- exercises the int marshalling pipe both ways.
+   Keep indefinitely as the first-line "is the native DLL loaded and
+   speaking the right ABI" check; downstream test infrastructure rests
+   on this returning quickly even when the rest of the surface is
+   broken. Sum semantics let the test assert correctness without a
+   magic-number return value. */
+int32_t AstronomyXisf_Ping(int32_t a, int32_t b);
 
 #ifdef __cplusplus
 }

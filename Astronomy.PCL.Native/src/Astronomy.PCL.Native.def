@@ -10,4 +10,4 @@ EXPORTS
     AstronomyXisf_GetImageInfo
     AstronomyXisf_ReadImageF32
     AstronomyXisf_GetLastErrorMessage
-    AstronomyXisf_Add
+    AstronomyXisf_Ping

@@ -36,7 +36,7 @@ namespace Astronomy.PCL.Interop
 #pragma warning restore CA1838
 
         [DllImport(Lib, ExactSpelling = true)]
-        internal static extern int AstronomyXisf_Add(int a, int b);
+        internal static extern int AstronomyXisf_Ping(int a, int b);
     }
 
     [StructLayout(LayoutKind.Sequential)]

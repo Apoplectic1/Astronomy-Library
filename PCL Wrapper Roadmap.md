@@ -27,7 +27,7 @@ public sealed class XisfException : Exception { public int StatusCode { get; } }
 C ABI surface (in `Astronomy.PCL.Native/include/Astronomy/PCL/XisfCApi.h`):
 
 - `AstronomyXisf_Open / Close / NumberOfImages / SelectImage / GetImageInfo / ReadImageF32 / GetLastErrorMessage`
-- `AstronomyXisf_Add` (smoke export, kept indefinitely as the first-line probe of the P/Invoke pipe).
+- `AstronomyXisf_Ping` (smoke export, kept indefinitely as the first-line probe of the P/Invoke pipe).
 
 Metadata reads (FITS keywords, properties, header XML), partial-pixel reads, and any write capability are **unimplemented**.
 

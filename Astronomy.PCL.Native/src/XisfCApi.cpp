@@ -242,7 +242,7 @@ extern "C" int32_t AstronomyXisf_GetLastErrorMessage(wchar_t* outBuffer, int32_t
     return AstronomyXisfStatus_Ok;
 }
 
-extern "C" int32_t AstronomyXisf_Add(int32_t a, int32_t b)
+extern "C" int32_t AstronomyXisf_Ping(int32_t a, int32_t b)
 {
     return a + b;
 }
