@@ -1,19 +1,24 @@
 using System;
+using System.Collections.Generic;
 
 namespace Astronomy.Core.Tests.Tests.Astrometry
 {
-    // Parity test inputs for the CoordinateSharp -> Meeus swap. Phase 1 uses these as
-    // plausibility-only fixtures (NightCalculator returns valid windows when expected;
-    // MoonSeparation outputs are in range). Phase 3 will tighten by snapshotting the
-    // CoordinateSharp output and asserting the new AstroUtil-backed paths match within
-    // tolerance (~30 arcsec moon Alt/Az; ~60 s twilight events; 0.005 illumination).
+    // Parity test inputs and frozen baseline snapshots for the post-CoordinateSharp Meeus
+    // surfaces. Baselines were captured on 2026-05-18 from a build the user had externally
+    // verified as correct; downstream regressions (Meeus formula edits, refactors of the
+    // sign-resolution preamble, etc.) show up here as a clean per-case failure with the
+    // delta quantified instead of as plausibility-only divergence.
+    //
+    // Tolerances mirror the contract documented in the 2026-05-18 review:
+    //   - twilight events (AstronomicalDusk, AstronomicalDawn): 60 s
+    //   - moon altitude:                                        30 arcsec
+    //   - target-moon separation:                               60 arcsec (derived)
+    //   - lunar illumination fraction:                          0.005
     //
     // All DateTimes are Kind=Utc so the test path is independent of the test machine's
-    // TimeZoneInfo.Local for the MoonSeparation.ObserveAt calls (which take an explicit
-    // utc parameter and pass utcOffset=0). NightCalculator currently does read
-    // TimeZoneInfo.Local.GetUtcOffset(location.DateTime); that's a CoordinateSharp-era
-    // quirk we accept for Phase 1, since the user's machine timezone is fixed across
-    // Phases 1-3 of this swap.
+    // TimeZoneInfo.Local. NightCalculator (post-2249834, Meeus-backed) no longer reads
+    // TimeZoneInfo.Local for any computation, so the captured baselines are
+    // machine-independent.
     public static class ParityFixtures
     {
         // Whether each case's night window is expected to be valid. Polar-day / polar-night
@@ -42,6 +47,17 @@ namespace Astronomy.Core.Tests.Tests.Astrometry
             }
         }
 
+        // Frozen baseline outputs for each case. Dusk / Dawn are DateTime.MinValue for
+        // polar-day / polar-night cases where NightCalculator returns the sentinel
+        // (no astronomical night). Illumination / Separation / MoonAlt are real values
+        // even for polar cases (lunar position computes regardless of sun visibility).
+        public sealed record BaselineSnapshot(
+            DateTime Dusk,
+            DateTime Dawn,
+            double Illumination,
+            double Separation,
+            double MoonAlt);
+
         public static readonly Case[] All = new[]
         {
             // Penns Park, mid-spring, the user's home location at a typical observing time.
@@ -51,7 +67,7 @@ namespace Astronomy.Core.Tests.Tests.Astrometry
                 expectValidNight: true),
 
             // Penns Park at the DST autumn-back transition. Validates the offset-recovery
-            // path in NightCalculator.ToUtc that fixed the 2026-11-01 night-window spike
+            // path in NightCalculator that fixed the 2026-11-01 night-window spike
             // (Library commit 5eb3d0b).
             new Case("PennsParkDstFall",
                 40.282835, true, 74.997369, true,
@@ -84,7 +100,7 @@ namespace Astronomy.Core.Tests.Tests.Astrometry
                 expectValidNight: false),
 
             // 65 degrees S (Antarctic edge) at December solstice. Sun never rises;
-            // arguably "always-night" but CoordinateSharp may flag this as no astronomical
+            // arguably "always-night" but the calculator flags this as no astronomical
             // night-window. Expect IsValid=false either way.
             new Case("AntarcticPolarNight",
                 65.0, false, 30.0, false,
@@ -103,5 +119,75 @@ namespace Astronomy.Core.Tests.Tests.Astrometry
                 new DateTime(2026, 1, 15, 12, 0, 0, DateTimeKind.Utc),
                 expectValidNight: true),
         };
+
+        // Frozen 2026-05-18 baselines. To regenerate after a deliberate behaviour change,
+        // unskip ParityBaselineTests._DumpBaselinesForRegeneration, run it, and paste the
+        // emitted entries here.
+        public static readonly IReadOnlyDictionary<string, BaselineSnapshot> Baselines =
+            new Dictionary<string, BaselineSnapshot>
+            {
+                ["PennsParkSpring"] = new BaselineSnapshot(
+                    Dusk:        new DateTime(2026, 4, 30, 1, 36, 57, DateTimeKind.Utc),
+                    Dawn:        new DateTime(2026, 4, 30, 8, 17,  6, DateTimeKind.Utc),
+                    Illumination: 0.966591,
+                    Separation:   149.268582,
+                    MoonAlt:      -13.779190),
+
+                ["PennsParkDstFall"] = new BaselineSnapshot(
+                    Dusk:        new DateTime(2026, 10, 31, 23, 30,  1, DateTimeKind.Utc),
+                    Dawn:        new DateTime(2026, 11,  1,  9, 57, 35, DateTimeKind.Utc),
+                    Illumination: 0.569414,
+                    Separation:   92.236811,
+                    MoonAlt:      29.540646),
+
+                ["PennsParkDstSpring"] = new BaselineSnapshot(
+                    Dusk:        new DateTime(2027, 3, 14, 0, 35,  9, DateTimeKind.Utc),
+                    Dawn:        new DateTime(2027, 3, 14, 9, 42, 57, DateTimeKind.Utc),
+                    Illumination: 0.346976,
+                    Separation:   45.016701,
+                    MoonAlt:      -14.419087),
+
+                ["PennsParkSummerSolstice"] = new BaselineSnapshot(
+                    Dusk:        new DateTime(2026, 6, 21, 2, 37, 42, DateTimeKind.Utc),
+                    Dawn:        new DateTime(2026, 6, 21, 7, 25, 48, DateTimeKind.Utc),
+                    Illumination: 0.423415,
+                    Separation:   133.386305,
+                    MoonAlt:      5.432167),
+
+                ["EquatorSolstice"] = new BaselineSnapshot(
+                    Dusk:        new DateTime(2026, 6, 21, 19, 20, 37, DateTimeKind.Utc),
+                    Dawn:        new DateTime(2026, 6, 22,  4, 43, 15, DateTimeKind.Utc),
+                    Illumination: 0.458234,
+                    Separation:   136.517469,
+                    MoonAlt:      3.954612),
+
+                ["ReykjavikPolarDay"] = new BaselineSnapshot(
+                    Dusk:        DateTime.MinValue,
+                    Dawn:        DateTime.MinValue,
+                    Illumination: 0.405989,
+                    Separation:   132.065492,
+                    MoonAlt:      5.179448),
+
+                ["AntarcticPolarNight"] = new BaselineSnapshot(
+                    Dusk:        DateTime.MinValue,
+                    Dawn:        DateTime.MinValue,
+                    Illumination: 0.902941,
+                    Separation:   36.848226,
+                    MoonAlt:      -30.425482),
+
+                ["Sydney"] = new BaselineSnapshot(
+                    Dusk:        new DateTime(2026, 7, 15,  8, 32, 21, DateTimeKind.Utc),
+                    Dawn:        new DateTime(2026, 7, 15, 19, 29, 51, DateTimeKind.Utc),
+                    Illumination: 0.017925,
+                    Separation:   96.966355,
+                    MoonAlt:      -47.280454),
+
+                ["Tokyo"] = new BaselineSnapshot(
+                    Dusk:        new DateTime(2026, 1, 15,  9, 20, 41, DateTimeKind.Utc),
+                    Dawn:        new DateTime(2026, 1, 15, 20, 20, 28, DateTimeKind.Utc),
+                    Illumination: 0.104254,
+                    Separation:   125.610192,
+                    MoonAlt:      -82.233994),
+            };
     }
 }
