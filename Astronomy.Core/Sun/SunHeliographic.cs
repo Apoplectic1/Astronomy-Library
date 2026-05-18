@@ -56,7 +56,7 @@ namespace Astronomy.Core.Sun
         /// <param name="utc">Instant to evaluate at. Must be UTC.</param>
         public static (double PDeg, double B0Deg, double L0Deg) DiskCenterAt(DateTime utc)
         {
-            double jd = JulianDate.FromUtc(EnsureUtc(utc));
+            double jd = JulianDate.FromUtc(TimeKindGuard.AsUtc(utc));
             double T = MeeusUtility.T(jd);
 
             // Apparent geocentric (RA, Dec) of the Sun -- already includes aberration +
@@ -117,11 +117,9 @@ namespace Astronomy.Core.Sun
         /// </summary>
         public static double CarringtonRotationNumberAt(DateTime utc)
         {
-            double jd = JulianDate.FromUtc(EnsureUtc(utc));
+            double jd = JulianDate.FromUtc(TimeKindGuard.AsUtc(utc));
             return 1.0 + (jd - CarringtonEpochJd) / CarringtonRotationDays;
         }
 
-        private static DateTime EnsureUtc(DateTime dt)
-            => dt.Kind == DateTimeKind.Utc ? dt : DateTime.SpecifyKind(dt, DateTimeKind.Utc);
     }
 }

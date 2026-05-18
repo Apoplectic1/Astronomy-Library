@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Astronomy.Core.Locations;
 using Astronomy.Core.Targets;
+using Astronomy.Core.Time;
 
 namespace Astronomy.Core.Sun
 {
@@ -95,8 +96,8 @@ namespace Astronomy.Core.Sun
             ArgumentNullException.ThrowIfNull(target);
             ArgumentNullException.ThrowIfNull(location);
 
-            DateTime s = EnsureUtc(startUtc);
-            DateTime e = EnsureUtc(endUtc);
+            DateTime s = TimeKindGuard.AsUtc(startUtc);
+            DateTime e = TimeKindGuard.AsUtc(endUtc);
             if (e <= s)
                 throw new ArgumentOutOfRangeException(nameof(endUtc), "endUtc must be strictly after startUtc");
 
@@ -139,7 +140,5 @@ namespace Astronomy.Core.Sun
             return result;
         }
 
-        private static DateTime EnsureUtc(DateTime dt)
-            => dt.Kind == DateTimeKind.Utc ? dt : DateTime.SpecifyKind(dt, DateTimeKind.Utc);
     }
 }

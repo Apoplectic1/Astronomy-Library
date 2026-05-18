@@ -48,7 +48,7 @@ namespace Astronomy.Core.Sun
         {
             ArgumentNullException.ThrowIfNull(location);
 
-            DateTime utcOnly = EnsureUtc(utc);
+            DateTime utcOnly = TimeKindGuard.AsUtc(utc);
             double jd = JulianDate.FromUtc(utcOnly);
 
             double latSigned = location.North ?  location.Latitude  : -location.Latitude;
@@ -72,7 +72,7 @@ namespace Astronomy.Core.Sun
         /// <param name="utc">Instant to evaluate at. Must be UTC.</param>
         public static (double RaDeg, double DecDeg, double DistanceAu) EquatorialAt(DateTime utc)
         {
-            double jd = JulianDate.FromUtc(EnsureUtc(utc));
+            double jd = JulianDate.FromUtc(TimeKindGuard.AsUtc(utc));
             return SunEphemeris.Apparent(jd);
         }
 
@@ -98,7 +98,7 @@ namespace Astronomy.Core.Sun
         {
             ArgumentNullException.ThrowIfNull(location);
 
-            DateTime utcOnly = EnsureUtc(utc);
+            DateTime utcOnly = TimeKindGuard.AsUtc(utc);
             double lonEast = location.West ? -location.Longitude : location.Longitude;
             double lstDeg  = SiderealTime.Local(utcOnly, lonEast) * 15.0;
             (double raDeg, _, _) = SunEphemeris.Apparent(JulianDate.FromUtc(utcOnly));
@@ -147,7 +147,5 @@ namespace Astronomy.Core.Sun
         public static double ApparentDiameterDegAt(DateTime utc)
             => ApparentDiameterArcsecAt(utc) / 3600.0;
 
-        private static DateTime EnsureUtc(DateTime dt)
-            => dt.Kind == DateTimeKind.Utc ? dt : DateTime.SpecifyKind(dt, DateTimeKind.Utc);
     }
 }

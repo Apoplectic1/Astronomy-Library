@@ -55,7 +55,7 @@ namespace Astronomy.Core.Night
             double latSigned = location.North ?  location.Latitude  : -location.Latitude;
             double lonEast   = location.West  ? -location.Longitude :  location.Longitude;
 
-            DateTime locUtc = AsUtc(location.DateTime);
+            DateTime locUtc = TimeKindGuard.AsUtc(location.DateTime);
 
             // The night that wraps locUtc could have its dusk on the prior UTC day and
             // its dawn on the next UTC day; sample three consecutive days to cover all
@@ -147,19 +147,6 @@ namespace Astronomy.Core.Night
             }
 
             return (endingDawn, startingDusk);
-        }
-
-        // Resolve location.DateTime to a true UTC instant per the Location contract:
-        // Kind=Utc passes through; Kind=Local converts; Kind=Unspecified is treated
-        // as Local (per Location.DateTime XML doc).
-        private static DateTime AsUtc(DateTime dt)
-        {
-            switch (dt.Kind)
-            {
-                case DateTimeKind.Utc:   return dt;
-                case DateTimeKind.Local: return dt.ToUniversalTime();
-                default:                 return DateTime.SpecifyKind(dt, DateTimeKind.Local).ToUniversalTime();
-            }
         }
 
         // Walk backward from `before` in 30-minute steps to bracket the most recent

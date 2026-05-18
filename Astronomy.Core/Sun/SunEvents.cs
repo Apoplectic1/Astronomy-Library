@@ -181,7 +181,7 @@ namespace Astronomy.Core.Sun
         {
             ArgumentNullException.ThrowIfNull(location);
 
-            DateTime cursor = EnsureUtc(fromUtc);
+            DateTime cursor = TimeKindGuard.AsUtc(fromUtc);
             DateOnly start = DateOnly.FromDateTime(cursor);
             for (int i = 0; i < 366; i++)
             {
@@ -202,7 +202,7 @@ namespace Astronomy.Core.Sun
         {
             ArgumentNullException.ThrowIfNull(location);
 
-            DateTime cursor = EnsureUtc(fromUtc);
+            DateTime cursor = TimeKindGuard.AsUtc(fromUtc);
             DateOnly start = DateOnly.FromDateTime(cursor);
             for (int i = 0; i < 366; i++)
             {
@@ -223,7 +223,7 @@ namespace Astronomy.Core.Sun
         /// </remarks>
         public static double EquationOfTimeMinutes(DateTime utc)
         {
-            double jd = JulianDate.FromUtc(EnsureUtc(utc));
+            double jd = JulianDate.FromUtc(TimeKindGuard.AsUtc(utc));
             double T = MeeusUtility.T(jd);
 
             double epsDeg = MeeusUtility.MeanObliquityDeg(T);
@@ -264,7 +264,5 @@ namespace Astronomy.Core.Sun
             return new RiseAndSetEvent(rise, set);
         }
 
-        private static DateTime EnsureUtc(DateTime dt)
-            => dt.Kind == DateTimeKind.Utc ? dt : DateTime.SpecifyKind(dt, DateTimeKind.Utc);
     }
 }

@@ -73,7 +73,7 @@ namespace Astronomy.Core.Astrometry
         /// </summary>
         public static double GetMoonIllumination(DateTime utc)
         {
-            double jd = JulianDate.FromUtc(EnsureUtc(utc));
+            double jd = JulianDate.FromUtc(TimeKindGuard.AsUtc(utc));
             return MoonIllumination.Fraction(jd);
         }
 
@@ -104,7 +104,7 @@ namespace Astronomy.Core.Astrometry
         /// </summary>
         public static string GetMoonPhaseName(DateTime utc)
         {
-            double age = LunarAgeDays(EnsureUtc(utc));
+            double age = LunarAgeDays(TimeKindGuard.AsUtc(utc));
             double cycle = Astronomy.Core.Moon.LunarAge.SynodicMonthDays;
             double bucket = cycle / 8.0;       // ~3.691 days
             double half = bucket / 2.0;        // ~1.846 days
@@ -129,7 +129,7 @@ namespace Astronomy.Core.Astrometry
         // measured from North clockwise (N=0, E=90, S=180, W=270) -- NINA convention.
         private static (double AltDeg, double AzDeg) MoonAltAz(DateTime utc, ObserverInfo observer)
         {
-            DateTime utcOnly = EnsureUtc(utc);
+            DateTime utcOnly = TimeKindGuard.AsUtc(utc);
             double jd = JulianDate.FromUtc(utcOnly);
 
             // Local apparent sidereal time, in degrees. SiderealTime.Local returns hours;
@@ -158,7 +158,5 @@ namespace Astronomy.Core.Astrometry
                     TargetGeometry.AzimuthAtHourAngle(haHours, latDeg, decDeg));
         }
 
-        private static DateTime EnsureUtc(DateTime dt)
-            => dt.Kind == DateTimeKind.Utc ? dt : DateTime.SpecifyKind(dt, DateTimeKind.Utc);
     }
 }

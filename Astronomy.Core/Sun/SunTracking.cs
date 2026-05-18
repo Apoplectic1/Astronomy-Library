@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Astronomy.Core.Astrometry.Meeus;
 using Astronomy.Core.Locations;
+using Astronomy.Core.Time;
 
 namespace Astronomy.Core.Sun
 {
@@ -33,7 +34,7 @@ namespace Astronomy.Core.Sun
         {
             ArgumentNullException.ThrowIfNull(location);
 
-            DateTime t0 = EnsureUtc(utc);
+            DateTime t0 = TimeKindGuard.AsUtc(utc);
             AltAz pMinus = SunPosition.AltAzAt(location, t0.AddSeconds(-1));
             AltAz pPlus  = SunPosition.AltAzAt(location, t0.AddSeconds(+1));
 
@@ -72,8 +73,8 @@ namespace Astronomy.Core.Sun
             if (step < TimeSpan.FromSeconds(1))
                 throw new ArgumentOutOfRangeException(nameof(step), "step must be >= 1 second");
 
-            DateTime s = EnsureUtc(startUtc);
-            DateTime e = EnsureUtc(endUtc);
+            DateTime s = TimeKindGuard.AsUtc(startUtc);
+            DateTime e = TimeKindGuard.AsUtc(endUtc);
             if (e <= s)
                 throw new ArgumentOutOfRangeException(nameof(endUtc), "endUtc must be strictly after startUtc");
 
@@ -112,7 +113,5 @@ namespace Astronomy.Core.Sun
             return 1.0 / (sinAlt + 0.50572 * Math.Pow(altitudeDeg + 6.07995, -1.6364));
         }
 
-        private static DateTime EnsureUtc(DateTime dt)
-            => dt.Kind == DateTimeKind.Utc ? dt : DateTime.SpecifyKind(dt, DateTimeKind.Utc);
     }
 }
