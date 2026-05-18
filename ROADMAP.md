@@ -1,5 +1,17 @@
 # Astronomy Library — Roadmap
 
+## Recently shipped (2026-05-18): Astronomy.NINA — Phase B Target shape
+
+Rich `Target` class + composition types in `Astronomy.NINA` root namespace, plus `Xisf/ReportToTargetAdapter` bridging Phase A output. What landed:
+
+- **`Target`** — wraps `Astronomy.Core.Targets.Target` geometry; composes `IReadOnlyList<FilterHistory>` (empty when never imaged), `IReadOnlyList<PlannedExposure>?` (null when no plan source covers this target), optional `IHorizonProfile`, and `RotationDeg` (mod-360 normalized for lenient user input).
+- **`Filter`** — sealed, immutable; `FilterKind` enum (Narrowband / Broadband / Luminance / RGB / Unknown); static factory presets (`Ha`/`OIII`/`SII`/`L`/`R`/`G`/`B`) with conventional center/bandwidth values.
+- **`FilterHistory`** — per-(filter, purpose) rich history with count + integration + first/last imaged + typical settings. Carries `FilterPurpose` (Light vs Stars) so star-recombination captures don't muddy primary integration totals.
+- **`ExposureSettings`** + **`PlannedExposure`** — leaf records for camera config + forward-looking sequence-plan entries.
+- **`Xisf/ReportToTargetAdapter`** — extension methods `ImageLibraryReport.ToTargets()` / `TargetReport.ToTarget()`; maps XFM single-letter filter codes to standard `Filter` presets, preserves `FilterPurpose`, hands signed declination to Core's normalizing ctor (passing a pre-derived `north` flag would double-flip and silently land southern targets in the wrong hemisphere — caught by an early test).
+
+All sealed + immutable + `With(...)` per AL convention. 87 unit tests pass cumulative (Phase A 48 + Phase B 39).
+
 ## Recently shipped (2026-05-18): Astronomy.NINA — Phase A foundation
 
 Sixth and seventh buildable projects added: `Astronomy.NINA` + `Astronomy.NINA.Tests`. Phase A of the multi-phase plan at `~/.claude/plans/what-is-next-from-crispy-garden.md` is complete. What landed:
@@ -12,9 +24,10 @@ Sixth and seventh buildable projects added: `Astronomy.NINA` + `Astronomy.NINA.T
 
 **Forward roadmap (next-up phases, separate commits):**
 
-- **Phase B** — `Astronomy.NINA.Target` class wrapping `Astronomy.Core.Targets.Target` + composed `FilterHistory` / `Filter` / `ExposureSettings` / `PlannedExposure`; `ReportToTargetAdapter` to convert Phase A output → Target instances.
 - **Phase C** — TargetPlanner migrates from `Astronomy.Core.Targets.Target` to `Astronomy.NINA.Target`; image library becomes a new TP target source; Sky chart surfaces per-target Filter (color tint + badge + per-target K-S filter bandwidth).
 - **Phase D** — `InputTargetAdapter` (bidirectional `Astronomy.NINA.Target ↔ NINA.InputTarget`); unblocks future NINA-sequence-JSON export from TP. Phase D introduces the `NINA.Plugin` NuGet dependency.
+
+**Deferred open question:** `Astronomy.XISF` extraction (move `Xisf/` subtree into a separate library) — see plan file. Discussion after Phase B settles.
 
 ## Open: SIMD / FMA deep dive
 
