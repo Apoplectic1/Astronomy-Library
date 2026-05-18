@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Astronomy.XISF</RootNamespace>
+    <AssemblyName>Astronomy.XISF</AssemblyName>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Deterministic>true</Deterministic>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <WarningsAsErrors>$(WarningsAsErrors);CS1591</WarningsAsErrors>
+    <AnalysisLevel>latest</AnalysisLevel>
+    <AnalysisMode>Recommended</AnalysisMode>
+    <!-- AnyCPU enables `dotnet build Astronomy.XISF/Astronomy.XISF.csproj` for the
+         pure-managed standalone build; the SLN-driven build is x64-only and selects
+         x64 explicitly via Platforms multi-list. Matches Astronomy.Core. -->
+    <Platforms>AnyCPU;x64</Platforms>
+    <ProjectGuid>{4E8A3B91-6C72-4D85-9B14-7F3D8E6C2A91}</ProjectGuid>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Astronomy.XISF.Tests" />
+  </ItemGroup>
+
+  <!-- Tier 1 scope (2026-05-18): header-only read. Pure managed; no native deps;
+       no NINA / Profile / WPF coupling. T2-T4 (header write-back, image read,
+       image write) tracked in ROADMAP.md. -->
+
+</Project>

@@ -1,7 +1,7 @@
-using Astronomy.NINA.Xisf;
+using Astronomy.XISF;
 using Xunit;
 
-namespace Astronomy.NINA.Tests.Xisf;
+namespace Astronomy.XISF.Tests;
 
 public class XisfHeaderTests
 {

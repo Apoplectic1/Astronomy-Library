@@ -1,6 +1,6 @@
 using System.Globalization;
 
-namespace Astronomy.NINA.Xisf;
+namespace Astronomy.XISF;
 
 /// <summary>
 /// FITS-keyword view of an XISF file header. Provides raw access plus typed accessors

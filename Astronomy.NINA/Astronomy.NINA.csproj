@@ -19,6 +19,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Astronomy.Core\Astronomy.Core.csproj" />
+    <ProjectReference Include="..\Astronomy.XISF\Astronomy.XISF.csproj" />
   </ItemGroup>
 
   <ItemGroup>

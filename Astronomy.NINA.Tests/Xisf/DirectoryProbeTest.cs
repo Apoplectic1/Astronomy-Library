@@ -27,7 +27,7 @@ public class DirectoryProbeTest
         mOut.WriteLine($"Reading: {firstFile}");
         try
         {
-            Astronomy.NINA.Xisf.XisfHeader h = await Astronomy.NINA.Xisf.XisfHeaderReader.ReadAsync(firstFile);
+            Astronomy.XISF.XisfHeader h = await Astronomy.XISF.XisfHeaderReader.ReadAsync(firstFile);
             mOut.WriteLine($"OBJECT:   {h.ObjectName ?? "(null)"}");
             mOut.WriteLine($"RA:       {h.RaDegrees}");
             mOut.WriteLine($"DEC:      {h.DecDegrees}");

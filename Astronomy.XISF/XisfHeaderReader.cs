@@ -2,7 +2,7 @@ using System.Text;
 using System.Xml;
 using System.Xml.Linq;
 
-namespace Astronomy.NINA.Xisf;
+namespace Astronomy.XISF;
 
 /// <summary>
 /// Reads FITS-keyword headers from XISF files. Header-only — never touches image
