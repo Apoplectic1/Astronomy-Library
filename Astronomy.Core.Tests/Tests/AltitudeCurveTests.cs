@@ -42,6 +42,36 @@ namespace Astronomy.Core.Tests.Tests
             }
         }
 
+        // The same per-sample identity must hold at any latitude / longitude
+        // (the kernel is the same TargetGeometry.AltitudeAtHourAngle either
+        // way; only the LST seed and stride differ). One fixed count is
+        // sufficient -- the count-dimensional stress lives in
+        // Sample_MatchesPerMinuteAltAz above; this Theory adds a
+        // latitude-dimensional stress instead.
+        [Theory]
+        [MemberData(nameof(TestLocations.All), MemberType = typeof(TestLocations))]
+        public void Sample_MatchesPerMinuteAltAz_AcrossLocations(
+            string locationName, Location location)
+        {
+            const int count = 1000;
+            Target target = Target.Default;
+            DateTime startUtc = new DateTime(2026, 11, 15, 22, 0, 0, DateTimeKind.Utc);
+            TimeSpan step = TimeSpan.FromMinutes(1);
+
+            var batched = AltitudeCurve.Sample(target, location, startUtc, step, count);
+
+            for (int i = 0; i < count; i++)
+            {
+                DateTime point = startUtc.Add(TimeSpan.FromTicks(step.Ticks * i));
+                double expected = AltAzCalculator
+                    .Of(target, location.With(dateTime: point)).Altitude;
+                double actual = batched[i];
+                Assert.True(
+                    Math.Abs(expected - actual) < 1e-6,
+                    $"[{locationName}] sample {i}: expected {expected}, got {actual}, delta {expected - actual}");
+            }
+        }
+
         [Fact]
         public void Sample_CountZero_ReturnsEmpty()
         {

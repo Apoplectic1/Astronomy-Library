@@ -43,13 +43,19 @@ namespace Astronomy.Core.Tests.Tests
             Assert.InRange(loc.Longitude, 0.0, 180.0);
         }
 
-        [Fact]
-        public void AltitudeAtTransit_MatchesMeridianAltitude()
+        // At transit (hour angle = 0), altitude equals the meridian altitude
+        // exactly per the closed-form identity -- holds at any latitude /
+        // longitude, including where the meridian altitude is negative
+        // (target never rises). Driven by TestLocations.All so the identity
+        // is verified at both hemispheres, the equator, and the polar
+        // fringe in one [Theory].
+        [Theory]
+        [MemberData(nameof(TestLocations.All), MemberType = typeof(TestLocations))]
+        public void AltitudeAtTransit_MatchesMeridianAltitude(string locationName, Location location)
         {
             // Pick a stable UTC instant (no DST dance, unambiguous).
             DateTime searchFromUtc = new DateTime(2026, 11, 15, 0, 0, 0, DateTimeKind.Utc);
             Target target = Target.Default;
-            Location location = TestLocations.PennsPark;
 
             DateTime transitUtc = TransitTime.UtcAtOrAfter(target, location, searchFromUtc);
             AltAz altaz = AltAzCalculator.At(target, location, transitUtc);
@@ -58,10 +64,11 @@ namespace Astronomy.Core.Tests.Tests
             double decSigned = target.North   ?  target.Declination : -target.Declination;
             double expectedMeridianAlt = TargetGeometry.MeridianAltitude(latSigned, decSigned);
 
-            // At transit (hour angle = 0), altitude equals the meridian altitude exactly per
-            // the closed-form identity. Tolerance is generous to absorb floating-point noise
-            // from the LST=RA inversion in TransitTime.
-            Assert.Equal(expectedMeridianAlt, altaz.Altitude, precision: 6);
+            // Tolerance is generous to absorb floating-point noise from the
+            // LST=RA inversion in TransitTime.
+            Assert.True(
+                Math.Abs(expectedMeridianAlt - altaz.Altitude) < 1e-6,
+                $"[{locationName}] expected meridian altitude {expectedMeridianAlt}, got {altaz.Altitude}");
         }
     }
 }
