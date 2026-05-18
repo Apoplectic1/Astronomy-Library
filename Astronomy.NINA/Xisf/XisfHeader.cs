@@ -20,20 +20,29 @@ namespace Astronomy.NINA.Xisf;
 /// </remarks>
 public sealed class XisfHeader
 {
-    private readonly IReadOnlyDictionary<string, string> mRaw;
+    /// <summary>Value + optional comment for one FITS keyword. Comment is the free-text annotation that often carries equipment make/model strings (e.g. INSTRUME='Z183' / comment='ZWO ASI183MM Pro').</summary>
+    public readonly record struct KeywordEntry(string Value, string? Comment);
+
+    private readonly IReadOnlyDictionary<string, KeywordEntry> mRaw;
 
     /// <summary>
     /// Creates a header from a pre-extracted FITS-keyword dictionary. Caller owns
     /// the dictionary; this ctor wraps it as-is (key comparer must be case-insensitive).
     /// </summary>
-    public XisfHeader(IReadOnlyDictionary<string, string> rawKeywords)
+    public XisfHeader(IReadOnlyDictionary<string, KeywordEntry> rawKeywords)
     {
         ArgumentNullException.ThrowIfNull(rawKeywords);
         mRaw = rawKeywords;
     }
 
     /// <summary>Raw string value for a FITS keyword (null if absent).</summary>
-    public string? Raw(string keyword) => mRaw.TryGetValue(keyword, out var v) ? v : null;
+    public string? Raw(string keyword) => mRaw.TryGetValue(keyword, out var v) ? v.Value : null;
+
+    /// <summary>FITS keyword comment text — the free-text annotation after the value (null if absent or empty).</summary>
+    public string? Comment(string keyword) => mRaw.TryGetValue(keyword, out var v) ? v.Comment : null;
+
+    /// <summary>Full entry (value + comment) for a keyword, or null if absent.</summary>
+    public KeywordEntry? Entry(string keyword) => mRaw.TryGetValue(keyword, out var v) ? v : null;
 
     /// <summary>True if the keyword is present in the header.</summary>
     public bool Has(string keyword) => mRaw.ContainsKey(keyword);
@@ -82,17 +91,21 @@ public sealed class XisfHeader
     /// <summary>IMAGETYP — frame type ("LIGHT", "DARK", "BIAS", "FLAT"); case may vary.</summary>
     public string? ImageType => Raw("IMAGETYP");
 
-    /// <summary>INSTRUME — camera identifier (e.g. "ZWO ASI183MM Pro").</summary>
+    /// <summary>INSTRUME — camera identifier (e.g. "Z183" short code, or "ZWO ASI183MM Pro" full name; varies by capture software).</summary>
     public string? Instrument => Raw("INSTRUME");
+
+    /// <summary>INSTRUME keyword comment — often carries the full manufacturer name when the value itself is a short code (e.g. value="Z183" / comment="ZWO ASI183MM Pro").</summary>
+    public string? InstrumentDescription => Comment("INSTRUME");
 
     /// <summary>
     /// OFFSET normalized per-camera following XFM's convention. Null if
     /// <see cref="OffsetRaw"/> is null OR the camera is on XFM's strip list.
     /// </summary>
     /// <remarks>
-    /// Per-camera divisors mirror XFM/KeywordList.cs. Matches both short XFM codes
-    /// (Z183/Z533/Q178/A144 — observed in Dan's library) and longer manufacturer names
-    /// (ZWO ASI183 / ZWO ASI533 / QHY178), since INSTRUME format varies by writer:
+    /// Per-camera divisors mirror XFM/KeywordList.cs. Matches against both the
+    /// INSTRUME value and the INSTRUME comment — capture software may write a
+    /// short code (e.g. "Z183") in the value with the full manufacturer name
+    /// ("ZWO ASI183MM Pro") in the comment, or vice versa, or only one.
     /// <list type="bullet">
     ///   <item>Z183 / ZWO ASI183 → ÷5</item>
     ///   <item>Z533 / ZWO ASI533 → ÷40</item>
@@ -106,7 +119,8 @@ public sealed class XisfHeader
         get
         {
             if (OffsetRaw is not int raw) return null;
-            string cam = Instrument ?? string.Empty;
+            // Combine value + comment so a match in either field counts.
+            string cam = (Instrument ?? string.Empty) + " " + (InstrumentDescription ?? string.Empty);
             if (cam.Contains("Z183", StringComparison.OrdinalIgnoreCase) || cam.Contains("ASI183", StringComparison.OrdinalIgnoreCase)) return raw / 5;
             if (cam.Contains("Z533", StringComparison.OrdinalIgnoreCase) || cam.Contains("ASI533", StringComparison.OrdinalIgnoreCase)) return raw / 40;
             if (cam.Contains("Q178", StringComparison.OrdinalIgnoreCase) || cam.Contains("QHY178", StringComparison.OrdinalIgnoreCase)) return (int)Math.Round(raw / 18.33);

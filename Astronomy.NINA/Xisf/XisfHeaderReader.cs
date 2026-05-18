@@ -92,11 +92,12 @@ public static class XisfHeaderReader
             ?? throw new InvalidDataException($"XISF XML has no root element at '{filePath}'.");
         XNamespace ns = root.GetDefaultNamespace();
 
-        Dictionary<string, string> raw = new(StringComparer.OrdinalIgnoreCase);
+        Dictionary<string, XisfHeader.KeywordEntry> raw = new(StringComparer.OrdinalIgnoreCase);
         foreach (XElement kw in doc.Descendants(ns + "FITSKeyword"))
         {
             string? name = kw.Attribute("name")?.Value;
             string? value = kw.Attribute("value")?.Value;
+            string? comment = kw.Attribute("comment")?.Value;
             if (name is null || value is null) continue;
 
             // FITS string values arrive as single-quoted with FITS-pad whitespace:
@@ -108,7 +109,10 @@ public static class XisfHeaderReader
                 value = value[1..^1].Trim();
             }
 
-            raw[name] = value;
+            // Comment: trim; treat empty/whitespace as absent (null) rather than empty string.
+            string? normalizedComment = string.IsNullOrWhiteSpace(comment) ? null : comment.Trim();
+
+            raw[name] = new XisfHeader.KeywordEntry(value, normalizedComment);
         }
 
         return new XisfHeader(raw);

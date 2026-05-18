@@ -24,7 +24,7 @@ public class XisfHeaderReaderTests : IDisposable
     /// Format: 8-byte signature + 4-byte LE XML length + 4-byte reserved + UTF-8 XML payload.
     /// No image attachment block — header-only readers don't need one.
     /// </summary>
-    private static void WriteSyntheticXisf(string path, IDictionary<string, string> fitsKeywords)
+    private static void WriteSyntheticXisf(string path, IDictionary<string, string> fitsKeywords, IDictionary<string, string> comments = null)
     {
         var xml = new StringBuilder();
         xml.Append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
@@ -34,7 +34,8 @@ public class XisfHeaderReaderTests : IDisposable
         {
             // Strings get FITS-quoted; numerics unquoted.
             string val = double.TryParse(kv.Value, out _) ? kv.Value : $"'{kv.Value}'";
-            xml.Append($"<FITSKeyword name=\"{kv.Key}\" value=\"{val}\" comment=\"\" />");
+            string comment = comments != null && comments.TryGetValue(kv.Key, out var c) ? c : "";
+            xml.Append($"<FITSKeyword name=\"{kv.Key}\" value=\"{val}\" comment=\"{comment}\" />");
         }
         xml.Append("</Image>");
         xml.Append("</xisf>");
@@ -90,6 +91,20 @@ public class XisfHeaderReaderTests : IDisposable
         Assert.Equal(1, h.XBinning);
         Assert.Equal("LIGHT", h.ImageType);
         Assert.Equal(DateTimeKind.Utc, h.DateObsUtc!.Value.Kind);
+    }
+
+    [Fact]
+    public async Task Read_ExtractsComments()
+    {
+        string path = Path.Combine(mTempDir, "with-comment.xisf");
+        WriteSyntheticXisf(
+            path,
+            new Dictionary<string, string> { ["INSTRUME"] = "Z183" },
+            new Dictionary<string, string> { ["INSTRUME"] = "ZWO ASI183MM Pro" });
+
+        XisfHeader h = await XisfHeaderReader.ReadAsync(path);
+        Assert.Equal("Z183", h.Instrument);
+        Assert.Equal("ZWO ASI183MM Pro", h.InstrumentDescription);
     }
 
     [Fact]

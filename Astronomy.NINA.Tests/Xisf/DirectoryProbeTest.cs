@@ -40,10 +40,12 @@ public class DirectoryProbeTest
             mOut.WriteLine($"X/YBIN:   {h.XBinning}/{h.YBinning}");
             mOut.WriteLine($"IMAGETYP: {h.ImageType}");
             mOut.WriteLine($"INSTRUME: {h.Instrument}");
-            mOut.WriteLine($"-- All keywords --");
+            mOut.WriteLine($"INSTRUME comment: {h.InstrumentDescription ?? "(none)"}");
+            mOut.WriteLine($"-- All keywords (value | comment) --");
             foreach (string k in h.KeywordNames.OrderBy(s => s))
             {
-                mOut.WriteLine($"  {k} = {h.Raw(k)}");
+                var e = h.Entry(k);
+                mOut.WriteLine($"  {k,-12} = {e?.Value,-40} | {e?.Comment ?? ""}");
             }
         }
         catch (Exception ex)
