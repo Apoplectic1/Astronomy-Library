@@ -94,7 +94,7 @@ namespace Astronomy.Core
         {
             ArgumentNullException.ThrowIfNull(target);
             ArgumentNullException.ThrowIfNull(location);
-            return At(target, location, location.DateTime.ToUniversalTime());
+            return At(target, location, TimeKindGuard.AsUtc(location.DateTime));
         }
     }
 }
