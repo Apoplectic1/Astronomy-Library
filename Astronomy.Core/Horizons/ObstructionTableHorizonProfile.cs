@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Astronomy.Core.Astrometry.Meeus;
 
 namespace Astronomy.Core.Horizons
 {
@@ -40,7 +41,7 @@ namespace Astronomy.Core.Horizons
             double[] alt = new double[n];
             for (int i = 0; i < n; i++)
             {
-                az[i] = Wrap360(samples[i].AzimuthDeg);
+                az[i] = MeeusUtility.Norm360(samples[i].AzimuthDeg);
                 alt[i] = samples[i].AltitudeDeg;
             }
 
@@ -63,7 +64,7 @@ namespace Astronomy.Core.Horizons
         /// <inheritdoc />
         public double AltitudeAt(double azimuthDeg)
         {
-            double a = Wrap360(azimuthDeg);
+            double a = MeeusUtility.Norm360(azimuthDeg);
             int n = mAzimuths.Length;
 
             // Stepped: the sample at the largest azimuth <= a wins; if a < smallest sample,
@@ -80,12 +81,5 @@ namespace Astronomy.Core.Horizons
 
         /// <inheritdoc />
         public double MinAltitude => mMinAltitude;
-
-        private static double Wrap360(double deg)
-        {
-            double w = deg % 360.0;
-            if (w < 0) w += 360.0;
-            return w;
-        }
     }
 }

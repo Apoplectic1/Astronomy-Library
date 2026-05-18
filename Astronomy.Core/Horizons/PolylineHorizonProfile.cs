@@ -1,4 +1,5 @@
 using System;
+using Astronomy.Core.Astrometry.Meeus;
 
 namespace Astronomy.Core.Horizons
 {
@@ -44,7 +45,7 @@ namespace Astronomy.Core.Horizons
             for (int i = 0; i < n; i++) order[i] = i;
 
             double[] normalizedAz = new double[n];
-            for (int i = 0; i < n; i++) normalizedAz[i] = Wrap360(azimuthsDeg[i]);
+            for (int i = 0; i < n; i++) normalizedAz[i] = MeeusUtility.Norm360(azimuthsDeg[i]);
 
             Array.Sort(order, (a, b) => normalizedAz[a].CompareTo(normalizedAz[b]));
 
@@ -63,7 +64,7 @@ namespace Astronomy.Core.Horizons
         /// <inheritdoc />
         public double AltitudeAt(double azimuthDeg)
         {
-            double az = Wrap360(azimuthDeg);
+            double az = MeeusUtility.Norm360(azimuthDeg);
             int n = mAzimuths.Length;
             if (n == 1) return mAltitudes[0];
 
@@ -104,12 +105,5 @@ namespace Astronomy.Core.Horizons
 
         /// <inheritdoc />
         public double MinAltitude => mMinAltitude;
-
-        private static double Wrap360(double deg)
-        {
-            double w = deg % 360.0;
-            if (w < 0) w += 360.0;
-            return w;
-        }
     }
 }
