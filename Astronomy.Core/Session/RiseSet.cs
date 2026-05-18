@@ -23,6 +23,24 @@ namespace Astronomy.Core.Session
     }
 
     /// <summary>
+    /// Outcome of a <see cref="RiseSet.NextAtOrAfter(Target, Location, DateTime, double)"/>
+    /// lookup: tri-state result plus the corresponding UTC rise / set instants.
+    /// </summary>
+    /// <remarks>
+    /// The auto-generated <c>Deconstruct</c> from the record-struct primary constructor
+    /// lets callers either name-access (<c>result.State</c>, <c>result.Rise</c>) or
+    /// positionally destructure (<c>var (state, rise, set) = ...</c>); the latter matches
+    /// the prior tuple-return idiom verbatim.
+    /// </remarks>
+    /// <param name="State">Outcome -- Found / Circumpolar / NeverRises.</param>
+    /// <param name="Rise">UTC rise instant when <paramref name="State"/> is Found; <see langword="null"/> otherwise.</param>
+    /// <param name="Set">UTC set instant when <paramref name="State"/> is Found; <see langword="null"/> otherwise.</param>
+    public readonly record struct RiseSetResult(
+        RiseSetState State,
+        DateTime? Rise,
+        DateTime? Set);
+
+    /// <summary>
     /// Next UTC rise / set of a stellar target. Scalar-horizon overload is analytic; the
     /// <see cref="IHorizonProfile"/> overload uses the scalar fast-path as a seed and
     /// refines against the profile via bisection.
@@ -39,14 +57,14 @@ namespace Astronomy.Core.Session
         /// which the target is at <paramref name="horizonDeg"/>.
         /// </remarks>
         /// <returns>
-        /// A tuple whose <c>State</c> is <see cref="RiseSetState.Found"/> (Rise and Set are
-        /// non-null UTC DateTimes), <see cref="RiseSetState.Circumpolar"/> (both null), or
-        /// <see cref="RiseSetState.NeverRises"/> (both null).
+        /// A <see cref="RiseSetResult"/> whose <c>State</c> is <see cref="RiseSetState.Found"/>
+        /// (Rise and Set are non-null UTC DateTimes), <see cref="RiseSetState.Circumpolar"/>
+        /// (both null), or <see cref="RiseSetState.NeverRises"/> (both null).
         /// </returns>
         /// <exception cref="ArgumentNullException">
         /// <paramref name="target"/> or <paramref name="location"/> is <see langword="null"/>.
         /// </exception>
-        public static (RiseSetState State, DateTime? Rise, DateTime? Set) NextAtOrAfter(
+        public static RiseSetResult NextAtOrAfter(
             Target target, Location location, DateTime searchFromUtc, double horizonDeg)
         {
             ArgumentNullException.ThrowIfNull(target);
@@ -56,8 +74,8 @@ namespace Astronomy.Core.Session
             double decDeg = target.North ? target.Declination : -target.Declination;
             double haHorizon = TargetGeometry.HourAngleAtAltitude(latDeg, decDeg, horizonDeg);
 
-            if (double.IsNaN(haHorizon))               return (RiseSetState.NeverRises, null, null);
-            if (double.IsPositiveInfinity(haHorizon))  return (RiseSetState.Circumpolar, null, null);
+            if (double.IsNaN(haHorizon))               return new RiseSetResult(RiseSetState.NeverRises, null, null);
+            if (double.IsPositiveInfinity(haHorizon))  return new RiseSetResult(RiseSetState.Circumpolar, null, null);
 
             double haSolarHours = haHorizon * 24.0 / SiderealTime.SiderealHoursPerSolarDay;
 
@@ -72,7 +90,7 @@ namespace Astronomy.Core.Session
                 : candidateRise.AddHours(SiderealTime.SiderealDayInSolarHours);
 
             // Set for this transit cycle is >= nextTransit >= searchFromUtc, so always valid.
-            return (RiseSetState.Found, nextRise, candidateSet);
+            return new RiseSetResult(RiseSetState.Found, nextRise, candidateSet);
         }
 
         /// <summary>
@@ -90,7 +108,7 @@ namespace Astronomy.Core.Session
         /// Any of <paramref name="target"/>, <paramref name="location"/>, or
         /// <paramref name="horizon"/> is <see langword="null"/>.
         /// </exception>
-        public static (RiseSetState State, DateTime? Rise, DateTime? Set) NextAtOrAfter(
+        public static RiseSetResult NextAtOrAfter(
             Target target, Location location, DateTime searchFromUtc, IHorizonProfile horizon)
         {
             ArgumentNullException.ThrowIfNull(target);
@@ -109,7 +127,7 @@ namespace Astronomy.Core.Session
                 ? Refine(target, location, horizon, seed.Set.Value, isRise: false)
                 : (DateTime?)null;
 
-            return (RiseSetState.Found, rise, set);
+            return new RiseSetResult(RiseSetState.Found, rise, set);
         }
 
         // Bisection-refine a scalar-seed candidate crossing time against the profile. The

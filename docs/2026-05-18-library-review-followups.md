@@ -14,11 +14,13 @@ Reference: `git log f444ef2..HEAD --oneline` on `dev`.
 
 Resolved 2026-05-18 via user-supplied Meeus AA reference values (chapter "Ephemeris for Physical Observations of the Sun", Carrington's formulas) cross-verified against PyMeeus's `Sun.ephemeris_physical_observations` and the soniakeys/meeus Go port: `(P, B0, L0) = (26.27, 5.99, 238.63)` deg at 1992-10-13 0h TD. Test landed in `Astronomy.Core.Tests/Tests/Astrometry/MeeusWorkedExamplesTests.cs` as `SunHeliographic_DiskCenterAt_Meeus_1992Oct13_Matches`, using a 0.05° tolerance (matches the helper's documented accuracy budget; the UT-vs-TT epoch interpretation costs <0.001° for the ~58s ΔT in 1992). Library actual: P=26.2737°, B0=5.9877°, L0=238.6479° — well inside tolerance, confirming the helio math is correct against an absolute reference rather than just monotonically self-consistent across a year sweep.
 
-## Deferred items
-
 ### D2 — `RiseSet.NextAtOrAfter` to `record struct`
 
-Deferred per the review's own framing. The current `(RiseSetState State, DateTime? Rise, DateTime? Set)` tuple-return is consumed positionally at downstream call sites; promoting to a named record carries a public-API break risk that wasn't worth absorbing in this session. Revisit when the next public-API revision window opens.
+Resolved 2026-05-18. Initial framing in this doc overstated the break risk; a follow-up grep confirmed zero TP code consumers (TP references the surface only in `ARCHITECTURE.md` / `SCHEDULER_DESIGN.md` / `ROADMAP.md` documentation, and uses higher-level scheduling primitives like `BestSession.For` in actual code). Library production callers (`TargetOrdering.RiseKey`, the internal profile-overload seed call) and all test sites use either named-property access or positional destructuring, both of which work unchanged against `readonly record struct RiseSetResult(RiseSetState State, DateTime? Rise, DateTime? Set)`'s auto-generated members. ~20 LOC concentrated in `Astronomy.Core/Session/RiseSet.cs` (record-struct definition + two method signatures + four return statements + one XML-doc text edit); zero test edits required. 440 tests still pass post-conversion.
+
+## Deferred items
+
+None. The two items previously listed here (SunHeliographic 1992 and D2) have both landed; see "Resolved post-publication" above.
 
 ### F5.7 cross-implementation parity oracle (Phase 3, NINA-as-oracle)
 
