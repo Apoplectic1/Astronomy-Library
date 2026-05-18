@@ -88,7 +88,7 @@ namespace Astronomy.Core.Session
             ArgumentNullException.ThrowIfNull(horizon);
             if (cap.HasValue && cap.Value <= TimeSpan.Zero) return null;
 
-            var candidates = ResolveCandidates(target, location, night, horizon, profile);
+            var candidates = BestSession.ResolveCandidates(target, location, night, horizon, profile);
             return LongestDurationInInternal(target, location, candidates, cap,
                 altitudeQuality);
         }
@@ -230,7 +230,7 @@ namespace Astronomy.Core.Session
 
             // Place the session at the converged horizon for the final return tuple.
             var horizonProfile = new ScalarHorizonProfile(lo);
-            var candidates = ResolveCandidates(target, location, night, horizonProfile, profile);
+            var candidates = BestSession.ResolveCandidates(target, location, night, horizonProfile, profile);
             var session = BestSession.PlaceBest(target, location, candidates, duration, duration, altitudeQuality);
             if (session == null) return null;
             return (lo, session.Value.Start, session.Value.End);
@@ -276,7 +276,7 @@ namespace Astronomy.Core.Session
             ArgumentNullException.ThrowIfNull(horizon);
             if (cap.HasValue && cap.Value <= TimeSpan.Zero) return null;
 
-            var candidates = ResolveCandidates(target, location, night, horizon, profile);
+            var candidates = BestSession.ResolveCandidates(target, location, night, horizon, profile);
             return LongestDurationCenteredInInternal(target, location, candidates, cap);
         }
 
@@ -371,7 +371,7 @@ namespace Astronomy.Core.Session
             }
 
             var horizonProfile = new ScalarHorizonProfile(lo);
-            var candidates = ResolveCandidates(target, location, night, horizonProfile, profile);
+            var candidates = BestSession.ResolveCandidates(target, location, night, horizonProfile, profile);
             var session = BestSession.PlaceCentered(target, location, candidates, duration);
             if (session == null) return null;
             return (lo, session.Value.Start, session.Value.End);
@@ -403,18 +403,6 @@ namespace Astronomy.Core.Session
             return (session.Value.Start, session.Value.End, finalDur);
         }
 
-        // Resolve candidate windows: visibility (∩ moon-clear if profile is enabled).
-        // Mirrors the gating in BestSession.For.
-        private static IReadOnlyList<(DateTime Start, DateTime End)> ResolveCandidates(
-            Target target, Location location, NightWindow night, IHorizonProfile horizon,
-            MoonAvoidanceProfile? profile)
-        {
-            var visibility = VisibilityWindows.For(target, location, night, horizon);
-            if (visibility.Count == 0) return visibility;
-            if (profile == null || !profile.Enabled) return visibility;
-            return BestSession.MoonClearIntersect(target, location, visibility, profile);
-        }
-
         // Does a duration-long session fit at the given trial horizon?
         private static bool FitsAt(
             Target target, Location location, NightWindow night,
@@ -422,7 +410,7 @@ namespace Astronomy.Core.Session
             MoonAvoidanceProfile? profile)
         {
             var horizonProfile = new ScalarHorizonProfile(horizonDeg);
-            var candidates = ResolveCandidates(target, location, night, horizonProfile, profile);
+            var candidates = BestSession.ResolveCandidates(target, location, night, horizonProfile, profile);
             foreach (var c in candidates)
             {
                 if ((c.End - c.Start) >= duration) return true;
@@ -470,7 +458,7 @@ namespace Astronomy.Core.Session
             MoonAvoidanceProfile? profile)
         {
             var horizonProfile = new ScalarHorizonProfile(horizonDeg);
-            var candidates = ResolveCandidates(target, location, night, horizonProfile, profile);
+            var candidates = BestSession.ResolveCandidates(target, location, night, horizonProfile, profile);
             return BestSession.PlaceCentered(target, location, candidates, duration) != null;
         }
     }
