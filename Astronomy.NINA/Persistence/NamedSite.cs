@@ -120,6 +120,43 @@ public sealed class NamedSite
         };
     }
 
+    /// <summary>
+    /// Normalise the persisted coordinates to the AL convention -- positive
+    /// magnitudes paired with hemisphere flags. A negative <see cref="Latitude"/>
+    /// flips to positive and toggles <see cref="North"/>; a negative
+    /// <see cref="Longitude"/> flips to positive and toggles <see cref="West"/>.
+    /// Idempotent.
+    /// </summary>
+    /// <remarks>
+    /// Catches the "negative-magnitude with paired flag" foot-gun where a
+    /// hand-edited JSON file writes <c>Longitude=-105, West=true</c> intending
+    /// "Denver, US west coast". Without this normaliser, the DTO loads with the
+    /// negative magnitude intact; <see cref="Location"/>'s ctor sign-normalises
+    /// the in-memory geometry (flipping to <c>105, West=false</c>) but the
+    /// persisted shape stays wrong, so the math layer reads it as 105E
+    /// (Mongolia) and the chart computes a Mongolian night instead of a
+    /// Colorado one.
+    /// <para>
+    /// Callers normalise once on load (e.g. immediately after Newtonsoft
+    /// deserialises a settings.json or personal-defaults.json) so the in-memory
+    /// DTO shape matches the math layer's expectation. Persistence and math
+    /// stay in lockstep.
+    /// </para>
+    /// </remarks>
+    public void Normalize()
+    {
+        if (Latitude < 0)
+        {
+            Latitude = -Latitude;
+            North = !North;
+        }
+        if (Longitude < 0)
+        {
+            Longitude = -Longitude;
+            West = !West;
+        }
+    }
+
     internal static TimeZoneInfo ResolveTimeZone(string? id)
     {
         if (string.IsNullOrWhiteSpace(id))

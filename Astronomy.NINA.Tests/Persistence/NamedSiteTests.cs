@@ -95,4 +95,56 @@ public class NamedSiteTests
         Assert.Throws<ArgumentNullException>(() =>
             NamedSite.FromLocation(null, preferences: null, localHorizonPath: null));
     }
+
+    [Fact]
+    public void Normalize_WithNegativeLatitude_FlipsToPositiveAndTogglesNorth()
+    {
+        NamedSite s = new() { Latitude = -39.5, North = true };
+        s.Normalize();
+        Assert.Equal(39.5, s.Latitude);
+        Assert.False(s.North);
+    }
+
+    [Fact]
+    public void Normalize_WithNegativeLongitude_FlipsToPositiveAndTogglesWest()
+    {
+        NamedSite s = new() { Longitude = -105.025, West = true };
+        s.Normalize();
+        Assert.Equal(105.025, s.Longitude);
+        Assert.False(s.West);
+    }
+
+    [Fact]
+    public void Normalize_WithPositiveMagnitudes_LeavesUnchanged()
+    {
+        NamedSite s = new()
+        {
+            Latitude  = 40.235, North = true,
+            Longitude = 74.985, West  = true,
+        };
+        s.Normalize();
+        Assert.Equal(40.235, s.Latitude);
+        Assert.True(s.North);
+        Assert.Equal(74.985, s.Longitude);
+        Assert.True(s.West);
+    }
+
+    [Fact]
+    public void Normalize_IsIdempotent()
+    {
+        NamedSite s = new() { Latitude = -39.5, North = true, Longitude = -105.025, West = true };
+        s.Normalize();
+        NamedSite after = new()
+        {
+            Latitude  = s.Latitude,
+            North     = s.North,
+            Longitude = s.Longitude,
+            West      = s.West,
+        };
+        s.Normalize();
+        Assert.Equal(after.Latitude,  s.Latitude);
+        Assert.Equal(after.North,     s.North);
+        Assert.Equal(after.Longitude, s.Longitude);
+        Assert.Equal(after.West,      s.West);
+    }
 }
