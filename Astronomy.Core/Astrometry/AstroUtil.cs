@@ -110,6 +110,70 @@ namespace Astronomy.Core.Astrometry
         }
 
         /// <summary>
+        /// Moon rise / set events bracketing an astronomical night
+        /// <c>[<paramref name="duskUtc"/>, <paramref name="dawnUtc"/>]</c>. Unlike
+        /// <see cref="GetMoonRiseAndSet"/> which searches the single UTC calendar day of
+        /// its input -- and which therefore mis-pairs events for non-UTC observers (a
+        /// rise / set in the user's local "tonight" can straddle two UTC days) -- this
+        /// scans three UTC days and selects:
+        /// <list type="bullet">
+        ///   <item><c>Rise</c> = latest moonrise &lt;= <paramref name="dawnUtc"/></item>
+        ///   <item><c>Set</c> = earliest moonset &gt;= <paramref name="duskUtc"/></item>
+        /// </list>
+        /// This yields the rise that put the moon in the sky for this night (or, if the
+        /// moon rises mid-night, that rise itself) and the set that takes it back down
+        /// during or after the night. Convention mirrors
+        /// <c>NightCalculator.BracketingPair</c>'s sun-event selection.
+        /// </summary>
+        /// <remarks>
+        /// Either or both may be null when the moon stays above / below the threshold
+        /// for the entire 3-day search window (polar latitudes), or when the inputs are
+        /// <see cref="DateTime.MinValue"/> sentinels (no astronomical night at this
+        /// location/date -- the call short-circuits and returns null events).
+        /// </remarks>
+        public static RiseAndSetEvent GetMoonRiseAndSetForNight(
+            DateTime duskUtc, DateTime dawnUtc,
+            double latDeg, double lonEastDeg, double elevationM = 0.0)
+        {
+            if (duskUtc == DateTime.MinValue || dawnUtc == DateTime.MinValue)
+                return new RiseAndSetEvent(null, null);
+
+            DateTime duskUtcGuarded = TimeKindGuard.AsUtc(duskUtc);
+            DateTime dawnUtcGuarded = TimeKindGuard.AsUtc(dawnUtc);
+            double h0 = 0.125 - MeeusUtility.HorizonDipDeg(elevationM);
+
+            DateTime[] days =
+            {
+                duskUtcGuarded.AddDays(-1),
+                duskUtcGuarded,
+                duskUtcGuarded.AddDays(1),
+            };
+
+            DateTime? bestRise = null;
+            DateTime? bestSet = null;
+
+            for (int i = 0; i < days.Length; i++)
+            {
+                (DateTime? rise, DateTime? set) = MoonPosition.RiseSet(
+                    days[i], latDeg, lonEastDeg, h0);
+
+                if (rise.HasValue && rise.Value <= dawnUtcGuarded
+                    && (!bestRise.HasValue || rise.Value > bestRise.Value))
+                {
+                    bestRise = rise;
+                }
+
+                if (set.HasValue && set.Value >= duskUtcGuarded
+                    && (!bestSet.HasValue || set.Value < bestSet.Value))
+                {
+                    bestSet = set;
+                }
+            }
+
+            return new RiseAndSetEvent(bestRise, bestSet);
+        }
+
+        /// <summary>
         /// Common lunar phase name at <paramref name="utc"/>. One of "New Moon",
         /// "Waxing Crescent", "First Quarter", "Waxing Gibbous", "Full Moon",
         /// "Waning Gibbous", "Last Quarter", "Waning Crescent". The boundaries split the

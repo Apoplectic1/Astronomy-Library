@@ -101,5 +101,87 @@ namespace Astronomy.Core.Tests.Tests
             Assert.True(elevated.Set.Value > seaLevel.Set.Value,
                 $"elevated set {elevated.Set:O} should be later than sea-level {seaLevel.Set:O}");
         }
+
+        // GetMoonRiseAndSetForNight bracket convention: scan 3 UTC days, return
+        // (latest rise <= dawn, earliest set >= dusk). Penns Park night of 2026-05-18
+        // (waxing crescent, ~7% illum) has moon up at dusk and setting shortly after,
+        // so the relevant set falls inside the night window itself. The old day-based
+        // GetMoonRiseAndSet called with an evening UTC instant returns yesterday's
+        // set instead (today's set lands on UTC May 19, not UTC May 18).
+        [Fact]
+        public void GetMoonRiseAndSetForNight_WaxingCrescent_SetFallsWithinNightWindow()
+        {
+            var duskUtc = new DateTime(2026, 5, 19, 2, 5, 0, DateTimeKind.Utc);   // 22:05 EDT May 18
+            var dawnUtc = new DateTime(2026, 5, 19, 7, 47, 0, DateTimeKind.Utc);  // 03:47 EDT May 19
+
+            var ev = AstroUtil.GetMoonRiseAndSetForNight(
+                duskUtc, dawnUtc, latDeg: 40.282835, lonEastDeg: -74.997369, elevationM: 0.0);
+
+            Assert.NotNull(ev.Set);
+            Assert.True(ev.Set.Value >= duskUtc,
+                $"set {ev.Set:O} earlier than dusk {duskUtc:O} -- bracket rule violated");
+            Assert.True(ev.Set.Value < duskUtc.AddDays(1),
+                $"set {ev.Set:O} more than 24h after dusk {duskUtc:O}");
+        }
+
+        [Fact]
+        public void GetMoonRiseAndSetForNight_WaxingCrescent_RisePrecedesNight()
+        {
+            // For a waxing crescent, the moon rose ~mid-morning the same local day
+            // and is descending toward set during the night -- so the bracket rule
+            // returns this-morning's rise (latest rise <= dawn).
+            var duskUtc = new DateTime(2026, 5, 19, 2, 5, 0, DateTimeKind.Utc);
+            var dawnUtc = new DateTime(2026, 5, 19, 7, 47, 0, DateTimeKind.Utc);
+
+            var ev = AstroUtil.GetMoonRiseAndSetForNight(
+                duskUtc, dawnUtc, 40.282835, -74.997369, 0.0);
+
+            Assert.NotNull(ev.Rise);
+            Assert.True(ev.Rise.Value <= dawnUtc,
+                $"rise {ev.Rise:O} after dawn {dawnUtc:O} -- bracket rule violated");
+            // The rise that put the moon up for this night is the prior local
+            // morning's rise -- well before dusk, but the latest <= dawn.
+            Assert.True(ev.Rise.Value < duskUtc,
+                $"waxing-crescent rise {ev.Rise:O} should precede dusk {duskUtc:O}");
+        }
+
+        // The whole point of the For-Night variant: its set is the one DURING the
+        // night, not the prior UTC-day's evening set. Direct A/B against the legacy
+        // calendar-day API pinned to the same evening's UTC instant.
+        [Fact]
+        public void GetMoonRiseAndSetForNight_PicksLaterSetThanCalendarDayApi()
+        {
+            // 23:36 UTC May 18 = 19:36 EDT May 18, the failure case from the
+            // observation dialog feedback.
+            var observerUtc = new DateTime(2026, 5, 18, 23, 36, 0, DateTimeKind.Utc);
+            var duskUtc = new DateTime(2026, 5, 19, 2, 5, 0, DateTimeKind.Utc);
+            var dawnUtc = new DateTime(2026, 5, 19, 7, 47, 0, DateTimeKind.Utc);
+
+            var legacy = AstroUtil.GetMoonRiseAndSet(
+                observerUtc, 40.282835, -74.997369, 0.0);
+            var bracket = AstroUtil.GetMoonRiseAndSetForNight(
+                duskUtc, dawnUtc, 40.282835, -74.997369, 0.0);
+
+            Assert.NotNull(legacy.Set);
+            Assert.NotNull(bracket.Set);
+            Assert.True(bracket.Set.Value > legacy.Set.Value,
+                $"bracket-set {bracket.Set:O} should be later than calendar-day-set " +
+                $"{legacy.Set:O} (legacy returns the prior local evening's set)");
+            Assert.True(bracket.Set.Value > observerUtc,
+                $"bracket-set {bracket.Set:O} must be after observer instant {observerUtc:O} " +
+                "(tonight's set, not yesterday's)");
+        }
+
+        [Fact]
+        public void GetMoonRiseAndSetForNight_MinValueWindow_ReturnsNullEvents()
+        {
+            // NightWindow uses DateTime.MinValue as the "no astronomical night here"
+            // sentinel (polar summer). The method must short-circuit rather than
+            // throwing OverflowException on MinValue.AddDays(-1).
+            var ev = AstroUtil.GetMoonRiseAndSetForNight(
+                DateTime.MinValue, DateTime.MinValue, 40.0, -75.0, 0.0);
+            Assert.Null(ev.Rise);
+            Assert.Null(ev.Set);
+        }
     }
 }
