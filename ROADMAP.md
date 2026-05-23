@@ -158,3 +158,99 @@ paths:
 - Switch TP to a `PackageReference` against a published NuGet (requires
   step 7 above). Public TP consumers clone one repo; NuGet handles the
   rest. Cleaner long-term; no work needed if Option A skips NuGet for v1.
+
+## Open: K-S sky-brightness model improvements
+
+Captured 2026-05-23 (relocated from TP ROADMAP — these are Library API
+changes that consumers feel only through the Library). Three
+independent items; the first two together produce a coherent
+narrowband-aware Sky chart and either can land independently.
+
+### Wavelength-dependent twilight
+
+`Astronomy.Core.Brightness.SkyBrightness.KsAt` composes the dark-sky
+baseline + twilight + moon contributions in mag/nL space. The
+wavelength dependence today comes entirely from the single
+Rayleigh-scaled `k`:
+
+- `+k·(X−1)` extincts the **natural baseline** along the target's line
+  of sight (filter-dependent ✓).
+- The **moon contribution** uses `k` for both moon-airmass extinction
+  of moonlight and target-airmass attenuation of scattered moonlight
+  (filter-dependent ✓).
+- The **twilight contribution** comes from
+  `Twilight.ZenithBrightening(sunAltDeg)` which is **filter-blind** —
+  it just returns a scalar mag delta and applies it as
+  `vTwilight = vDark − delta` regardless of band.
+
+That last omission produces physically-wrong results for narrowband
+planning at low target altitudes during twilight: the model predicts
+redder filters see *brighter* twilight sky than bluer filters (because
+the brighter `vDark` for low-k filters pumps a larger nL twilight
+contribution), inverting the actual Rayleigh physics where blue light
+scatters into the sky path more strongly than red. K-S 1991 was
+developed for broadband V-band moonlit sky brightness; the twilight
+component was a pasted-on approximation. The chart is correct *as K-S
+predicts* but the model's prediction breaks down at high airmass + low
+sun altitude.
+
+Fix: replace `Twilight.ZenithBrightening(sunAltDeg)` with a
+wavelength-aware twilight model that scales the sun-scattering
+contribution by `kAtBand`. Patat 2003 / Krisciunas 1990 follow-ups
+have suitable forms. Don't pursue until the model's twilight regime
+starts driving real planning decisions — for moderate-to-high
+altitudes after astronomical dusk the current model is fine.
+
+### Bandwidth-aware sky brightness
+
+`KsAt` doesn't use the filter's bandwidth at all — `v0` (Bortle's
+broadband V-band zenith mag) is consumed as-is regardless of whether
+the filter is 85 nm wide (L) or 7 nm wide (Hα). For a
+roughly-continuous source spectrum, integrated nL brightness in a
+filter passband scales linearly with bandwidth:
+
+```
+B_band ≈ S(λ₀) · BW          // continuum approximation
+mag_offset = 2.5 · log₁₀(BW_ref / BW_filter)
+```
+
+A 7 nm Hα filter against an 85 nm V-band reference is
+`2.5 · log₁₀(85/7) ≈ 2.7 mag` darker for any continuous-spectrum
+contribution (dark-sky baseline, twilight scatter, moonlight scatter).
+This is the "narrowband advantage" the chart currently misses entirely
+— Sky predictions for Hα / O3 / S2 should be 2-3 mag darker than they
+show today.
+
+Implementation: scale each of the three nL contributions in `KsAt` by
+`(BW_filter / BW_ref)` before summing, then convert back to mag.
+`Filters.Filter.BandwidthNm` is already on the POCO but unused by
+`KsAt`; needs a new parameter on `KsAt` plus a `BW_ref` constant in
+`SkyBrightness`. Caveat: the continuum approximation ignores narrow
+airglow emission lines (sodium D 589 nm, OI 557.7 nm,
+[OIII] 500.7 nm) — a v3 refinement would tabulate major lines and
+check overlap per filter band, since narrowband O3 catches [OIII]
+(slightly brighter than continuum-only would predict) while Hα and S2
+sit clean of major airglow.
+
+### TP consumer impact
+
+When either / both of the above land, the interim `Sky` chart gate at
+`AltitudeSubChart_Sky.BuildOrUpdateTargetSeries` (which currently
+nulls per-minute K-S outside `[AstronomicalDusk, AstronomicalDawn]`)
+can be removed — see TP ROADMAP §Future-flagged TP-side work for the
+removal checklist.
+
+## Open: partial-moon-impact tolerance in placement primitives
+
+Captured 2026-05-23 (relocated from TP ROADMAP, deferred until much
+later). Allowing a session to span moon-blocked time at a quality
+penalty rather than rejecting outright. The current placement
+primitives are designed so they don't preclude this — the moon profile
+is optional everywhere; mask computation is behind an internal helper
+in `BestSession` / `VisibilityWindows`. Implementation would add a
+quality-weighted penalty path alongside the current hard-reject path,
+chosen by an opt-in parameter so existing callers stay on the current
+behavior.
+
+Not actively scoped — recorded here so the design considerations
+aren't re-derived.
