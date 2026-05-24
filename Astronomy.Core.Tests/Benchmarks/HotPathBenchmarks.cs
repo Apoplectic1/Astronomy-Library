@@ -130,7 +130,8 @@ namespace Astronomy.Core.Tests.Benchmarks
                 moonPhaseAngleDeg: _moonPhaseDeg,
                 sunAltDeg: _sunAlt,
                 extinctionKBand: 0.28,
-                v0Mag: 21.5);
+                v0Mag: 21.5,
+                bandwidthNm: SkyBrightness.BWRefNm);
         }
 
         // ---- Aggregate session paths ----

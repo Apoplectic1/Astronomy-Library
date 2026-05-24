@@ -23,12 +23,28 @@ namespace Astronomy.Core.Brightness
     /// be a v2 refinement.
     /// </para>
     /// <para>
+    /// Bandwidth: each nL contribution (dark-sky baseline, twilight, moon) scales
+    /// linearly with passband width for continuum-spectrum sources. The reference
+    /// is V-band (<see cref="BWRefNm"/> = 85 nm). A 3 nm narrowband filter
+    /// integrates ~28× less continuum brightness — <c>2.5·log₁₀(85/3) ≈ 2.7 mag</c>
+    /// darker than the V-band prediction. Narrow airglow emission lines (sodium D
+    /// 589 nm, OI 557.7 nm, [OIII] 500.7 nm) are not modeled — a tabulated line
+    /// catalog would be a v3 refinement (narrowband OIII catches [OIII] airglow).
+    /// </para>
+    /// <para>
     /// Reference: Krisciunas, K., &amp; Schaefer, B. E. 1991, PASP, 103, 1033,
     /// "A Model of the Brightness of Moonlight."
     /// </para>
     /// </remarks>
     public static class SkyBrightness
     {
+        /// <summary>
+        /// V-band reference passband width (nm). Per-band brightness predictions
+        /// are scaled by <c>bandwidthNm / BWRefNm</c> on the assumption that
+        /// continuum sources contribute linearly with passband width.
+        /// </summary>
+        public const double BWRefNm = 85.0;
+
         /// <summary>
         /// Total sky brightness in mag/arcsec² at the target position, including
         /// the moonless dark-sky baseline (V₀ scaled by target airmass), the solar
@@ -55,7 +71,13 @@ namespace Astronomy.Core.Brightness
         /// <param name="moonPhaseAngleDeg">Phase angle (0 = full, 180 = new).</param>
         /// <param name="sunAltDeg">Sun altitude (degrees). Below −18° contributes zero.</param>
         /// <param name="extinctionKBand">Atmospheric extinction at the band's wavelength (mag/airmass).</param>
-        /// <param name="v0Mag">Moonless zenith dark-sky brightness (mag/arcsec²).</param>
+        /// <param name="v0Mag">Moonless zenith dark-sky brightness (mag/arcsec²), V-band broadband.</param>
+        /// <param name="bandwidthNm">
+        /// Filter passband (nm). Each nL contribution (dark, twilight, moon) is scaled by
+        /// <c>bandwidthNm / <see cref="BWRefNm"/></c> before summing — continuum sources
+        /// contribute linearly with passband width. Pass <see cref="BWRefNm"/> for the
+        /// V-band reference (no scaling).
+        /// </param>
         /// <returns>
         /// Sky brightness at the target in mag/arcsec². <see cref="double.NaN"/>
         /// if target is at or below the horizon (no observation).
@@ -66,7 +88,8 @@ namespace Astronomy.Core.Brightness
             double moonPhaseAngleDeg,
             double sunAltDeg,
             double extinctionKBand,
-            double v0Mag)
+            double v0Mag,
+            double bandwidthNm)
         {
             if (targetAltDeg <= 0.0) return double.NaN;
 
@@ -123,7 +146,12 @@ namespace Astronomy.Core.Brightness
                       * (1.0 - Math.Pow(10.0, -0.4 * extinctionKBand * targetX));
             }
 
-            return NanolambertsToMag(bDark + bTwilight + bMoon);
+            // Continuum bandwidth scaling: integrated nL brightness in the filter's
+            // passband scales linearly with passband width for continuous-spectrum
+            // sources (dark-sky, twilight scatter, moonlight scatter). Applied once
+            // to the summed nL contribution before the mag conversion.
+            double bandwidthScale = bandwidthNm / BWRefNm;
+            return NanolambertsToMag((bDark + bTwilight + bMoon) * bandwidthScale);
         }
 
         /// <summary>
