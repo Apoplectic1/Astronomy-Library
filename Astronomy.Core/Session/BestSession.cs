@@ -36,7 +36,7 @@ namespace Astronomy.Core.Session
         /// <para>
         /// When <paramref name="profile"/> is non-<see langword="null"/> and enabled, the
         /// candidate windows are intersected with moon-clear sub-intervals (per the
-        /// ACP/TS Lorentzian, sampled at 10-minute resolution) before placement. When
+        /// ACP/TS Lorentzian, sampled at 1-minute resolution) before placement. When
         /// <paramref name="profile"/> is <see langword="null"/> or
         /// <see cref="MoonAvoidanceProfile.Disabled"/>, the moon-aware path short-circuits
         /// and the result is byte-identical to the legacy moon-blind output.
@@ -133,7 +133,7 @@ namespace Astronomy.Core.Session
         /// <para>
         /// Same moon-aware contract as <see cref="For"/>: a non-null + enabled
         /// <paramref name="profile"/> reads moon position via
-        /// <see cref="Moon.MoonSeparation.ObserveAt"/> at 10-minute cadence inside each
+        /// <see cref="Moon.MoonSeparation.ObserveAt"/> at 1-minute cadence inside each
         /// visibility window; profile-null and profile-Disabled short-circuit to the
         /// visibility result unchanged.
         /// </para>
@@ -393,11 +393,11 @@ namespace Astronomy.Core.Session
             return best;
         }
 
-        // Walks each visibility window at 10-minute resolution, samples (separation,
+        // Walks each visibility window at 1-minute resolution, samples (separation,
         // moonAlt, age), evaluates MoonAvoidance.IsRejected, and emits contiguous
         // (Start, End) sub-intervals where avoidance accepts. Boundary crossings are
         // located by linear interpolation on (actualSep - requiredSep), so the result is
-        // accurate to about 1 minute regardless of how the threshold itself ramps with
+        // accurate to a few seconds regardless of how the threshold itself ramps with
         // moon altitude inside the relaxation zone.
         internal static IReadOnlyList<(DateTime Start, DateTime End)> MoonClearIntersect(
             Target target, Location location,
@@ -405,7 +405,7 @@ namespace Astronomy.Core.Session
             MoonAvoidanceProfile profile)
         {
             var result = new List<(DateTime Start, DateTime End)>();
-            TimeSpan sampleSize = TimeSpan.FromMinutes(10);
+            TimeSpan sampleSize = TimeSpan.FromMinutes(1);
 
             foreach (var win in visibility)
             {
