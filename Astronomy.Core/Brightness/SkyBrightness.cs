@@ -32,6 +32,33 @@ namespace Astronomy.Core.Brightness
     /// catalog would be a v3 refinement (narrowband OIII catches [OIII] airglow).
     /// </para>
     /// <para>
+    /// Regimes where the model breaks down (callers should gate or accept reduced
+    /// reliability):
+    /// <list type="bullet">
+    /// <item>
+    /// <b>Low target altitude at light-polluted sites.</b> The dark-sky baseline
+    /// <c>vDark = v0 − 2.5·log₁₀(X) + k·(X−1)</c> has an extinction term <c>k·(X−1)</c>
+    /// that grows linearly with airmass. For high-k sites (Bortle 8–9, k₅₀₀ ≥ 0.4)
+    /// at target altitudes below ~10°, this term dominates and predicts a sky
+    /// <i>darker</i> than zenith from extinction alone — physically wrong for urban
+    /// regimes where off-axis light-pollution actually <i>brightens</i> the horizon
+    /// via in-scattering. K-S 1991 was calibrated for moderate-to-dark sites and
+    /// doesn't model artificial-light in-scatter. Garstang 1986 / Falchi 2016
+    /// frameworks handle this; until adopted, consumers should null-gate display
+    /// below ~10° altitude at urban sites.
+    /// </item>
+    /// <item>
+    /// <b>Very near the moon (separation &lt; ~10°).</b> The K-S 1991 aureole scatter
+    /// function f(ρ) is approximate in the Mie-dominated near-moon regime.
+    /// </item>
+    /// <item>
+    /// <b>Narrow airglow emission overlap.</b> The continuum bandwidth scaling
+    /// misses narrowband filter contamination from atmospheric emission lines
+    /// (especially [OIII] 500.7 nm caught by OIII narrowband filters).
+    /// </item>
+    /// </list>
+    /// </para>
+    /// <para>
     /// Reference: Krisciunas, K., &amp; Schaefer, B. E. 1991, PASP, 103, 1033,
     /// "A Model of the Brightness of Moonlight."
     /// </para>
