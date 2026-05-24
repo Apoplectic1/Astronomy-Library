@@ -131,7 +131,8 @@ namespace Astronomy.Core.Tests.Benchmarks
                 sunAltDeg: _sunAlt,
                 extinctionKBand: 0.28,
                 v0Mag: 21.5,
-                bandwidthNm: SkyBrightness.BWRefNm);
+                bandwidthNm: SkyBrightness.BWRefNm,
+                centerNm: SkyBrightness.VBandCenterNm);
         }
 
         // ---- Aggregate session paths ----

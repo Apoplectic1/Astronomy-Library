@@ -30,7 +30,7 @@ namespace Astronomy.Core.Tests.Tests
                 sunAltDeg:        -30.0,  // deep night; no twilight
                 extinctionKBand:   0.20,
                 v0Mag: v0,
-                bandwidthNm: SkyBrightness.BWRefNm);
+                bandwidthNm: SkyBrightness.BWRefNm, centerNm: SkyBrightness.VBandCenterNm);
             // V(X=1) = V₀ - 2.5 log10(1) + k * (1 - 1) = V₀ exactly.
             Assert.Equal(v0, sky, 5);
         }
@@ -45,7 +45,7 @@ namespace Astronomy.Core.Tests.Tests
                 sunAltDeg:        -30.0,
                 extinctionKBand:   0.20,
                 v0Mag: 21.5,
-                bandwidthNm: SkyBrightness.BWRefNm);
+                bandwidthNm: SkyBrightness.BWRefNm, centerNm: SkyBrightness.VBandCenterNm);
             Assert.True(double.IsNaN(sky));
         }
 
@@ -59,12 +59,12 @@ namespace Astronomy.Core.Tests.Tests
                 targetAltDeg: 89.0, targetAzDeg: 0.0,
                 moonAltDeg:  -30.0, moonAzDeg:  180.0,
                 moonPhaseAngleDeg: 180.0, sunAltDeg: -30.0,
-                extinctionKBand: 0.20, v0Mag: v0, bandwidthNm: SkyBrightness.BWRefNm);
+                extinctionKBand: 0.20, v0Mag: v0, bandwidthNm: SkyBrightness.BWRefNm, centerNm: SkyBrightness.VBandCenterNm);
             double low = SkyBrightness.KsAt(
                 targetAltDeg: 20.0, targetAzDeg: 0.0,
                 moonAltDeg:  -30.0, moonAzDeg:  180.0,
                 moonPhaseAngleDeg: 180.0, sunAltDeg: -30.0,
-                extinctionKBand: 0.20, v0Mag: v0, bandwidthNm: SkyBrightness.BWRefNm);
+                extinctionKBand: 0.20, v0Mag: v0, bandwidthNm: SkyBrightness.BWRefNm, centerNm: SkyBrightness.VBandCenterNm);
             Assert.True(low < zenith, $"expected low ({low}) brighter than zenith ({zenith})");
         }
 
@@ -82,12 +82,12 @@ namespace Astronomy.Core.Tests.Tests
                 targetAltDeg: 60.0, targetAzDeg: 0.0,
                 moonAltDeg:  -10.0, moonAzDeg:  0.0,
                 moonPhaseAngleDeg: 0.0, sunAltDeg: -30.0,
-                extinctionKBand: 0.20, v0Mag: v0, bandwidthNm: SkyBrightness.BWRefNm);
+                extinctionKBand: 0.20, v0Mag: v0, bandwidthNm: SkyBrightness.BWRefNm, centerNm: SkyBrightness.VBandCenterNm);
             double withFullMoon = SkyBrightness.KsAt(
                 targetAltDeg: 60.0, targetAzDeg: 0.0,
                 moonAltDeg:   60.0, moonAzDeg:  10.0,   // moon ~10° from target, both high
                 moonPhaseAngleDeg: 0.0, sunAltDeg: -30.0,
-                extinctionKBand: 0.20, v0Mag: v0, bandwidthNm: SkyBrightness.BWRefNm);
+                extinctionKBand: 0.20, v0Mag: v0, bandwidthNm: SkyBrightness.BWRefNm, centerNm: SkyBrightness.VBandCenterNm);
             // Full moon near target should brighten the sky by several magnitudes.
             Assert.True(withFullMoon < moonless - 2.0,
                 $"expected full-moon sky {withFullMoon} >2 mag brighter than moonless {moonless}");
@@ -105,12 +105,12 @@ namespace Astronomy.Core.Tests.Tests
                 targetAltDeg: 60.0, targetAzDeg: 0.0,
                 moonAltDeg:  -10.0, moonAzDeg:  0.0,
                 moonPhaseAngleDeg: 180.0, sunAltDeg: -30.0,
-                extinctionKBand: 0.20, v0Mag: v0, bandwidthNm: SkyBrightness.BWRefNm);
+                extinctionKBand: 0.20, v0Mag: v0, bandwidthNm: SkyBrightness.BWRefNm, centerNm: SkyBrightness.VBandCenterNm);
             double newMoon = SkyBrightness.KsAt(
                 targetAltDeg: 60.0, targetAzDeg: 0.0,
                 moonAltDeg:   60.0, moonAzDeg:  10.0,
                 moonPhaseAngleDeg: 180.0, sunAltDeg: -30.0,
-                extinctionKBand: 0.20, v0Mag: v0, bandwidthNm: SkyBrightness.BWRefNm);
+                extinctionKBand: 0.20, v0Mag: v0, bandwidthNm: SkyBrightness.BWRefNm, centerNm: SkyBrightness.VBandCenterNm);
             Assert.True(Math.Abs(newMoon - moonless) < 0.1,
                 $"expected new-moon contribution negligible; got Δ = {newMoon - moonless}");
         }
@@ -124,7 +124,7 @@ namespace Astronomy.Core.Tests.Tests
                 targetAltDeg: 60.0, targetAzDeg: 0.0,
                 moonAltDeg:   60.0, moonAzDeg:  10.0,
                 moonPhaseAngleDeg: alpha, sunAltDeg: -30.0,
-                extinctionKBand: 0.20, v0Mag: 21.5, bandwidthNm: SkyBrightness.BWRefNm);
+                extinctionKBand: 0.20, v0Mag: 21.5, bandwidthNm: SkyBrightness.BWRefNm, centerNm: SkyBrightness.VBandCenterNm);
             double full    = Sky(0.0);
             double quarter = Sky(90.0);
             double newMoon = Sky(180.0);
@@ -314,7 +314,7 @@ namespace Astronomy.Core.Tests.Tests
                 sunAltDeg:        -30.0,                // night
                 extinctionKBand:   0.20,
                 v0Mag: 21.5,
-                bandwidthNm: SkyBrightness.BWRefNm);
+                bandwidthNm: SkyBrightness.BWRefNm, centerNm: SkyBrightness.VBandCenterNm);
             double withCivilTwilight = SkyBrightness.KsAt(
                 targetAltDeg: 60.0, targetAzDeg: 0.0,
                 moonAltDeg:  -10.0, moonAzDeg:  0.0,
@@ -322,7 +322,7 @@ namespace Astronomy.Core.Tests.Tests
                 sunAltDeg:        -6.0,                 // civil twilight
                 extinctionKBand:   0.20,
                 v0Mag: 21.5,
-                bandwidthNm: SkyBrightness.BWRefNm);
+                bandwidthNm: SkyBrightness.BWRefNm, centerNm: SkyBrightness.VBandCenterNm);
             Assert.True(withCivilTwilight < withoutTwilight - 1.0,
                 $"civil-twilight sky ({withCivilTwilight}) should be >1 mag brighter than night ({withoutTwilight})");
         }
@@ -338,7 +338,7 @@ namespace Astronomy.Core.Tests.Tests
                 sunAltDeg:        -6.0,                  // civil twilight
                 extinctionKBand:   0.20,
                 v0Mag: 21.5,
-                bandwidthNm: SkyBrightness.BWRefNm);
+                bandwidthNm: SkyBrightness.BWRefNm, centerNm: SkyBrightness.VBandCenterNm);
             Assert.True(sky < 18.0, $"civil-twilight zenith sky should be < 18 mag/arcsec²; got {sky}");
         }
 
@@ -354,7 +354,7 @@ namespace Astronomy.Core.Tests.Tests
                 sunAltDeg:        -18.0,                 // exactly at threshold
                 extinctionKBand:   0.20,
                 v0Mag: 21.5,
-                bandwidthNm: SkyBrightness.BWRefNm);
+                bandwidthNm: SkyBrightness.BWRefNm, centerNm: SkyBrightness.VBandCenterNm);
             Assert.InRange(sky, 21.4, 21.6);
         }
 
@@ -372,7 +372,7 @@ namespace Astronomy.Core.Tests.Tests
                 targetAltDeg: 60.0, targetAzDeg: 0.0,
                 moonAltDeg:  -30.0, moonAzDeg:  180.0,
                 moonPhaseAngleDeg: 180.0, sunAltDeg: -30.0,
-                extinctionKBand: 0.20, v0Mag: v0, bandwidthNm: SkyBrightness.BWRefNm);
+                extinctionKBand: 0.20, v0Mag: v0, bandwidthNm: SkyBrightness.BWRefNm, centerNm: SkyBrightness.VBandCenterNm);
             // V(X≈1.155) at 60° alt: V₀ - 2.5 log10(X) + k(X-1) ≈ 21.5 - 0.156 + 0.031 = 21.375
             Assert.InRange(sky, 21.30, 21.45);
         }
@@ -387,12 +387,12 @@ namespace Astronomy.Core.Tests.Tests
                 targetAltDeg: 60.0, targetAzDeg: 0.0,
                 moonAltDeg:   60.0, moonAzDeg:  90.0,    // moon up, contributing
                 moonPhaseAngleDeg: 90.0, sunAltDeg: -30.0,
-                extinctionKBand: 0.20, v0Mag: v0, bandwidthNm: 85.0);
+                extinctionKBand: 0.20, v0Mag: v0, bandwidthNm: 85.0, centerNm: SkyBrightness.VBandCenterNm);
             double narrowband = SkyBrightness.KsAt(
                 targetAltDeg: 60.0, targetAzDeg: 0.0,
                 moonAltDeg:   60.0, moonAzDeg:  90.0,
                 moonPhaseAngleDeg: 90.0, sunAltDeg: -30.0,
-                extinctionKBand: 0.20, v0Mag: v0, bandwidthNm: 3.0);
+                extinctionKBand: 0.20, v0Mag: v0, bandwidthNm: 3.0, centerNm: SkyBrightness.VBandCenterNm);
             // Theoretical shift is 2.5·log10(85/3). Impl uses NanolambertsToMag's 5-digit
             // constant (0.92104 vs 0.4·ln(10) = 0.92103403...) so the realized shift drifts
             // from the theoretical by ~1e-4. Looser tolerance still pins the physical claim.
@@ -411,14 +411,67 @@ namespace Astronomy.Core.Tests.Tests
                 targetAltDeg: 60.0, targetAzDeg: 0.0,
                 moonAltDeg:   60.0, moonAzDeg:  90.0,
                 moonPhaseAngleDeg: 90.0, sunAltDeg: -7.0,   // some twilight too
-                extinctionKBand: 0.20, v0Mag: v0, bandwidthNm: 100.0);
+                extinctionKBand: 0.20, v0Mag: v0, bandwidthNm: 100.0, centerNm: SkyBrightness.VBandCenterNm);
             double half = SkyBrightness.KsAt(
                 targetAltDeg: 60.0, targetAzDeg: 0.0,
                 moonAltDeg:   60.0, moonAzDeg:  90.0,
                 moonPhaseAngleDeg: 90.0, sunAltDeg: -7.0,
-                extinctionKBand: 0.20, v0Mag: v0, bandwidthNm: 50.0);
+                extinctionKBand: 0.20, v0Mag: v0, bandwidthNm: 50.0, centerNm: SkyBrightness.VBandCenterNm);
             // Same 5-digit-constant drift as above; 3-decimal tolerance pins the claim.
             Assert.Equal(2.5 * Math.Log10(2.0), half - full, 3);
+        }
+
+        // ============================================================
+        // KsAt -- wavelength-aware twilight (Rayleigh λ⁻⁴ scaling)
+        // ============================================================
+
+        [Fact]
+        public void KsAt_TwilightBlueNarrowbandBrighterThanRed()
+        {
+            // Civil twilight (sun at -6°), zenith target, moon down. Compare narrowband
+            // B (445 nm) vs narrowband R (650 nm) at identical 3 nm bandwidth so the
+            // continuum BW scaling cancels. Only the Rayleigh λ⁻⁴ twilight scale differs:
+            //   ratio = (650/445)^4 ≈ 4.55x more twilight scatter at blue.
+            // Result: blue narrowband sky is BRIGHTER (lower mag) during twilight.
+            double v0 = 21.5;
+            double blueSky = SkyBrightness.KsAt(
+                targetAltDeg: 80.0, targetAzDeg: 0.0,
+                moonAltDeg:  -30.0, moonAzDeg:  180.0,
+                moonPhaseAngleDeg: 180.0, sunAltDeg: -6.0,
+                extinctionKBand: 0.20, v0Mag: v0,
+                bandwidthNm: 3.0, centerNm: 445.0);
+            double redSky = SkyBrightness.KsAt(
+                targetAltDeg: 80.0, targetAzDeg: 0.0,
+                moonAltDeg:  -30.0, moonAzDeg:  180.0,
+                moonPhaseAngleDeg: 180.0, sunAltDeg: -6.0,
+                extinctionKBand: 0.20, v0Mag: v0,
+                bandwidthNm: 3.0, centerNm: 650.0);
+            Assert.True(blueSky < redSky,
+                $"civil-twilight blue ({blueSky}) should be brighter (lower mag) than red ({redSky})");
+        }
+
+        [Fact]
+        public void KsAt_NoTwilight_WavelengthScalingMoot()
+        {
+            // Sun below astronomical twilight. Twilight contribution is zero; the
+            // Rayleigh wavelength scaling has nothing to act on, so two filters with
+            // identical bandwidth but different centers should predict identical sky.
+            double v0 = 21.5;
+            double a = SkyBrightness.KsAt(
+                targetAltDeg: 60.0, targetAzDeg: 0.0,
+                moonAltDeg:  -30.0, moonAzDeg:  180.0,
+                moonPhaseAngleDeg: 180.0, sunAltDeg: -30.0,  // deep night
+                extinctionKBand: 0.20, v0Mag: v0,
+                bandwidthNm: 50.0, centerNm: 445.0);
+            double b = SkyBrightness.KsAt(
+                targetAltDeg: 60.0, targetAzDeg: 0.0,
+                moonAltDeg:  -30.0, moonAzDeg:  180.0,
+                moonPhaseAngleDeg: 180.0, sunAltDeg: -30.0,
+                extinctionKBand: 0.20, v0Mag: v0,
+                bandwidthNm: 50.0, centerNm: 650.0);
+            // Same extinctionKBand passed in (caller-resolved); only bDark + bandwidth
+            // contribute. Both should match exactly.
+            Assert.Equal(a, b, 9);
         }
     }
 }

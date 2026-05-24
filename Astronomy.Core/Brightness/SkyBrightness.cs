@@ -46,6 +46,13 @@ namespace Astronomy.Core.Brightness
         public const double BWRefNm = 85.0;
 
         /// <summary>
+        /// V-band centroid wavelength (nm) — reference for the Rayleigh
+        /// λ⁻⁴ scaling applied to the twilight contribution (sun-scattered
+        /// Rayleigh light is wavelength-dependent: blue scatters more than red).
+        /// </summary>
+        public const double VBandCenterNm = 540.0;
+
+        /// <summary>
         /// Total sky brightness in mag/arcsec² at the target position, including
         /// the moonless dark-sky baseline (V₀ scaled by target airmass), the solar
         /// twilight contribution (when sun is above astronomical-twilight threshold),
@@ -78,6 +85,15 @@ namespace Astronomy.Core.Brightness
         /// contribute linearly with passband width. Pass <see cref="BWRefNm"/> for the
         /// V-band reference (no scaling).
         /// </param>
+        /// <param name="centerNm">
+        /// Filter center wavelength (nm). Used for the Rayleigh λ⁻⁴ scaling of the
+        /// twilight contribution (sun-scattered Rayleigh light is wavelength-dependent;
+        /// blue narrowband sees brighter twilight than red narrowband). Pass
+        /// <see cref="VBandCenterNm"/> for the V-band reference (no scaling). The
+        /// per-band extinction <paramref name="extinctionKBand"/> already encodes
+        /// the line-of-sight extinction wavelength dependence; this parameter only
+        /// controls the twilight-scatter wavelength scaling.
+        /// </param>
         /// <returns>
         /// Sky brightness at the target in mag/arcsec². <see cref="double.NaN"/>
         /// if target is at or below the horizon (no observation).
@@ -89,7 +105,8 @@ namespace Astronomy.Core.Brightness
             double sunAltDeg,
             double extinctionKBand,
             double v0Mag,
-            double bandwidthNm)
+            double bandwidthNm,
+            double centerNm)
         {
             if (targetAltDeg <= 0.0) return double.NaN;
 
@@ -105,15 +122,22 @@ namespace Astronomy.Core.Brightness
             double bDark = MagToNanolamberts(vDark);
 
             // Solar twilight contribution. Twilight.ZenithBrightening returns the
-            // mag-delta by which solar scattering has brightened the zenith sky vs
-            // V₀; we convert that delta to nanolamberts as a separate addition rather
-            // than combining magnitudes (which doesn't compose linearly).
+            // V-band-calibrated mag-delta by which solar scattering has brightened
+            // the zenith sky vs V₀; we convert that delta to nanolamberts as a
+            // separate addition rather than combining magnitudes (which doesn't
+            // compose linearly), then scale the nL contribution by the Rayleigh
+            // λ⁻⁴ ratio relative to V-band so narrowband-blue sees brighter twilight
+            // than narrowband-red (the physically-correct direction). Outside
+            // twilight (sun ≤ −18°) the delta is zero and the scaling is moot.
             double bTwilight = 0.0;
             double deltaTwilightMag = Twilight.ZenithBrightening(sunAltDeg);
             if (deltaTwilightMag > 0.0)
             {
                 double vTwilight = vDark - deltaTwilightMag;   // brighter sky = lower mag
-                bTwilight = MagToNanolamberts(vTwilight) - bDark;
+                double bTwilightVBand = MagToNanolamberts(vTwilight) - bDark;
+                double r = VBandCenterNm / centerNm;
+                double rayleighScale = r * r * r * r;
+                bTwilight = bTwilightVBand * rayleighScale;
             }
 
             double bMoon = 0.0;
