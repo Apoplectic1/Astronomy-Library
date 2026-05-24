@@ -194,6 +194,39 @@ condition.
 Caveat documented in `SkyBrightness.cs` class remarks alongside the
 near-moon (separation < ~10°) and narrow-airglow-overlap regimes.
 
+## Open: refraction asymmetry between K-S call and Lorentzian moon gate
+
+Captured 2026-05-24 from cross-component review. Two TP-side paths
+currently apply the moon-altitude horizon at different conventions:
+
+- **K-S Sky chart** (TP `AltitudeSubChart_Sky`, after the 2026-05-24
+  `bec0d6c` refraction fix): `moonAltApparent = m.MoonAltDeg +
+  Refraction.SaemundssonDeg(m.MoonAltDeg)`, then `SkyBrightness.KsAt`
+  clamps moon contribution at `moonAltApparent > 0`. Cutoff aligns with
+  visually-observed moonset (~34' / ~2 min later than geometric).
+- **Lorentzian placement gate** (`BestSession.MoonClearIntersect` →
+  `MoonAvoidance.RequiredSepWithRelax`): consumes **geometric** moon
+  altitude from `MoonSeparation.ObserveAt` with no refraction. The
+  Relax bounds (`RelaxMinAltDeg`, `RelaxMaxAltDeg`) are in
+  geometric-degrees terms.
+
+Net: K-S sky-brightness compute and Lorentzian placement gate apply
+moon-altitude thresholds offset by ~34'. A target imaged near the
+moonset/moonrise boundary can be K-S-OK while Lorentzian-rejected (or
+vice versa) for ~2 min around the transition.
+
+**Auto-resolves when the K-S Δmag gate replaces the Lorentzian** —
+see "partial-moon-impact tolerance" below. K-S Δmag inherits the
+refraction-aware moon altitude from the K-S call automatically; the
+Lorentzian path becomes legacy at that point and no per-path
+refraction reconciliation is needed.
+
+For interim consistency without waiting for the K-S Δmag work:
+`MoonAvoidance.RequiredSepWithRelax` could refraction-correct its
+`moonAltDeg` parameter (one line; matches K-S convention). Small
+behavioral shift — moon-clear gate would extend ~2 min later at
+moonrise/moonset — but aligns the two consumers.
+
 ## Open: partial-moon-impact tolerance in placement primitives
 
 Captured 2026-05-23 (relocated from TP ROADMAP, deferred until much
@@ -208,3 +241,39 @@ behavior.
 
 Not actively scoped — recorded here so the design considerations
 aren't re-derived.
+
+### Design notes (from 2026-05-24 discussion)
+
+The eventual K-S Δmag gate **replaces** the Lorentzian entirely — it
+doesn't just relax it. K-S takes phase angle (moon disc illumination
+intensity), moon altitude (airmass attenuation), target altitude, and
+target-moon separation all as inputs; the Lorentzian crudely
+approximates these dimensions with `SeparationDeg` + `WidthDays` +
+altitude-relax scalars. K-S Δmag becomes "accept this minute if the
+K-S-predicted brightness is within X mag of the moonless baseline."
+One scalar tolerance, full physics.
+
+- **Lorentzian parameterization side question (days vs %illumination):**
+  %illumination is physically more meaningful (tracks moon disc
+  brightness contribution, not synodic-cycle calendar position) and
+  more intuitive ("50% moon" vs "7 days from full"). But this is a
+  placeholder question — K-S Δmag makes it moot. Switching the
+  Lorentzian's parameterization mid-flight before K-S Δmag would be
+  wasted work.
+
+- **TS-style altitude relaxation (`RelaxMinAlt` / `RelaxMaxAlt` /
+  `RelaxScale`):** addresses the moon-below-horizon and moon-near-
+  horizon regimes that K-S handles automatically via airmass
+  attenuation (moon at apparent alt 0 → contribution clamped to 0;
+  moon at alt 1° → tiny contribution from extincted moonlight). K-S
+  Δmag gates inherit this behavior for free.
+
+- **One thing K-S 1991 doesn't model that TS relax can approximate:**
+  the lunar-twilight-glow regime ~10-15 min after moonset (analogous
+  to solar civil twilight). Negligible for amateur planning purposes;
+  a v3 K-S extension if anyone needs it.
+
+- **Refraction asymmetry** (see preceding entry) is the third thing
+  that auto-resolves under K-S Δmag — the gate inherits the K-S
+  call's apparent-altitude moon convention; the Lorentzian's
+  geometric-altitude inconsistency disappears with the Lorentzian.
