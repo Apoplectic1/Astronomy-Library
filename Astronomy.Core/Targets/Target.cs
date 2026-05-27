@@ -113,9 +113,13 @@ namespace Astronomy.Core.Targets
                 enabled        ?? this.Enabled);
 
         /// <summary>
-        /// M31 (Andromeda) defaults. Freshly instantiated on each access.
+        /// M31 (Andromeda) defaults. Canonical singleton -- Target is immutable
+        /// (mutations produce new instances via <see cref="With"/>) so a shared
+        /// reference is safe for any caller. The previous "fresh each access"
+        /// shape allocated on every dereference and broke naive test code that
+        /// expected reference identity across two reads.
         /// </summary>
-        public static Target Default => new Target(
+        public static readonly Target Default = new Target(
             name:           "M31",
             rightAscension: 0.712306,
             declination:    41.269167, north: true,

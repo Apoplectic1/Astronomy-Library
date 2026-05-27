@@ -1,5 +1,33 @@
 # Astronomy Library — Roadmap
 
+## Recently shipped (2026-05-27): `Target.Default` + `TestLocations` -> `static readonly`
+
+Both `public static Target Default => new Target(...)` and
+`Astronomy.Core.Tests/Tests/TestLocations.*` were expression-bodied
+properties allocating a fresh instance per access. Discovered while
+writing TargetPlanner's Phase 3 cache-axis tests: the cache uses
+reference identity on `Target` (per-(target, key) dict keys in
+`ChartCacheStore`'s four axes) and `Location` (publish-time
+`ReferenceEquals(currentLocation, buildLocation)` discard in
+`CacheAxis.TryPublish`), and a naive `Target.Default` / `TestLocations.PennsPark`
+twice in a test breaks both. TP-side worked around it with shared
+class-level `static readonly` captures (`M31 = Target.Default`,
+plus its own `TestLocations` fork), with a comment flagging the divergence.
+
+Now: both are `public static readonly` fields. `Target` and `Location` are
+immutable (mutations produce new instances via `With(...)`), so a shared
+singleton is risk-free. Side benefit: zero per-access allocation, which
+matters where `Target.Default` is used as the cold-path fallback in
+TP's `MainForm.CoordinatePresenter` (called on every D/M/S coordinate edit).
+
+No production behaviour change in the Library or any downstream consumer:
+all 553 Library tests pass (460 Core + 26 XISF + 67 NINA), TP's 152 tests
+pass. TP-side comments in `TargetPlanner.Tests/Tests/Support/TestLocations.cs`
+and `ChartCacheStoreTests.cs` that called out the divergence are about to
+be cleaned up in a paired TP commit (the divergence text is now wrong).
+
+Files: `Astronomy.Core/Targets/Target.cs`, `Astronomy.Core.Tests/Tests/TestLocations.cs`.
+
 ## Recently shipped (2026-05-18): Astronomy.XISF — Tier 1 extraction
 
 The XISF reading primitives moved from `Astronomy.NINA/Xisf/` into a dedicated `Astronomy.XISF` library (7th and 8th buildable projects added: `Astronomy.XISF` + `Astronomy.XISF.Tests`). Rationale: the XISF file format is NINA-independent (PixInsight defines it); separating the reader from the planning layer makes it sharable across XFM, TP, ISP, and the user's other apps without dragging the planning model.

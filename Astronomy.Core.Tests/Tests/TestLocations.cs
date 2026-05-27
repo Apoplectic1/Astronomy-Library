@@ -12,11 +12,17 @@ namespace Astronomy.Core.Tests.Tests
     // The non-PennsPark fixtures are diverse-geometry coverage for "this property
     // should hold at any location" [Theory] tests (see All() below): two hemispheres,
     // an equator-degenerate latitude, and a polar fringe.
+    //
+    // Shape: static readonly fields (not `=> new Location(...)` properties). Location
+    // is immutable so sharing a single instance per fixture is safe, and downstream
+    // callers (TargetPlanner cache tests) rely on reference identity for dict-key
+    // lookups + the cache's stale-publish discard, which the per-access-new property
+    // shape silently breaks.
     internal static class TestLocations
     {
         // The historical Location.Default site -- US east coast, mid-latitude N, suburban
         // Bortle 5. Most facts in this suite are anchored to these coordinates.
-        public static Location PennsPark => new Location(
+        public static readonly Location PennsPark = new Location(
             name:         "Penns Park",
             latitude:     40.282835, north: true,
             longitude:    74.997369, west:  true,
@@ -26,7 +32,7 @@ namespace Astronomy.Core.Tests.Tests
             extinctionK:  0.28);
 
         // Sydney Opera House. Southern hemisphere, eastern longitude.
-        public static Location Sydney => new Location(
+        public static readonly Location Sydney = new Location(
             name:         "Sydney",
             latitude:     33.8568, north: false,
             longitude:    151.2153, west: false,
@@ -38,7 +44,7 @@ namespace Astronomy.Core.Tests.Tests
         // Quito, Ecuador. Just south of the equator (lat ~0.18 deg S), western
         // longitude. Stresses the equator-degenerate latitude case (cos(phi) ~ 1
         // throughout the geometry kernels).
-        public static Location Equator => new Location(
+        public static readonly Location Equator = new Location(
             name:         "Quito",
             latitude:     0.1807, north: false,
             longitude:    78.4678, west: true,
@@ -49,7 +55,7 @@ namespace Astronomy.Core.Tests.Tests
 
         // Reykjavik. High northern latitude (~64 N), exercises summer-twilight
         // edge cases without going polar.
-        public static Location Reykjavik => new Location(
+        public static readonly Location Reykjavik = new Location(
             name:         "Reykjavik",
             latitude:     64.1466, north: true,
             longitude:    21.9426, west: true,
@@ -63,7 +69,7 @@ namespace Astronomy.Core.Tests.Tests
         // even when the target is permanently below the horizon (e.g. M31
         // never rises from McMurdo, but altitude-at-transit still equals
         // MeridianAltitude, which is negative).
-        public static Location Antarctic => new Location(
+        public static readonly Location Antarctic = new Location(
             name:         "McMurdo",
             latitude:     77.8419, north: false,
             longitude:    166.6863, west: false,
