@@ -2,9 +2,9 @@ namespace Astronomy.NINA;
 
 /// <summary>
 /// Identity + characterization of an imaging filter. Immutable; carries a stable
-/// <see cref="Name"/> (the string consumers display and NINA sequences use),
-/// a typed <see cref="Kind"/> classification, and optional bandwidth metadata
-/// for moon-tolerance / K-S sky brightness calculations.
+/// <see cref="Name"/> (the string consumers display and NINA sequences use) plus
+/// optional center wavelength and bandwidth metadata for moon-tolerance / K-S
+/// sky brightness calculations.
 /// </summary>
 /// <remarks>
 /// Static factories (<see cref="H"/>, <see cref="O"/>, …) provide the standard
@@ -17,24 +17,20 @@ public sealed class Filter
     /// <summary>Stable filter identifier ("H", "O", "S", "L", "R", "G", "B" for the standard set). Used in NINA sequence files and TP display.</summary>
     public string Name { get; }
 
-    /// <summary>Classification for branching at consumer sites without string matching.</summary>
-    public FilterKind Kind { get; }
-
-    /// <summary>Center wavelength in nanometres; <see langword="null"/> when not applicable (e.g. Luminance, RGB).</summary>
+    /// <summary>Center wavelength in nanometres; <see langword="null"/> when not applicable or unknown (custom user-imported filters).</summary>
     public double? CenterNm { get; }
 
-    /// <summary>FWHM bandwidth in nanometres; <see langword="null"/> when unknown or not applicable.</summary>
+    /// <summary>FWHM bandwidth in nanometres; <see langword="null"/> when not applicable or unknown.</summary>
     public double? BandwidthNm { get; }
 
     /// <summary>Creates an immutable filter. Throws if <paramref name="name"/> is empty or bandwidth values are non-positive when present.</summary>
-    public Filter(string name, FilterKind kind, double? centerNm = null, double? bandwidthNm = null)
+    public Filter(string name, double? centerNm = null, double? bandwidthNm = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         if (centerNm.HasValue) ArgumentOutOfRangeException.ThrowIfNegativeOrZero(centerNm.Value, nameof(centerNm));
         if (bandwidthNm.HasValue) ArgumentOutOfRangeException.ThrowIfNegativeOrZero(bandwidthNm.Value, nameof(bandwidthNm));
 
         Name = name;
-        Kind = kind;
         CenterNm = centerNm;
         BandwidthNm = bandwidthNm;
     }
@@ -42,12 +38,10 @@ public sealed class Filter
     /// <summary>Named-argument builder; any omitted argument inherits from the current instance.</summary>
     public Filter With(
         string? name = null,
-        FilterKind? kind = null,
         double? centerNm = null,
         double? bandwidthNm = null)
         => new Filter(
             name ?? Name,
-            kind ?? Kind,
             centerNm ?? CenterNm,
             bandwidthNm ?? BandwidthNm);
 
@@ -63,23 +57,23 @@ public sealed class Filter
     // same Name carry the same K-S inputs.
 
     /// <summary>Hα emission line (656.3 nm). Standard 3 nm Astrodon narrowband.</summary>
-    public static readonly Filter H = new("H", FilterKind.Narrowband, 656.3, 3.0);
+    public static readonly Filter H = new("H", 656.3, 3.0);
 
     /// <summary>[O III] emission line (500.7 nm). Standard 3 nm Astrodon narrowband.</summary>
-    public static readonly Filter O = new("O", FilterKind.Narrowband, 500.7, 3.0);
+    public static readonly Filter O = new("O", 500.7, 3.0);
 
     /// <summary>[S II] doublet centered between 671.6 / 673.1 nm. Chroma 3 nm narrowband.</summary>
-    public static readonly Filter S = new("S", FilterKind.Narrowband, 672.4, 3.0);
+    public static readonly Filter S = new("S", 672.4, 3.0);
 
     /// <summary>Luminance — broadband clear / IR-cut. Astrodon E-Series ~300 nm bandwidth at 550 nm center.</summary>
-    public static readonly Filter L = new("L", FilterKind.Luminance, 550.0, 300.0);
+    public static readonly Filter L = new("L", 550.0, 300.0);
 
     /// <summary>Red broadband. Astrodon E-Series ~60 nm bandwidth at 650 nm.</summary>
-    public static readonly Filter R = new("R", FilterKind.Broadband, 650.0, 60.0);
+    public static readonly Filter R = new("R", 650.0, 60.0);
 
     /// <summary>Green broadband. Astrodon E-Series ~65 nm bandwidth at 525 nm.</summary>
-    public static readonly Filter G = new("G", FilterKind.Broadband, 525.0, 65.0);
+    public static readonly Filter G = new("G", 525.0, 65.0);
 
     /// <summary>Blue broadband. Astrodon E-Series ~100 nm bandwidth at 450 nm.</summary>
-    public static readonly Filter B = new("B", FilterKind.Broadband, 450.0, 100.0);
+    public static readonly Filter B = new("B", 450.0, 100.0);
 }

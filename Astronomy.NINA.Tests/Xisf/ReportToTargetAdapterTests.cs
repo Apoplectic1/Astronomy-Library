@@ -36,26 +36,30 @@ public class ReportToTargetAdapterTests
     }
 
     [Theory]
-    [InlineData("L", "L", FilterKind.Luminance)]
-    [InlineData("H", "H", FilterKind.Narrowband)]
-    [InlineData("O", "O", FilterKind.Narrowband)]
-    [InlineData("S", "S", FilterKind.Narrowband)]
-    [InlineData("R", "R", FilterKind.Broadband)]
-    [InlineData("G", "G", FilterKind.Broadband)]
-    [InlineData("B", "B", FilterKind.Broadband)]
-    public void FilterFromCode_MapsStandardCodesToPresets(string code, string expectedName, FilterKind expectedKind)
+    [InlineData("L")]
+    [InlineData("H")]
+    [InlineData("O")]
+    [InlineData("S")]
+    [InlineData("R")]
+    [InlineData("G")]
+    [InlineData("B")]
+    public void FilterFromCode_MapsStandardCodesToPresets(string code)
     {
         Filter f = ReportToTargetAdapter.FilterFromCode(code);
-        Assert.Equal(expectedName, f.Name);
-        Assert.Equal(expectedKind, f.Kind);
+        Assert.Equal(code, f.Name);
+        // Standard preset codes resolve to instances with non-null center +
+        // bandwidth metadata (the K-S inputs); custom codes leave them null.
+        Assert.NotNull(f.CenterNm);
+        Assert.NotNull(f.BandwidthNm);
     }
 
     [Fact]
-    public void FilterFromCode_CustomCodesPassThroughAsUnknown()
+    public void FilterFromCode_CustomCode_PreservesNameAndLeavesMetadataNull()
     {
         Filter f = ReportToTargetAdapter.FilterFromCode("Custom-NB");
         Assert.Equal("Custom-NB", f.Name);
-        Assert.Equal(FilterKind.Unknown, f.Kind);
+        Assert.Null(f.CenterNm);
+        Assert.Null(f.BandwidthNm);
     }
 
     [Fact]

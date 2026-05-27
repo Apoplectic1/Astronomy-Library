@@ -1,5 +1,34 @@
 # Astronomy Library — Roadmap
 
+## Recently shipped (2026-05-27): drop `FilterKind` -- center/bandwidth is the spectral fact
+
+`Filter.Kind` and the `FilterKind` enum deleted. Carried over from before
+center/bandwidth metadata was complete on every preset; with that
+metadata now present, Kind was stored on every Filter instance but
+never branched on by production code (only asserted by tests). TP's own
+filter type never had a Kind field, so the Library was carrying an
+unused-by-consumers classification.
+
+What K-S / moon avoidance actually use:
+
+- K-S sky brightness: `CenterNm` (Rayleigh λ⁻⁴ scaling).
+- Moon avoidance (Lorentzian): TP's own `Filters.Filter` Lorentzian
+  params -- the Library `Filter` never carried these.
+
+So `Kind` was metadata-with-no-readers. Deleted: enum file, ctor
+parameter, property, `With(kind: ...)` arg, all test references.
+`FilterFromCode`'s unknown-code branch became
+`new Filter(code)` (null center+bandwidth) instead of
+`new Filter(code, FilterKind.Unknown)`. The "unknown" signal is now
+`Filter.CenterNm == null` or `Filter.Name` not matching a preset.
+
+Files: `Astronomy.NINA/FilterKind.cs` (deleted), `Astronomy.NINA/Filter.cs`,
+`Astronomy.NINA/Xisf/ReportToTargetAdapter.cs`,
+`Astronomy.NINA.Tests/CompositionTypeTests.cs`,
+`Astronomy.NINA.Tests/Xisf/ReportToTargetAdapterTests.cs`.
+
+553 Library tests pass (460 Core + 26 XISF + 67 NINA); TP's 152 pass.
+
 ## Recently shipped (2026-05-27): Filter rename + center/bandwidth fill
 
 Standard filter presets in `Astronomy.NINA/Filter.cs` renamed to match

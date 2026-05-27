@@ -9,39 +9,37 @@ public class FilterTests
     [Fact]
     public void Ctor_RequiresName()
     {
-        Assert.Throws<ArgumentException>(() => new Filter("", FilterKind.Broadband));
-        Assert.Throws<ArgumentException>(() => new Filter("   ", FilterKind.Broadband));
-        Assert.Throws<ArgumentNullException>(() => new Filter(null, FilterKind.Broadband));
+        Assert.Throws<ArgumentException>(() => new Filter(""));
+        Assert.Throws<ArgumentException>(() => new Filter("   "));
+        Assert.Throws<ArgumentNullException>(() => new Filter(null));
     }
 
     [Fact]
     public void Ctor_RejectsNonPositiveBandwidth()
     {
-        Assert.Throws<ArgumentOutOfRangeException>(() => new Filter("H", FilterKind.Narrowband, 656.3, 0.0));
-        Assert.Throws<ArgumentOutOfRangeException>(() => new Filter("H", FilterKind.Narrowband, 656.3, -3.0));
-        Assert.Throws<ArgumentOutOfRangeException>(() => new Filter("H", FilterKind.Narrowband, -100.0, 3.0));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new Filter("H", 656.3, 0.0));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new Filter("H", 656.3, -3.0));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new Filter("H", -100.0, 3.0));
     }
 
     [Fact]
     public void Ctor_AllowsNullBandwidth()
     {
-        Filter l = new("L", FilterKind.Luminance);
-        Assert.Null(l.CenterNm);
-        Assert.Null(l.BandwidthNm);
+        Filter custom = new("Custom");
+        Assert.Null(custom.CenterNm);
+        Assert.Null(custom.BandwidthNm);
     }
 
     [Fact]
     public void Presets_HaveExpectedShape()
     {
         Assert.Equal("H", Filter.H.Name);
-        Assert.Equal(FilterKind.Narrowband, Filter.H.Kind);
         Assert.Equal(656.3, Filter.H.CenterNm);
         Assert.Equal(3.0, Filter.H.BandwidthNm);
 
-        Assert.Equal(FilterKind.Luminance, Filter.L.Kind);
         Assert.Equal(550.0, Filter.L.CenterNm);
         Assert.Equal(300.0, Filter.L.BandwidthNm);
-        Assert.Equal(FilterKind.Broadband, Filter.R.Kind);
+
         Assert.Equal(650.0, Filter.R.CenterNm);
         Assert.Equal(60.0, Filter.R.BandwidthNm);
     }
@@ -51,7 +49,6 @@ public class FilterTests
     {
         Filter f = Filter.H.With(bandwidthNm: 7.0);
         Assert.Equal("H", f.Name);
-        Assert.Equal(FilterKind.Narrowband, f.Kind);
         Assert.Equal(656.3, f.CenterNm);
         Assert.Equal(7.0, f.BandwidthNm);
     }

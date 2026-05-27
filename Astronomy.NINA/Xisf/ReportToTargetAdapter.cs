@@ -16,8 +16,8 @@ namespace Astronomy.NINA.Xisf;
 /// <para>
 /// Filter-code → <see cref="Filter"/> mapping uses the static factory presets when
 /// the code matches XFM's single-letter convention; otherwise a custom
-/// <see cref="Filter"/> with <see cref="FilterKind.Unknown"/> is built so the data
-/// flows through without loss.
+/// <see cref="Filter"/> with null center/bandwidth is built so the data flows
+/// through without loss.
 /// </para>
 /// </remarks>
 public static class ReportToTargetAdapter
@@ -91,8 +91,8 @@ public static class ReportToTargetAdapter
 
     /// <summary>
     /// Maps XFM's single-letter filter codes to standard <see cref="Filter"/> presets.
-    /// Unknown codes produce a custom <see cref="Filter"/> with the code as <see cref="Filter.Name"/>
-    /// and <see cref="FilterKind.Unknown"/> so data isn't lost.
+    /// Unknown codes produce a custom <see cref="Filter"/> with the code as
+    /// <see cref="Filter.Name"/> and null center/bandwidth so data isn't lost.
     /// </summary>
     public static Filter FilterFromCode(string code)
     {
@@ -106,7 +106,7 @@ public static class ReportToTargetAdapter
             "R" => Filter.R,
             "G" => Filter.G,
             "B" => Filter.B,
-            _ => new Filter(code, FilterKind.Unknown),
+            _ => new Filter(code),
         };
     }
 }
