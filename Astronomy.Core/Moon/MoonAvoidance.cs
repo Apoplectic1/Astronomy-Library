@@ -118,8 +118,9 @@ namespace Astronomy.Core.Moon
         /// Avoidance disabled. <see cref="MoonAvoidance.IsRejected"/> always returns
         /// <see langword="false"/> with this profile; the curve consumers treat it as
         /// "no moon avoidance" and behave exactly as if no profile were supplied.
+        /// Singleton -- MoonAvoidanceProfile is immutable.
         /// </summary>
-        public static MoonAvoidanceProfile Disabled => new MoonAvoidanceProfile(
+        public static readonly MoonAvoidanceProfile Disabled = new MoonAvoidanceProfile(
             enabled:        false,
             separationDeg:  0.0,
             widthDays:      0.0,
@@ -131,8 +132,9 @@ namespace Astronomy.Core.Moon
         /// <summary>
         /// Narrowband-imaging defaults: 60° required separation at full moon, 7d width.
         /// Relaxation off; turn it on by composing <c>.With(relaxEnabled: true, relaxScale: …)</c>.
+        /// Singleton.
         /// </summary>
-        public static MoonAvoidanceProfile Narrowband => new MoonAvoidanceProfile(
+        public static readonly MoonAvoidanceProfile Narrowband = new MoonAvoidanceProfile(
             enabled:        true,
             separationDeg:  60.0,
             widthDays:      7.0,
@@ -143,9 +145,9 @@ namespace Astronomy.Core.Moon
 
         /// <summary>
         /// Broadband-imaging defaults: 120° required separation at full moon, 14d width.
-        /// Relaxation off.
+        /// Relaxation off. Singleton.
         /// </summary>
-        public static MoonAvoidanceProfile Broadband => new MoonAvoidanceProfile(
+        public static readonly MoonAvoidanceProfile Broadband = new MoonAvoidanceProfile(
             enabled:        true,
             separationDeg:  120.0,
             widthDays:      14.0,

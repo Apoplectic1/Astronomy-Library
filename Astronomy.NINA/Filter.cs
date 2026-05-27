@@ -50,26 +50,28 @@ public sealed class Filter
             centerNm ?? CenterNm,
             bandwidthNm ?? BandwidthNm);
 
-    // Standard filter presets — conventional center/bandwidth for the user's astronomical narrowband set.
+    // Standard filter presets — conventional center/bandwidth for the user's
+    // astronomical narrowband set. Each is a canonical singleton (Filter is
+    // immutable), so callers can rely on reference identity if useful.
 
     /// <summary>Hα emission line (656.3 nm). Standard 3 nm Astrodon-style narrowband bandwidth.</summary>
-    public static Filter Ha   => new("Ha",   FilterKind.Narrowband, 656.3, 3.0);
+    public static readonly Filter Ha   = new("Ha",   FilterKind.Narrowband, 656.3, 3.0);
 
     /// <summary>OIII emission line (500.7 nm). Standard 3 nm narrowband bandwidth.</summary>
-    public static Filter OIII => new("OIII", FilterKind.Narrowband, 500.7, 3.0);
+    public static readonly Filter OIII = new("OIII", FilterKind.Narrowband, 500.7, 3.0);
 
     /// <summary>SII emission line (671.6 nm). Standard 3 nm narrowband bandwidth.</summary>
-    public static Filter SII  => new("SII",  FilterKind.Narrowband, 671.6, 3.0);
+    public static readonly Filter SII  = new("SII",  FilterKind.Narrowband, 671.6, 3.0);
 
     /// <summary>Luminance — broadband clear / IR-cut. No meaningful single center wavelength.</summary>
-    public static Filter L    => new("L",    FilterKind.Luminance);
+    public static readonly Filter L    = new("L",    FilterKind.Luminance);
 
     /// <summary>Red broadband.</summary>
-    public static Filter R    => new("R",    FilterKind.Broadband);
+    public static readonly Filter R    = new("R",    FilterKind.Broadband);
 
     /// <summary>Green broadband.</summary>
-    public static Filter G    => new("G",    FilterKind.Broadband);
+    public static readonly Filter G    = new("G",    FilterKind.Broadband);
 
     /// <summary>Blue broadband.</summary>
-    public static Filter B    => new("B",    FilterKind.Broadband);
+    public static readonly Filter B    = new("B",    FilterKind.Broadband);
 }

@@ -162,7 +162,9 @@ namespace Astronomy.Core.Locations
                 extinctionK  ?? this.ExtinctionK);
 
         /// <summary>
-        /// Neutral, ship-safe placeholder values, freshly instantiated on each access.
+        /// Neutral, ship-safe placeholder values. Canonical singleton -- Location
+        /// is immutable (mutations produce new instances via <see cref="With"/>)
+        /// so a shared reference is safe for any caller.
         /// </summary>
         /// <remarks>
         /// Coordinates are deliberately rounded (40&#176;N, 75&#176;W, sea level) so the
@@ -170,7 +172,7 @@ namespace Astronomy.Core.Locations
         /// resolve the user's actual site via their own configuration layers (e.g.
         /// TargetPlanner's <c>PersonalDefaults</c> + <c>SettingsStore</c>).
         /// </remarks>
-        public static Location Default => new Location(
+        public static readonly Location Default = new Location(
             name:         "Custom",
             latitude:     40.0, north: true,
             longitude:    75.0, west:  true,

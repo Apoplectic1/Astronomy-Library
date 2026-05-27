@@ -1,32 +1,39 @@
 # Astronomy Library — Roadmap
 
-## Recently shipped (2026-05-27): `Target.Default` + `TestLocations` -> `static readonly`
+## Recently shipped (2026-05-27): canonical-singleton factories -> `static readonly` (Library sweep)
 
-Both `public static Target Default => new Target(...)` and
-`Astronomy.Core.Tests/Tests/TestLocations.*` were expression-bodied
-properties allocating a fresh instance per access. Discovered while
-writing TargetPlanner's Phase 3 cache-axis tests: the cache uses
-reference identity on `Target` (per-(target, key) dict keys in
-`ChartCacheStore`'s four axes) and `Location` (publish-time
+Every `public static T Name => new T(...)` factory in the Library --
+the "default singleton" pattern -- was an expression-bodied property
+allocating a fresh instance per access. Discovered while writing
+TargetPlanner's Phase 3 cache-axis tests: the cache uses reference
+identity on `Target` (per-(target, key) dict keys in `ChartCacheStore`'s
+four axes) and `Location` (publish-time
 `ReferenceEquals(currentLocation, buildLocation)` discard in
-`CacheAxis.TryPublish`), and a naive `Target.Default` / `TestLocations.PennsPark`
-twice in a test breaks both. TP-side worked around it with shared
-class-level `static readonly` captures (`M31 = Target.Default`,
-plus its own `TestLocations` fork), with a comment flagging the divergence.
+`CacheAxis.TryPublish`), and a naive `Target.Default` /
+`TestLocations.PennsPark` twice in a test broke both. TP-side worked
+around it initially, then the cleanup propagated to every analogous
+factory across the Library for consistency.
 
-Now: both are `public static readonly` fields. `Target` and `Location` are
-immutable (mutations produce new instances via `With(...)`), so a shared
-singleton is risk-free. Side benefit: zero per-access allocation, which
-matters where `Target.Default` is used as the cold-path fallback in
-TP's `MainForm.CoordinatePresenter` (called on every D/M/S coordinate edit).
+Now: all 12 are `public static readonly` fields. Every owning type is
+immutable (mutations produce new instances via `With(...)` / structural
+record equality), so a shared singleton is risk-free. Side benefits:
+zero per-access allocation in cold-path callers (e.g. TP's
+`MainForm.CoordinatePresenter` calls `Target.Default` on every D/M/S
+coordinate edit), plus callers can rely on reference identity if useful.
 
-No production behaviour change in the Library or any downstream consumer:
-all 553 Library tests pass (460 Core + 26 XISF + 67 NINA), TP's 152 tests
-pass. TP-side comments in `TargetPlanner.Tests/Tests/Support/TestLocations.cs`
-and `ChartCacheStoreTests.cs` that called out the divergence are about to
-be cleaned up in a paired TP commit (the divergence text is now wrong).
+Converted (12 total):
 
-Files: `Astronomy.Core/Targets/Target.cs`, `Astronomy.Core.Tests/Tests/TestLocations.cs`.
+- `Astronomy.Core/Targets/Target.cs` — `Target.Default` (M31).
+- `Astronomy.Core/Locations/Location.cs` — `Location.Default` (40°N/75°W placeholder).
+- `Astronomy.Core/Moon/MoonAvoidance.cs` — `MoonAvoidanceProfile.Disabled` / `Narrowband` (60°/7d) / `Broadband` (120°/14d).
+- `Astronomy.NINA/Filter.cs` — `Filter.Ha` / `OIII` / `SII` / `L` / `R` / `G` / `B` (the standard astronomical narrowband + LRGB set).
+- `Astronomy.Core.Tests/Tests/TestLocations.cs` — `PennsPark` / `Sydney` / `Equator` / `Reykjavik` / `Antarctic` (test-only fixtures; 5 sites).
+
+No production behaviour change. All 553 Library tests pass (460 Core +
+26 XISF + 67 NINA, 1 intentional skip); TP's 152 tests pass. TP-side
+comments in `TargetPlanner.Tests/Tests/Support/TestLocations.cs` and
+`ChartCacheStoreTests.cs` flagging the now-resolved divergence were
+trimmed in a paired TP commit.
 
 ## Recently shipped (2026-05-18): Astronomy.XISF — Tier 1 extraction
 
