@@ -37,9 +37,9 @@ public class ReportToTargetAdapterTests
 
     [Theory]
     [InlineData("L", "L", FilterKind.Luminance)]
-    [InlineData("H", "Ha", FilterKind.Narrowband)]
-    [InlineData("O", "OIII", FilterKind.Narrowband)]
-    [InlineData("S", "SII", FilterKind.Narrowband)]
+    [InlineData("H", "H", FilterKind.Narrowband)]
+    [InlineData("O", "O", FilterKind.Narrowband)]
+    [InlineData("S", "S", FilterKind.Narrowband)]
     [InlineData("R", "R", FilterKind.Broadband)]
     [InlineData("G", "G", FilterKind.Broadband)]
     [InlineData("B", "B", FilterKind.Broadband)]
@@ -76,7 +76,7 @@ public class ReportToTargetAdapterTests
 
         Assert.Equal(2, t.ImagingHistory.Count);
         Assert.Contains(t.ImagingHistory, h => h.Filter.Name == "L" && h.ExposureCount == 100);
-        Assert.Contains(t.ImagingHistory, h => h.Filter.Name == "Ha" && h.ExposureCount == 30);
+        Assert.Contains(t.ImagingHistory, h => h.Filter.Name == "H" && h.ExposureCount == 30);
         Assert.Null(t.PlannedExposures);
     }
 

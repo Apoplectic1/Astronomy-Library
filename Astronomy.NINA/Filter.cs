@@ -7,13 +7,14 @@ namespace Astronomy.NINA;
 /// for moon-tolerance / K-S sky brightness calculations.
 /// </summary>
 /// <remarks>
-/// Static factories (<see cref="Ha"/>, <see cref="OIII"/>, …) provide the standard
+/// Static factories (<see cref="H"/>, <see cref="O"/>, …) provide the standard
 /// narrowband / broadband / luminance filters with conventional center / bandwidth
-/// values. Custom filters use the public constructor.
+/// values calibrated to a specific Astrodon Gen 2 E-Series LRGB + Astrodon 3nm
+/// Hα/OIII + Chroma 3nm SII filter set. Custom filters use the public constructor.
 /// </remarks>
 public sealed class Filter
 {
-    /// <summary>Stable filter identifier (e.g. "Ha", "OIII", "L", "R", "G", "B"). Used in NINA sequence files and TP display.</summary>
+    /// <summary>Stable filter identifier ("H", "O", "S", "L", "R", "G", "B" for the standard set). Used in NINA sequence files and TP display.</summary>
     public string Name { get; }
 
     /// <summary>Classification for branching at consumer sites without string matching.</summary>
@@ -51,27 +52,34 @@ public sealed class Filter
             bandwidthNm ?? BandwidthNm);
 
     // Standard filter presets — conventional center/bandwidth for the user's
-    // astronomical narrowband set. Each is a canonical singleton (Filter is
-    // immutable), so callers can rely on reference identity if useful.
+    // astronomical narrowband + LRGB set. Each is a canonical singleton (Filter
+    // is immutable), so callers can rely on reference identity if useful.
+    //
+    // Calibrated to a specific Astrodon Gen 2 E-Series LRGB + Astrodon 3nm Hα/OIII
+    // + Chroma 3nm SII filter set. Center / bandwidth per manufacturer datasheets;
+    // Chroma SII centered between the 671.6 / 673.1 doublet lines (not on the
+    // 671.6 spectroscopic line). Values match TargetPlanner's
+    // FilterLibrary.BuiltinDefaults so a TP filter and a Library preset of the
+    // same Name carry the same K-S inputs.
 
-    /// <summary>Hα emission line (656.3 nm). Standard 3 nm Astrodon-style narrowband bandwidth.</summary>
-    public static readonly Filter Ha   = new("Ha",   FilterKind.Narrowband, 656.3, 3.0);
+    /// <summary>Hα emission line (656.3 nm). Standard 3 nm Astrodon narrowband.</summary>
+    public static readonly Filter H = new("H", FilterKind.Narrowband, 656.3, 3.0);
 
-    /// <summary>OIII emission line (500.7 nm). Standard 3 nm narrowband bandwidth.</summary>
-    public static readonly Filter OIII = new("OIII", FilterKind.Narrowband, 500.7, 3.0);
+    /// <summary>[O III] emission line (500.7 nm). Standard 3 nm Astrodon narrowband.</summary>
+    public static readonly Filter O = new("O", FilterKind.Narrowband, 500.7, 3.0);
 
-    /// <summary>SII emission line (671.6 nm). Standard 3 nm narrowband bandwidth.</summary>
-    public static readonly Filter SII  = new("SII",  FilterKind.Narrowband, 671.6, 3.0);
+    /// <summary>[S II] doublet centered between 671.6 / 673.1 nm. Chroma 3 nm narrowband.</summary>
+    public static readonly Filter S = new("S", FilterKind.Narrowband, 672.4, 3.0);
 
-    /// <summary>Luminance — broadband clear / IR-cut. No meaningful single center wavelength.</summary>
-    public static readonly Filter L    = new("L",    FilterKind.Luminance);
+    /// <summary>Luminance — broadband clear / IR-cut. Astrodon E-Series ~300 nm bandwidth at 550 nm center.</summary>
+    public static readonly Filter L = new("L", FilterKind.Luminance, 550.0, 300.0);
 
-    /// <summary>Red broadband.</summary>
-    public static readonly Filter R    = new("R",    FilterKind.Broadband);
+    /// <summary>Red broadband. Astrodon E-Series ~60 nm bandwidth at 650 nm.</summary>
+    public static readonly Filter R = new("R", FilterKind.Broadband, 650.0, 60.0);
 
-    /// <summary>Green broadband.</summary>
-    public static readonly Filter G    = new("G",    FilterKind.Broadband);
+    /// <summary>Green broadband. Astrodon E-Series ~65 nm bandwidth at 525 nm.</summary>
+    public static readonly Filter G = new("G", FilterKind.Broadband, 525.0, 65.0);
 
-    /// <summary>Blue broadband.</summary>
-    public static readonly Filter B    = new("B",    FilterKind.Broadband);
+    /// <summary>Blue broadband. Astrodon E-Series ~100 nm bandwidth at 450 nm.</summary>
+    public static readonly Filter B = new("B", FilterKind.Broadband, 450.0, 100.0);
 }

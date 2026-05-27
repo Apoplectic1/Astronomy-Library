@@ -100,9 +100,9 @@ public static class ReportToTargetAdapter
         return code switch
         {
             "L" => Filter.L,
-            "H" => Filter.Ha,
-            "O" => Filter.OIII,
-            "S" => Filter.SII,
+            "H" => Filter.H,
+            "O" => Filter.O,
+            "S" => Filter.S,
             "R" => Filter.R,
             "G" => Filter.G,
             "B" => Filter.B,

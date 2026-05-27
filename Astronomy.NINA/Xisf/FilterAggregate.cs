@@ -7,7 +7,7 @@ namespace Astronomy.NINA.Xisf;
 /// </summary>
 public sealed class FilterAggregate
 {
-    /// <summary>Canonical normalized filter name (e.g. "Luminance", "Ha", "OIII", "Red"). Derived from <see cref="FilterCode"/>.</summary>
+    /// <summary>Canonical filter name -- single-letter ("L", "H", "O", "S", "R", "G", "B") for the standard set; equal to <see cref="FilterCode"/> for custom codes. Derived from <see cref="FilterCode"/>.</summary>
     public string FilterName { get; }
 
     /// <summary>Single-letter filter code from the directory path (e.g. "L", "H", "O", "S", "R", "G", "B"). The user's XFM-enforced convention.</summary>

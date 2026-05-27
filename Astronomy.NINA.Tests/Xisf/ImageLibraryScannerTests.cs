@@ -22,14 +22,16 @@ public class ImageLibraryScannerTests
     }
 
     [Theory]
-    [InlineData("L", "Luminance")]
-    [InlineData("H", "Ha")]
-    [InlineData("O", "OIII")]
-    [InlineData("S", "SII")]
-    [InlineData("R", "Red")]
-    [InlineData("G", "Green")]
-    [InlineData("B", "Blue")]
-    [InlineData("Custom", "Custom")]    // unknown passes through
+    // Canonical single-letter forms pass through unchanged.
+    [InlineData("L", "L")]
+    [InlineData("H", "H")]
+    [InlineData("O", "O")]
+    [InlineData("S", "S")]
+    [InlineData("R", "R")]
+    [InlineData("G", "G")]
+    [InlineData("B", "B")]
+    // Unrecognized codes pass through (custom filters keep their dir-name).
+    [InlineData("Custom", "Custom")]
     [InlineData("XYZ-narrowband", "XYZ-narrowband")]
     public void NormalizeFilterName_MapsSingleLetterToCanonical(string code, string expected)
     {

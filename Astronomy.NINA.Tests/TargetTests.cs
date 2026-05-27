@@ -59,12 +59,12 @@ public class TargetTests
     {
         Astronomy.NINA.Target a = new("M31", M31Geometry(), rotationDeg: 90);
         var history = new[] {
-            new FilterHistory(Filter.Ha, FilterPurpose.Light, 5, TimeSpan.FromHours(1),
+            new FilterHistory(Filter.H, FilterPurpose.Light, 5, TimeSpan.FromHours(1),
                 new DateTime(2024,2,18,4,0,0,DateTimeKind.Utc),
                 new DateTime(2024,2,18,5,0,0,DateTimeKind.Utc),
                 new ExposureSettings(111, 10, -20, (1, 1), 600))
         };
-        var planned = new[] { new PlannedExposure(Filter.OIII, 20, 600) };
+        var planned = new[] { new PlannedExposure(Filter.O, 20, 600) };
 
         Astronomy.NINA.Target b = a.With(imagingHistory: history, plannedExposures: planned, rotationDeg: 180);
         Assert.Equal("M31", b.Name);

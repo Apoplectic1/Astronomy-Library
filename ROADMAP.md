@@ -1,5 +1,49 @@
 # Astronomy Library — Roadmap
 
+## Recently shipped (2026-05-27): Filter rename + center/bandwidth fill
+
+Standard filter presets in `Astronomy.NINA/Filter.cs` renamed to match
+TargetPlanner's FilterLibrary canonical set: `Ha` -> `H`, `OIII` -> `O`,
+`SII` -> `S`. The Filter.Name string carries through to the rename too
+("H" not "Ha"). LRGB names unchanged.
+
+L, R, G, B presets now carry CenterNm + BandwidthNm metadata (previously
+null). Center/bandwidth values calibrated to the Astrodon E-Series
+LRGB datasheet; SII center bumped from 671.6 -> 672.4 (Chroma 3 nm
+centered between the 671.6 / 673.1 doublet, not on the spectroscopic
+line). Full preset table:
+
+  H  Narrowband  656.3 nm  3 nm     (Astrodon 3nm Hα)
+  O  Narrowband  500.7 nm  3 nm     (Astrodon 3nm [O III])
+  S  Narrowband  672.4 nm  3 nm     (Chroma 3nm SII, doublet-centered)
+  L  Luminance   550 nm    300 nm   (Astrodon E-Series Luminance)
+  R  Broadband   650 nm    60 nm    (Astrodon E-Series Red)
+  G  Broadband   525 nm    65 nm    (Astrodon E-Series Green)
+  B  Broadband   450 nm    100 nm   (Astrodon E-Series Blue)
+
+Adjacent changes that fell out of the rename:
+
+- `Astronomy.NINA/Xisf/ReportToTargetAdapter.FilterFromCode`: case arms
+  retargeted from `Filter.Ha` / `Filter.OIII` / `Filter.SII` to the new
+  `Filter.H` / `Filter.O` / `Filter.S`. Input single-letter codes
+  unchanged.
+- `Astronomy.NINA/Xisf/ImageLibraryScanner.NormalizeFilterName`:
+  previously expanded single-letter codes to multi-letter canonical
+  names ("H" -> "Ha", "L" -> "Luminance", etc). The canonical form is
+  now single-letter, so the mapping is identity for the 7 known codes
+  plus unchanged-pass-through for unknown codes. Image library
+  `FilterAggregate.FilterName` now matches `Filter.Name` end-to-end.
+
+Why now: TargetPlanner's FilterLibrary uses single-letter names + full
+center/bandwidth metadata for K-S sky-brightness compute. Library
+presets diverged from that shape (multi-letter names, null center/
+bandwidth on LRGB), so a TP filter and a Library preset of the "same"
+filter carried different values. Single source of truth across both
+consumers now.
+
+All 553 Library tests pass (460 Core + 26 XISF + 67 NINA, 1 intentional
+skip); TP's 152 tests pass against the rebuilt Library.
+
 ## Recently shipped (2026-05-27): canonical-singleton factories -> `static readonly` (Library sweep)
 
 Every `public static T Name => new T(...)` factory in the Library --

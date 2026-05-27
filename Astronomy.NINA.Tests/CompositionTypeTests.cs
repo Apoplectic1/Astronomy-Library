@@ -17,9 +17,9 @@ public class FilterTests
     [Fact]
     public void Ctor_RejectsNonPositiveBandwidth()
     {
-        Assert.Throws<ArgumentOutOfRangeException>(() => new Filter("Ha", FilterKind.Narrowband, 656.3, 0.0));
-        Assert.Throws<ArgumentOutOfRangeException>(() => new Filter("Ha", FilterKind.Narrowband, 656.3, -3.0));
-        Assert.Throws<ArgumentOutOfRangeException>(() => new Filter("Ha", FilterKind.Narrowband, -100.0, 3.0));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new Filter("H", FilterKind.Narrowband, 656.3, 0.0));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new Filter("H", FilterKind.Narrowband, 656.3, -3.0));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new Filter("H", FilterKind.Narrowband, -100.0, 3.0));
     }
 
     [Fact]
@@ -33,21 +33,24 @@ public class FilterTests
     [Fact]
     public void Presets_HaveExpectedShape()
     {
-        Assert.Equal("Ha", Filter.Ha.Name);
-        Assert.Equal(FilterKind.Narrowband, Filter.Ha.Kind);
-        Assert.Equal(656.3, Filter.Ha.CenterNm);
-        Assert.Equal(3.0, Filter.Ha.BandwidthNm);
+        Assert.Equal("H", Filter.H.Name);
+        Assert.Equal(FilterKind.Narrowband, Filter.H.Kind);
+        Assert.Equal(656.3, Filter.H.CenterNm);
+        Assert.Equal(3.0, Filter.H.BandwidthNm);
 
         Assert.Equal(FilterKind.Luminance, Filter.L.Kind);
-        Assert.Null(Filter.L.CenterNm);
+        Assert.Equal(550.0, Filter.L.CenterNm);
+        Assert.Equal(300.0, Filter.L.BandwidthNm);
         Assert.Equal(FilterKind.Broadband, Filter.R.Kind);
+        Assert.Equal(650.0, Filter.R.CenterNm);
+        Assert.Equal(60.0, Filter.R.BandwidthNm);
     }
 
     [Fact]
     public void With_OverridesOnly_SpecifiedProperties()
     {
-        Filter f = Filter.Ha.With(bandwidthNm: 7.0);
-        Assert.Equal("Ha", f.Name);
+        Filter f = Filter.H.With(bandwidthNm: 7.0);
+        Assert.Equal("H", f.Name);
         Assert.Equal(FilterKind.Narrowband, f.Kind);
         Assert.Equal(656.3, f.CenterNm);
         Assert.Equal(7.0, f.BandwidthNm);
@@ -93,16 +96,16 @@ public class PlannedExposureTests
     public void Ctor_RequiresFilterAndPositiveCount()
     {
         Assert.Throws<ArgumentNullException>(() => new PlannedExposure(null, 10, 300));
-        Assert.Throws<ArgumentOutOfRangeException>(() => new PlannedExposure(Filter.Ha, 0, 300));
-        Assert.Throws<ArgumentOutOfRangeException>(() => new PlannedExposure(Filter.Ha, -1, 300));
-        Assert.Throws<ArgumentOutOfRangeException>(() => new PlannedExposure(Filter.Ha, 10, 0));
-        Assert.Throws<ArgumentOutOfRangeException>(() => new PlannedExposure(Filter.Ha, 10, -60));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new PlannedExposure(Filter.H, 0, 300));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new PlannedExposure(Filter.H, -1, 300));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new PlannedExposure(Filter.H, 10, 0));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new PlannedExposure(Filter.H, 10, -60));
     }
 
     [Fact]
     public void Settings_OptionalAndNullable()
     {
-        PlannedExposure p = new(Filter.Ha, 10, 600);
+        PlannedExposure p = new(Filter.H, 10, 600);
         Assert.Null(p.Settings);
 
         ExposureSettings s = new(111, 10, -20, (1, 1), 600);
@@ -120,10 +123,10 @@ public class FilterHistoryTests
     public void Ctor_RequiresPositiveCounts()
     {
         Assert.Throws<ArgumentOutOfRangeException>(() => new FilterHistory(
-            Filter.Ha, FilterPurpose.Light, 0, TimeSpan.FromSeconds(60),
+            Filter.H, FilterPurpose.Light, 0, TimeSpan.FromSeconds(60),
             DateTime.UtcNow, DateTime.UtcNow, DefaultSettings()));
         Assert.Throws<ArgumentOutOfRangeException>(() => new FilterHistory(
-            Filter.Ha, FilterPurpose.Light, 5, TimeSpan.Zero,
+            Filter.H, FilterPurpose.Light, 5, TimeSpan.Zero,
             DateTime.UtcNow, DateTime.UtcNow, DefaultSettings()));
     }
 
@@ -133,7 +136,7 @@ public class FilterHistoryTests
         DateTime first = new(2024, 2, 18, 4, 0, 0, DateTimeKind.Utc);
         DateTime last = new(2024, 2, 17, 4, 0, 0, DateTimeKind.Utc);  // earlier
         Assert.Throws<ArgumentException>(() => new FilterHistory(
-            Filter.Ha, FilterPurpose.Light, 5, TimeSpan.FromHours(1),
+            Filter.H, FilterPurpose.Light, 5, TimeSpan.FromHours(1),
             first, last, DefaultSettings()));
     }
 
@@ -143,7 +146,7 @@ public class FilterHistoryTests
         // Pass Unspecified-kind dates; ctor promotes via ToUniversalTime().
         DateTime first = new(2024, 2, 18, 4, 0, 0, DateTimeKind.Unspecified);
         DateTime last = new(2024, 2, 18, 5, 0, 0, DateTimeKind.Unspecified);
-        FilterHistory h = new(Filter.Ha, FilterPurpose.Light, 5, TimeSpan.FromHours(1),
+        FilterHistory h = new(Filter.H, FilterPurpose.Light, 5, TimeSpan.FromHours(1),
             first, last, DefaultSettings());
         Assert.Equal(DateTimeKind.Utc, h.FirstImagedUtc.Kind);
         Assert.Equal(DateTimeKind.Utc, h.LastImagedUtc.Kind);
@@ -154,11 +157,11 @@ public class FilterHistoryTests
     {
         DateTime first = new(2024, 2, 18, 4, 0, 0, DateTimeKind.Utc);
         DateTime last = new(2024, 2, 18, 5, 0, 0, DateTimeKind.Utc);
-        FilterHistory a = new(Filter.Ha, FilterPurpose.Light, 5, TimeSpan.FromHours(1),
+        FilterHistory a = new(Filter.H, FilterPurpose.Light, 5, TimeSpan.FromHours(1),
             first, last, DefaultSettings());
         FilterHistory b = a.With(exposureCount: 10, purpose: FilterPurpose.Stars);
         Assert.Equal(10, b.ExposureCount);
         Assert.Equal(FilterPurpose.Stars, b.Purpose);
-        Assert.Equal("Ha", b.Filter.Name);
+        Assert.Equal("H", b.Filter.Name);
     }
 }

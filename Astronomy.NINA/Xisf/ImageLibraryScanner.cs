@@ -156,18 +156,21 @@ public static class ImageLibraryScanner
     }
 
     /// <summary>
-    /// Maps XFM's single-letter filter code to canonical name. Unrecognized
-    /// codes pass through unchanged (custom filters keep their dir-name).
+    /// Normalize a filter directory-name to canonical form. The canonical set is
+    /// single-letter ("H", "O", "S", "L", "R", "G", "B") matching
+    /// <see cref="Filter"/>'s presets and TargetPlanner's FilterLibrary.
+    /// Unrecognized codes pass through unchanged (custom filters keep their
+    /// dir-name).
     /// </summary>
     internal static string NormalizeFilterName(string code) => code switch
     {
-        "L" => "Luminance",
-        "H" => "Ha",
-        "O" => "OIII",
-        "S" => "SII",
-        "R" => "Red",
-        "G" => "Green",
-        "B" => "Blue",
+        "L" => "L",
+        "H" => "H",
+        "O" => "O",
+        "S" => "S",
+        "R" => "R",
+        "G" => "G",
+        "B" => "B",
         _ => code,
     };
 
