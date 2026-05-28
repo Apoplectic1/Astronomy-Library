@@ -1,5 +1,59 @@
 # Astronomy Library — Roadmap
 
+## Recently shipped (2026-05-28): MoonEphemeris + AltitudeCurve.Sample reshape
+
+Extracted the per-minute observational compute that TargetPlanner rolled
+inline into pure-function AL primitives. Designed so the planned
+IntervalScheduler Plugin (ISP) cache can consume the same surface
+without re-porting. No AL-side caching (pure functions per the "no
+static mutable state in Core" contract); consumers memoize at their own
+scope.
+
+**New: `Astronomy.Core.Moon.MoonEphemeris`**
+
+```csharp
+public static IReadOnlyList<MoonSample> Sample(
+    Location location, DateTime startUtc, TimeSpan step, int count);
+```
+
+Each `MoonSample` carries topocentric `AltDegGeometric` +
+`AltDegApparent` + `AzDeg` + `DistanceKm` + `AgeDays` + `PhaseAngleDeg`
++ `IlluminatedFrac`. All positions parallax-aware via
+`MoonPosition.Topocentric`; apparent altitude via
+`Refraction.SaemundssonDeg`; age via `LunarAge.DaysAt`; phase via
+`SkyBrightness.PhaseAngleDegFromAgeDays`; illumination via
+`MoonIllumination.Fraction`.
+
+**Reshaped: `Astronomy.Core.Session.AltitudeCurve.Sample`**
+
+```csharp
+// Before:
+public static IReadOnlyList<double> Sample(
+    Target target, Location location, DateTime startUtc, TimeSpan step, int count);
+
+// After:
+public static IReadOnlyList<AltAzSample> Sample(
+    Target target, Location location, DateTime startUtc, TimeSpan step, int count);
+```
+
+Each `AltAzSample` carries `AltDegGeometric` + `AltDegApparent` + `AzDeg`.
+Internal linear LST advance optimization preserved (~2.6× faster than
+per-sample `AltAzCalculator.At`); the only delta is the output struct.
+
+**Files:**
+
+- New: `Astronomy.Core/Moon/MoonEphemeris.cs`, `Moon/MoonSample.cs`,
+  `Session/AltAzSample.cs`.
+- Modified: `Astronomy.Core/Session/AltitudeCurve.cs`.
+- Tests: `Astronomy.Core.Tests/Tests/MoonEphemerisTests.cs` (new),
+  `Tests/AltitudeCurveTests.cs` (updated to consume `AltAzSample`).
+- Benchmark: `Astronomy.Core.Tests/Benchmarks/AltitudeCurveBenchmark.cs`
+  (updated to call new shape).
+
+468 Core tests + 26 XISF + 67 NINA tests pass. TP rekeys its
+`mDayAxis` / `mMoonAxis` from `DayWindowKey` to `NightDate` against
+this surface (paired commit `TP c3ca26b`).
+
 ## Recently shipped (2026-05-27): drop `FilterKind` -- center/bandwidth is the spectral fact
 
 `Filter.Kind` and the `FilterKind` enum deleted. Carried over from before

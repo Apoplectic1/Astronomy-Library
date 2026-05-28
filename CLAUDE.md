@@ -92,8 +92,8 @@ Two caveats limit that promise:
 - `Locations/`, `Targets/` — the immutable observer + target value types described above.
 - `Horizons/` — `IHorizonProfile` and three implementations (`Scalar`, `Polyline`, `ObstructionTable`) for flat-vs-azimuth-varying horizon math.
 - `Night/` — twilight calculation, `NightWindow` (a single night's astronomical/nautical/civil dusk/dawn), `NightCache` (year-of-nights for one location).
-- `Session/` — higher-level analysis built on the primitives: `AltitudeCurve` (uniform-grid sampling via linear LST advance — ~2.6x faster than per-sample `AltAzCalculator.At`), `RiseSet`, `TransitTime`, `VisibilityWindows`, `CoarseVisibility`, `IntegratedQuality`, `BestSession`, `TargetOrdering`.
-- `Moon/` — `MoonSeparation`.
+- `Session/` — higher-level analysis built on the primitives: `AltitudeCurve` (uniform-grid sampling via linear LST advance — ~2.6x faster than per-sample `AltAzCalculator.At`; returns `IReadOnlyList<AltAzSample>` with `AltDegGeometric` + `AltDegApparent` + `AzDeg` per sample), `RiseSet`, `TransitTime`, `VisibilityWindows`, `CoarseVisibility`, `IntegratedQuality`, `BestSession`, `TargetOrdering`.
+- `Moon/` — `MoonSeparation`; `MoonEphemeris.Sample(location, startUtc, step, count)` returns `IReadOnlyList<MoonSample>` with topocentric AltAz (geometric + apparent) + `DistanceKm` + `AgeDays` + `PhaseAngleDeg` + `IlluminatedFrac` per minute. Pure-function per-night sampling primitive consumed by TargetPlanner's `MoonEphemerisEntry` cache axis; designed for the planned IntervalScheduler Plugin (ISP) cache shape.
 
 ## PCL local build
 
