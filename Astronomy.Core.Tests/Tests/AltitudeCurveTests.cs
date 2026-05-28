@@ -33,12 +33,16 @@ namespace Astronomy.Core.Tests.Tests
             for (int i = 0; i < count; i++)
             {
                 DateTime point = startUtc.Add(TimeSpan.FromTicks(step.Ticks * i));
-                double expected = AltAzCalculator
-                    .At(target, location, point).Altitude;
-                double actual = batched[i];
+                AltAz expectedAltAz = AltAzCalculator.At(target, location, point);
+                AltAzSample actual = batched[i];
                 Assert.True(
-                    Math.Abs(expected - actual) < 1e-6,
-                    $"sample {i}: expected {expected}, got {actual}, delta {expected - actual}");
+                    Math.Abs(expectedAltAz.Altitude - actual.AltDegGeometric) < 1e-6,
+                    $"sample {i}: Alt expected {expectedAltAz.Altitude}, got {actual.AltDegGeometric}");
+                Assert.True(
+                    Math.Abs(expectedAltAz.Azimuth - actual.AzDeg) < 1e-4,
+                    $"sample {i}: Az expected {expectedAltAz.Azimuth}, got {actual.AzDeg}");
+                // Apparent altitude = geometric + Saemundsson refraction (non-negative).
+                Assert.True(actual.AltDegApparent >= actual.AltDegGeometric - 1e-12);
             }
         }
 
@@ -63,12 +67,14 @@ namespace Astronomy.Core.Tests.Tests
             for (int i = 0; i < count; i++)
             {
                 DateTime point = startUtc.Add(TimeSpan.FromTicks(step.Ticks * i));
-                double expected = AltAzCalculator
-                    .At(target, location, point).Altitude;
-                double actual = batched[i];
+                AltAz expectedAltAz = AltAzCalculator.At(target, location, point);
+                AltAzSample actual = batched[i];
                 Assert.True(
-                    Math.Abs(expected - actual) < 1e-6,
-                    $"[{locationName}] sample {i}: expected {expected}, got {actual}, delta {expected - actual}");
+                    Math.Abs(expectedAltAz.Altitude - actual.AltDegGeometric) < 1e-6,
+                    $"[{locationName}] sample {i}: Alt expected {expectedAltAz.Altitude}, got {actual.AltDegGeometric}");
+                Assert.True(
+                    Math.Abs(expectedAltAz.Azimuth - actual.AzDeg) < 1e-4,
+                    $"[{locationName}] sample {i}: Az expected {expectedAltAz.Azimuth}, got {actual.AzDeg}");
             }
         }
 

@@ -67,7 +67,7 @@ namespace Astronomy.Core.Tests.Benchmarks
         // AltitudeCurve.Sample down, this column surfaces the regression instead of an
         // inline copy that can drift from the shipped implementation.
         [Benchmark]
-        public IReadOnlyList<double> LstAdvance()
+        public IReadOnlyList<AltAzSample> LstAdvance()
         {
             return AltitudeCurve.Sample(
                 _target, _location, _startUtc, TimeSpan.FromMinutes(1), Count);
