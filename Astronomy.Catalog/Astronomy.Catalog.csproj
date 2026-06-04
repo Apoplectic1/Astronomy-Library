@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Astronomy.Catalog</RootNamespace>
+    <AssemblyName>Astronomy.Catalog</AssemblyName>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Deterministic>true</Deterministic>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!-- API surface (SchemaManager, mappers, store, TS reader, enums) is documented; the DB-mirror POCOs are
+         1:1 with the documented migration SQL, so CS1591 is suppressed rather than spamming per-column docs. -->
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+    <AnalysisLevel>latest</AnalysisLevel>
+    <AnalysisMode>Recommended</AnalysisMode>
+    <!-- AnyCPU enables `dotnet build Astronomy.Catalog/Astronomy.Catalog.csproj` for the
+         pure-managed standalone build; the SLN-driven build is x64-only. Matches Astronomy.XISF. -->
+    <Platforms>AnyCPU;x64</Platforms>
+    <ProjectGuid>{A1C2E3F4-5B6D-4789-A0B1-C2D3E4F5A6B7}</ProjectGuid>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Astronomy.Catalog.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Schema\Migrations\*.sql" />
+  </ItemGroup>
+
+  <!-- Phase 1 scope: schema + migrations + SchemaManager + read-only TS adapter. Pure managed
+       (Microsoft.Data.Sqlite only); no native deps; no Astronomy.* deps. The Processing-tree scanner
+       and TCM UI are later phases. -->
+
+</Project>
