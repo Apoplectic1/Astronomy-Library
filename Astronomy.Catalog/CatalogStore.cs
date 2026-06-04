@@ -8,8 +8,8 @@ namespace Astronomy.Catalog;
 /// <summary>
 /// Read/write access to a <c>Catalog.db</c> file. TCM (the writer) opens via <see cref="Open"/>; read-only
 /// consumers via <see cref="OpenReadOnly"/>. Owns a single open connection; dispose to close. Holds the plan-plane
-/// CRUD plus the disk-derived inventory: <see cref="ReplaceInventory"/> persists an <see cref="ImageLibraryReport"/>
-/// (from <see cref="ImageLibraryScanner"/>) into the aggregate inventory tables.
+/// CRUD (plus <see cref="ImportPlan"/> for the one-shot TS import) and the disk-derived inventory
+/// (<see cref="ReplaceInventory"/> persists an <see cref="ImageLibraryReport"/> from <see cref="ImageLibraryScanner"/>).
 /// </summary>
 public sealed class CatalogStore : IDisposable
 {
@@ -29,15 +29,15 @@ public sealed class CatalogStore : IDisposable
     /// <inheritdoc/>
     public void Dispose() => _connection.Dispose();
 
-    // ---- Plan-plane inserts ------------------------------------------------
+    // ---- Plan-plane inserts (optionally inside a transaction) ----------------
 
     /// <summary>Inserts a <see cref="Profile"/> row.</summary>
-    public void InsertProfile(Profile p) => Execute(
+    public void InsertProfile(Profile p, SqliteTransaction? transaction = null) => Execute(transaction,
         "INSERT INTO profile (id, name, nina_profile_guid, created_at) VALUES ($id, $name, $nina, $created);",
         ("$id", GuidBlob.ToBlob(p.Id)), ("$name", p.Name), ("$nina", p.NinaProfileGuid), ("$created", p.CreatedAt));
 
     /// <summary>Inserts a <see cref="Project"/> row.</summary>
-    public void InsertProject(Project p) => Execute(
+    public void InsertProject(Project p, SqliteTransaction? transaction = null) => Execute(transaction,
         """
         INSERT INTO project (id, profile_id, name, description, state_id, priority_id, minimum_altitude_deg,
             maximum_altitude_deg, minimum_time_minutes, use_custom_horizon, horizon_offset_deg,
@@ -53,7 +53,7 @@ public sealed class CatalogStore : IDisposable
         ("$created", p.CreatedAt), ("$active", p.ActiveAt), ("$inactive", p.InactiveAt), ("$ts", p.ImportedFromTsGuid));
 
     /// <summary>Inserts a <see cref="Target"/> row.</summary>
-    public void InsertTarget(Target t) => Execute(
+    public void InsertTarget(Target t, SqliteTransaction? transaction = null) => Execute(transaction,
         """
         INSERT INTO target (id, project_id, name, enabled, ra_hours, dec_degrees_signed, epoch_id, rotation_deg,
             roi_percent, priority_id, created_at, imported_from_ts_guid)
@@ -65,7 +65,7 @@ public sealed class CatalogStore : IDisposable
         ("$created", t.CreatedAt), ("$ts", t.ImportedFromTsGuid));
 
     /// <summary>Inserts an <see cref="ExposureTemplate"/> row.</summary>
-    public void InsertExposureTemplate(ExposureTemplate t) => Execute(
+    public void InsertExposureTemplate(ExposureTemplate t, SqliteTransaction? transaction = null) => Execute(transaction,
         """
         INSERT INTO exposure_template (id, profile_id, name, filter_name, gain, offset_adu, binning, readout_mode,
             default_exposure_seconds, imported_from_ts_guid)
@@ -76,7 +76,7 @@ public sealed class CatalogStore : IDisposable
         ("$readout", t.ReadoutMode), ("$defExp", t.DefaultExposureSeconds), ("$ts", t.ImportedFromTsGuid));
 
     /// <summary>Inserts an <see cref="ExposurePlan"/> row.</summary>
-    public void InsertExposurePlan(ExposurePlan p) => Execute(
+    public void InsertExposurePlan(ExposurePlan p, SqliteTransaction? transaction = null) => Execute(transaction,
         """
         INSERT INTO exposure_plan (id, target_id, exposure_template_id, exposure_seconds, desired_count,
             acquired_count, accepted_count, enabled, imported_from_ts_guid)
@@ -87,7 +87,41 @@ public sealed class CatalogStore : IDisposable
         ("$desired", p.DesiredCount), ("$acquired", p.AcquiredCount), ("$accepted", p.AcceptedCount),
         ("$enabled", Bit(p.Enabled)), ("$ts", p.ImportedFromTsGuid));
 
+    /// <summary>
+    /// Replaces the entire plan plane with the given rows (the one-shot TS import). Transactional: clears
+    /// profile/project/target/exposure_template/exposure_plan, then inserts in FK order.
+    /// </summary>
+    public void ImportPlan(
+        IReadOnlyList<Profile> profiles,
+        IReadOnlyList<Project> projects,
+        IReadOnlyList<Target> targets,
+        IReadOnlyList<ExposureTemplate> templates,
+        IReadOnlyList<ExposurePlan> plans)
+    {
+        ArgumentNullException.ThrowIfNull(profiles);
+        ArgumentNullException.ThrowIfNull(projects);
+        ArgumentNullException.ThrowIfNull(targets);
+        ArgumentNullException.ThrowIfNull(templates);
+        ArgumentNullException.ThrowIfNull(plans);
+
+        using SqliteTransaction tx = _connection.BeginTransaction();
+
+        foreach (string table in new[] { "exposure_plan", "target", "exposure_template", "project", "profile" })
+            Execute(tx, $"DELETE FROM {table};");
+
+        foreach (Profile p in profiles) InsertProfile(p, tx);
+        foreach (Project p in projects) InsertProject(p, tx);
+        foreach (Target t in targets) InsertTarget(t, tx);
+        foreach (ExposureTemplate t in templates) InsertExposureTemplate(t, tx);
+        foreach (ExposurePlan p in plans) InsertExposurePlan(p, tx);
+
+        tx.Commit();
+    }
+
     // ---- Plan-plane reads --------------------------------------------------
+
+    /// <summary>All profiles.</summary>
+    public IReadOnlyList<Profile> GetProfiles() => Query("SELECT * FROM profile;", ProfileMapper.Instance);
 
     /// <summary>All projects.</summary>
     public IReadOnlyList<Project> GetProjects() => Query("SELECT * FROM project;", ProjectMapper.Instance);
@@ -99,9 +133,17 @@ public sealed class CatalogStore : IDisposable
     public IReadOnlyList<Target> GetTargets(Guid projectId) =>
         Query("SELECT * FROM target WHERE project_id = $p;", TargetMapper.Instance, ("$p", GuidBlob.ToBlob(projectId)));
 
+    /// <summary>All exposure templates.</summary>
+    public IReadOnlyList<ExposureTemplate> GetExposureTemplates() =>
+        Query("SELECT * FROM exposure_template;", ExposureTemplateMapper.Instance);
+
     /// <summary>Exposure plans for a target.</summary>
     public IReadOnlyList<ExposurePlan> GetExposurePlans(Guid targetId) =>
         Query("SELECT * FROM exposure_plan WHERE target_id = $t;", ExposurePlanMapper.Instance, ("$t", GuidBlob.ToBlob(targetId)));
+
+    /// <summary>All exposure plans.</summary>
+    public IReadOnlyList<ExposurePlan> GetExposurePlans() =>
+        Query("SELECT * FROM exposure_plan;", ExposurePlanMapper.Instance);
 
     // ---- Inventory ---------------------------------------------------------
 
@@ -129,12 +171,12 @@ public sealed class CatalogStore : IDisposable
 
         using SqliteTransaction tx = _connection.BeginTransaction();
 
-        ExecuteTx(tx, "DELETE FROM inventory_filter;");
-        ExecuteTx(tx, "DELETE FROM inventory_target;");
+        Execute(tx, "DELETE FROM inventory_filter;");
+        Execute(tx, "DELETE FROM inventory_target;");
 
         foreach (TargetReport t in report.Targets)
         {
-            ExecuteTx(tx,
+            Execute(tx,
                 """
                 INSERT INTO inventory_target (directory_name, catalog, common_name, object_name, ra_hours,
                     dec_degrees_signed, scanned_at)
@@ -145,7 +187,7 @@ public sealed class CatalogStore : IDisposable
 
             foreach (FilterAggregate f in t.Filters)
             {
-                ExecuteTx(tx,
+                Execute(tx,
                     """
                     INSERT INTO inventory_filter (directory_name, filter_code, frame_purpose_id, filter_name,
                         exposure_count, total_integration_seconds, first_imaged_at, last_imaged_at, typical_gain,
@@ -170,13 +212,7 @@ public sealed class CatalogStore : IDisposable
 
     // ---- Helpers -----------------------------------------------------------
 
-    private void Execute(string sql, params (string Name, object? Value)[] parameters) =>
-        ExecuteCore(null, sql, parameters);
-
-    private void ExecuteTx(SqliteTransaction transaction, string sql, params (string Name, object? Value)[] parameters) =>
-        ExecuteCore(transaction, sql, parameters);
-
-    private void ExecuteCore(SqliteTransaction? transaction, string sql, (string Name, object? Value)[] parameters)
+    private void Execute(SqliteTransaction? transaction, string sql, params (string Name, object? Value)[] parameters)
     {
         using SqliteCommand command = _connection.CreateCommand();
         command.Transaction = transaction;
