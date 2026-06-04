@@ -1,4 +1,4 @@
-namespace Astronomy.NINA.Xisf;
+namespace Astronomy.Catalog.Scan;
 
 /// <summary>
 /// Top-level output of <c>ImageLibraryScanner</c>: every target found under the

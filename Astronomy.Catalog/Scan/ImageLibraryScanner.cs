@@ -1,7 +1,7 @@
 using System.Collections.Concurrent;
 using Astronomy.XISF;
 
-namespace Astronomy.NINA.Xisf;
+namespace Astronomy.Catalog.Scan;
 
 /// <summary>
 /// Scans a user-disciplined image library (per-target top-level directories,
@@ -157,12 +157,12 @@ public static class ImageLibraryScanner
 
     /// <summary>
     /// Normalize a filter directory-name to canonical form. The canonical set is
-    /// single-letter ("H", "O", "S", "L", "R", "G", "B") matching
-    /// <see cref="Filter"/>'s presets and TargetPlanner's FilterLibrary.
+    /// single-letter ("H", "O", "S", "L", "R", "G", "B") matching the standard
+    /// filter presets (Astronomy.NINA.Filter) and TargetPlanner's FilterLibrary.
     /// Unrecognized codes pass through unchanged (custom filters keep their
     /// dir-name).
     /// </summary>
-    internal static string NormalizeFilterName(string code) => code switch
+    public static string NormalizeFilterName(string code) => code switch
     {
         "L" => "L",
         "H" => "H",

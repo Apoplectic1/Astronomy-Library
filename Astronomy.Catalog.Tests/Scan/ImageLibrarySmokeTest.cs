@@ -1,9 +1,10 @@
+#nullable disable // moved from Astronomy.NINA.Tests (Nullable-disable convention)
 using System.Globalization;
-using Astronomy.NINA.Xisf;
+using Astronomy.Catalog.Scan;
 using Xunit;
 using Xunit.Abstractions;
 
-namespace Astronomy.NINA.Tests.Xisf;
+namespace Astronomy.Catalog.Tests.Scan;
 
 /// <summary>
 /// Live smoke test that scans the user's real image library and dumps a summary.

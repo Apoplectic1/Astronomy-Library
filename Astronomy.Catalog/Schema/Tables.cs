@@ -1,6 +1,8 @@
+using Astronomy.Catalog.Scan;
+
 namespace Astronomy.Catalog.Schema;
 
-// Immutable POCOs mirroring the Catalog.db tables (see Schema/Migrations/0001_init.sql for column docs).
+// Immutable POCOs mirroring the Catalog.db tables (see Schema/schema.sql for column docs).
 // Sealed records per the Astronomy Library convention; GUID keys are stored as 16-byte big-endian BLOBs.
 
 /// <summary>An observing profile (site/equipment scope). Normalizes TS's scattered <c>profileId</c> string.</summary>
@@ -67,36 +69,32 @@ public sealed record ExposurePlan(
     bool Enabled,
     string? ImportedFromTsGuid);
 
-/// <summary>One scanned image file on disk (the disk-derived inventory; populated by the Phase 2 scanner).</summary>
-public sealed record ImageFile(
-    Guid Id,
-    string Path,
-    Guid? TargetId,
-    string? TargetName,
-    string? FilterName,
-    FrameType? FrameType,
-    ProcessingStage? ProcessingStage,
-    double? ExposureSeconds,
-    long? CapturedAt,
-    string? Camera,
-    int? Gain,
-    int? OffsetAdu,
-    double? RaHours,
-    double? DecDegreesSigned,
-    long FileMtime,
-    long FileSize,
+// ----- Inventory plane (persisted ImageLibraryScanner aggregates) -----------
+
+/// <summary>A scanned target's identity + coordinates (from <c>TargetReport</c>).</summary>
+public sealed record InventoryTarget(
+    string DirectoryName,
+    string Catalog,
+    string? CommonName,
+    string ObjectName,
+    double RaHours,
+    double DecDegreesSigned,
     long ScannedAt);
 
-/// <summary>Incremental-scan watermark for a target folder (or the scan root).</summary>
-public sealed record ScanState(string Folder, long LastScannedAt, long MaxMtimeSeen, int FileCount);
-
-/// <summary>A row of the <c>inventory_rollup</c> view: integration per target/filter/stage (lights only).</summary>
-public sealed record InventoryRollupRow(
-    Guid? TargetId,
-    string? TargetName,
-    string? FilterName,
-    ProcessingStage? ProcessingStage,
-    int FrameCount,
+/// <summary>Per-(target, filter, purpose) imaging totals/history (from <c>FilterAggregate</c> + <c>TypicalSettings</c>).</summary>
+public sealed record InventoryFilter(
+    string DirectoryName,
+    string FilterCode,
+    FilterPurpose Purpose,
+    string FilterName,
+    int ExposureCount,
     double TotalIntegrationSeconds,
-    long? FirstCapturedAt,
-    long? LastCapturedAt);
+    long FirstImagedAt,
+    long LastImagedAt,
+    int TypicalGain,
+    int TypicalOffset,
+    double TypicalSetTempC,
+    int TypicalBinningX,
+    int TypicalBinningY,
+    double TypicalExposureSeconds,
+    string Cameras);

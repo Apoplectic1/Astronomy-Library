@@ -20,6 +20,8 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.3" />
+    <!-- The library scanner (Scan/) reads XISF headers via Astronomy.XISF. -->
+    <ProjectReference Include="..\Astronomy.XISF\Astronomy.XISF.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -27,7 +29,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="Schema\Migrations\*.sql" />
+    <EmbeddedResource Include="Schema\schema.sql" />
   </ItemGroup>
 
   <!-- Phase 1 scope: schema + migrations + SchemaManager + read-only TS adapter. Pure managed

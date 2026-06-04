@@ -1,4 +1,4 @@
-namespace Astronomy.NINA.Xisf;
+namespace Astronomy.Catalog.Scan;
 
 /// <summary>
 /// Why a set of frames was captured. Separates "main subject" Light frames from

@@ -1,4 +1,5 @@
 using Astronomy.Catalog.Data;
+using Astronomy.Catalog.Scan;
 using Microsoft.Data.Sqlite;
 
 namespace Astronomy.Catalog.Schema;
@@ -121,53 +122,50 @@ public sealed class ExposurePlanMapper : ITableMapper<ExposurePlan>
         reader.GetStringOrNull("imported_from_ts_guid"));
 }
 
-/// <summary>Maps <c>image_file</c> rows.</summary>
-public sealed class ImageFileMapper : ITableMapper<ImageFile>
+/// <summary>Maps <c>inventory_target</c> rows.</summary>
+public sealed class InventoryTargetMapper : ITableMapper<InventoryTarget>
 {
     /// <summary>Shared stateless instance.</summary>
-    public static readonly ImageFileMapper Instance = new();
+    public static readonly InventoryTargetMapper Instance = new();
 
     /// <inheritdoc/>
-    public string TableName => "image_file";
+    public string TableName => "inventory_target";
 
     /// <inheritdoc/>
-    public ImageFile Map(SqliteDataReader reader) => new(
-        reader.GetGuid("id"),
-        reader.GetString("path"),
-        reader.GetGuidOrNull("target_id"),
-        reader.GetStringOrNull("target_name"),
-        reader.GetStringOrNull("filter_name"),
-        reader.GetInt32OrNull("frame_type_id") is int ft ? (FrameType)ft : null,
-        reader.GetInt32OrNull("processing_stage_id") is int ps ? (ProcessingStage)ps : null,
-        reader.GetDoubleOrNull("exposure_seconds"),
-        reader.GetInt64OrNull("captured_at"),
-        reader.GetStringOrNull("camera"),
-        reader.GetInt32OrNull("gain"),
-        reader.GetInt32OrNull("offset_adu"),
-        reader.GetDoubleOrNull("ra_hours"),
-        reader.GetDoubleOrNull("dec_degrees_signed"),
-        reader.GetInt64("file_mtime"),
-        reader.GetInt64("file_size"),
+    public InventoryTarget Map(SqliteDataReader reader) => new(
+        reader.GetString("directory_name"),
+        reader.GetString("catalog"),
+        reader.GetStringOrNull("common_name"),
+        reader.GetString("object_name"),
+        reader.GetDouble("ra_hours"),
+        reader.GetDouble("dec_degrees_signed"),
         reader.GetInt64("scanned_at"));
 }
 
-/// <summary>Maps rows of the <c>inventory_rollup</c> view.</summary>
-public sealed class InventoryRollupMapper : ITableMapper<InventoryRollupRow>
+/// <summary>Maps <c>inventory_filter</c> rows.</summary>
+public sealed class InventoryFilterMapper : ITableMapper<InventoryFilter>
 {
     /// <summary>Shared stateless instance.</summary>
-    public static readonly InventoryRollupMapper Instance = new();
+    public static readonly InventoryFilterMapper Instance = new();
 
     /// <inheritdoc/>
-    public string TableName => "inventory_rollup";
+    public string TableName => "inventory_filter";
 
     /// <inheritdoc/>
-    public InventoryRollupRow Map(SqliteDataReader reader) => new(
-        reader.GetGuidOrNull("target_id"),
-        reader.GetStringOrNull("target_name"),
-        reader.GetStringOrNull("filter_name"),
-        reader.GetInt32OrNull("processing_stage_id") is int ps ? (ProcessingStage)ps : null,
-        reader.GetInt32("frame_count"),
+    public InventoryFilter Map(SqliteDataReader reader) => new(
+        reader.GetString("directory_name"),
+        reader.GetString("filter_code"),
+        (FilterPurpose)reader.GetInt32("frame_purpose_id"),
+        reader.GetString("filter_name"),
+        reader.GetInt32("exposure_count"),
         reader.GetDouble("total_integration_seconds"),
-        reader.GetInt64OrNull("first_captured_at"),
-        reader.GetInt64OrNull("last_captured_at"));
+        reader.GetInt64("first_imaged_at"),
+        reader.GetInt64("last_imaged_at"),
+        reader.GetInt32("typical_gain"),
+        reader.GetInt32("typical_offset"),
+        reader.GetDouble("typical_set_temp_c"),
+        reader.GetInt32("typical_binning_x"),
+        reader.GetInt32("typical_binning_y"),
+        reader.GetDouble("typical_exposure_seconds"),
+        reader.GetString("cameras"));
 }

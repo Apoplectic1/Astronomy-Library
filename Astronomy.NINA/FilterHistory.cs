@@ -1,4 +1,4 @@
-using Astronomy.NINA.Xisf;
+using Astronomy.Catalog.Scan;
 
 namespace Astronomy.NINA;
 

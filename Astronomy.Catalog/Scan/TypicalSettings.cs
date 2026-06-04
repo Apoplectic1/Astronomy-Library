@@ -1,4 +1,4 @@
-namespace Astronomy.NINA.Xisf;
+namespace Astronomy.Catalog.Scan;
 
 /// <summary>
 /// The most-common (mode) exposure settings across a set of frames. Used to

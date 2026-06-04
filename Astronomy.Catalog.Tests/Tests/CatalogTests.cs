@@ -1,4 +1,5 @@
 using Astronomy.Catalog;
+using Astronomy.Catalog.Scan;
 using Astronomy.Catalog.Schema;
 using Microsoft.Data.Sqlite;
 using Xunit;
@@ -8,7 +9,7 @@ namespace Astronomy.Catalog.Tests;
 public sealed class SchemaManagerTests
 {
     [Fact]
-    public void Open_CreatesSchema_WithWalAndMigrationTracking()
+    public void Open_CreatesSchema_WithWalAndLookups()
     {
         string path = TestSupport.NewDbPath();
         try
@@ -16,17 +17,14 @@ public sealed class SchemaManagerTests
             using SqliteConnection connection = SchemaManager.Open(path);
 
             Assert.Equal("wal", (string)TestSupport.Scalar(connection, "PRAGMA journal_mode;")!);
-            Assert.Equal(1, SchemaManager.GetUserVersion(connection));
-            Assert.Equal(1, TestSupport.ScalarLong(connection, $"SELECT COUNT(*) FROM {SchemaManager.MigrationTable} WHERE version = 1;"));
 
-            foreach (string table in new[] { "profile", "project", "target", "exposure_template", "exposure_plan", "image_file", "scan_state" })
+            foreach (string table in new[] { "profile", "project", "target", "exposure_template", "exposure_plan",
+                "inventory_target", "inventory_filter" })
                 Assert.Equal(1, TestSupport.ScalarLong(connection, $"SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='{table}';"));
-
-            Assert.Equal(1, TestSupport.ScalarLong(connection, "SELECT COUNT(*) FROM sqlite_master WHERE type='view' AND name='inventory_rollup';"));
 
             // Lookup tables seeded.
             Assert.Equal(4, TestSupport.ScalarLong(connection, "SELECT COUNT(*) FROM project_state;"));
-            Assert.Equal(6, TestSupport.ScalarLong(connection, "SELECT COUNT(*) FROM processing_stage;"));
+            Assert.Equal(2, TestSupport.ScalarLong(connection, "SELECT COUNT(*) FROM frame_purpose;"));
         }
         finally
         {
@@ -35,7 +33,7 @@ public sealed class SchemaManagerTests
     }
 
     [Fact]
-    public void Open_IsIdempotent_AppliesEachMigrationOnce()
+    public void Open_IsIdempotent_NoDuplicateLookups()
     {
         string path = TestSupport.NewDbPath();
         try
@@ -43,7 +41,9 @@ public sealed class SchemaManagerTests
             using (SchemaManager.Open(path)) { }
             using SqliteConnection second = SchemaManager.Open(path);
 
-            Assert.Equal(1, TestSupport.ScalarLong(second, $"SELECT COUNT(*) FROM {SchemaManager.MigrationTable};"));
+            // Re-applying the schema (CREATE IF NOT EXISTS + INSERT OR IGNORE) must not duplicate seed rows.
+            Assert.Equal(2, TestSupport.ScalarLong(second, "SELECT COUNT(*) FROM frame_purpose;"));
+            Assert.Equal(3, TestSupport.ScalarLong(second, "SELECT COUNT(*) FROM epoch;"));
         }
         finally
         {
@@ -99,38 +99,68 @@ public sealed class CatalogStoreTests
     }
 
     [Fact]
-    public void InventoryRollup_SumsLightsAndExcludesCalibration()
+    public void ReplaceInventory_PersistsScannerAggregates()
     {
         string path = TestSupport.NewDbPath();
-        long now = TestSupport.NowUnix();
         try
         {
             using CatalogStore store = CatalogStore.Open(path);
 
-            for (int i = 0; i < 3; i++)
-            {
-                store.InsertImageFile(new ImageFile(
-                    Guid.NewGuid(), $@"C:\proc\M42\Ha\{i}.xisf", TargetId: null, "M42", "Ha", FrameType.Light,
-                    ProcessingStage.Captures, ExposureSeconds: 300.0, CapturedAt: now + i, "Z533", Gain: 100,
-                    OffsetAdu: 50, RaHours: 5.59, DecDegreesSigned: -5.39, FileMtime: now, FileSize: 1000, ScannedAt: now));
-            }
+            store.ReplaceInventory(SampleReport());
 
-            // A dark frame must be excluded from the lights-only rollup.
-            store.InsertImageFile(new ImageFile(
-                Guid.NewGuid(), @"C:\proc\M42\dark.xisf", null, "M42", "Ha", FrameType.Dark, ProcessingStage.Captures,
-                300.0, now, "Z533", 100, 50, null, null, now, 1000, now));
+            InventoryTarget it = Assert.Single(store.GetInventoryTargets());
+            Assert.Equal("M42 - Orion", it.DirectoryName);
+            Assert.Equal("M42", it.Catalog);
+            Assert.Equal("Orion", it.CommonName);
+            Assert.Equal(5.59, it.RaHours);
 
-            InventoryRollupRow row = Assert.Single(store.GetInventoryRollup());
-            Assert.Equal("Ha", row.FilterName);
-            Assert.Equal(ProcessingStage.Captures, row.ProcessingStage);
-            Assert.Equal(3, row.FrameCount);
-            Assert.Equal(900.0, row.TotalIntegrationSeconds);
-            Assert.Equal(now, row.FirstCapturedAt);
-            Assert.Equal(now + 2, row.LastCapturedAt);
+            InventoryFilter inf = Assert.Single(store.GetInventoryFilters("M42 - Orion"));
+            Assert.Equal("H", inf.FilterName);
+            Assert.Equal(FilterPurpose.Light, inf.Purpose);
+            Assert.Equal(12, inf.ExposureCount);
+            Assert.Equal(3600.0, inf.TotalIntegrationSeconds);
+            Assert.Equal(100, inf.TypicalGain);
+            Assert.Equal(1, inf.TypicalBinningX);
+            Assert.Equal("Z533", inf.Cameras);
         }
         finally
         {
             TestSupport.Cleanup(path);
         }
+    }
+
+    [Fact]
+    public void ReplaceInventory_IsAFullReplace()
+    {
+        string path = TestSupport.NewDbPath();
+        try
+        {
+            using CatalogStore store = CatalogStore.Open(path);
+            store.ReplaceInventory(SampleReport());
+            store.ReplaceInventory(SampleReport()); // second scan replaces, not appends
+
+            Assert.Single(store.GetInventoryTargets());
+            Assert.Single(store.GetInventoryFilters());
+        }
+        finally
+        {
+            TestSupport.Cleanup(path);
+        }
+    }
+
+    private static ImageLibraryReport SampleReport()
+    {
+        DateTime first = new(2024, 1, 1, 22, 0, 0, DateTimeKind.Utc);
+        TypicalSettings typical = new(gain: 100, offset: 50, setTempC: -10.0, binning: (1, 1), exposureSec: 300.0);
+        FilterAggregate ha = new(
+            filterName: "H", filterCode: "H", purpose: FilterPurpose.Light, exposureCount: 12,
+            totalIntegration: TimeSpan.FromSeconds(3600), firstImagedUtc: first, lastImagedUtc: first.AddHours(2),
+            typical: typical, camerasSeen: new[] { "Z533" });
+        TargetReport target = new(
+            directoryName: "M42 - Orion", catalog: "M42", commonName: "Orion", objectName: "M42",
+            raHours: 5.59, decDegrees: -5.39, filters: new[] { ha });
+        return new ImageLibraryReport(
+            libraryRoot: @"C:\proc", scannedAtUtc: new DateTime(2024, 6, 1, 12, 0, 0, DateTimeKind.Utc),
+            targets: new[] { target }, skippedFiles: new Dictionary<string, string>());
     }
 }

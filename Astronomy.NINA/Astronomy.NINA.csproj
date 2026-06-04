@@ -20,6 +20,9 @@
   <ItemGroup>
     <ProjectReference Include="..\Astronomy.Core\Astronomy.Core.csproj" />
     <ProjectReference Include="..\Astronomy.XISF\Astronomy.XISF.csproj" />
+    <!-- The image-library scanner + report types moved to Astronomy.Catalog; NINA's
+         ReportToTargetAdapter + FilterHistory consume them (planning consumes inventory). -->
+    <ProjectReference Include="..\Astronomy.Catalog\Astronomy.Catalog.csproj" />
   </ItemGroup>
 
   <ItemGroup>

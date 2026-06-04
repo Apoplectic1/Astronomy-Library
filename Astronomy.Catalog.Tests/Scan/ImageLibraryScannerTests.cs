@@ -1,7 +1,7 @@
-using Astronomy.NINA.Xisf;
+using Astronomy.Catalog.Scan;
 using Xunit;
 
-namespace Astronomy.NINA.Tests.Xisf;
+namespace Astronomy.Catalog.Tests.Scan;
 
 public class ImageLibraryScannerTests
 {

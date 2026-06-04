@@ -1,7 +1,8 @@
+#nullable disable // moved from Astronomy.NINA.Tests (Nullable-disable convention)
 using Xunit;
 using Xunit.Abstractions;
 
-namespace Astronomy.NINA.Tests.Xisf;
+namespace Astronomy.Catalog.Tests.Scan;
 
 public class DirectoryProbeTest
 {

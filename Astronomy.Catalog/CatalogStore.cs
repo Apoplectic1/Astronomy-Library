@@ -1,4 +1,5 @@
 using Astronomy.Catalog.Data;
+using Astronomy.Catalog.Scan;
 using Astronomy.Catalog.Schema;
 using Microsoft.Data.Sqlite;
 
@@ -6,9 +7,9 @@ namespace Astronomy.Catalog;
 
 /// <summary>
 /// Read/write access to a <c>Catalog.db</c> file. TCM (the writer) opens via <see cref="Open"/>; read-only
-/// consumers via <see cref="OpenReadOnly"/>. Owns a single open connection; dispose to close. Phase 1 surfaces
-/// the plan-plane CRUD plus image-file insert and the inventory-rollup read; the Processing-tree scanner that
-/// populates <c>image_file</c> in bulk lands in Phase 2.
+/// consumers via <see cref="OpenReadOnly"/>. Owns a single open connection; dispose to close. Holds the plan-plane
+/// CRUD plus the disk-derived inventory: <see cref="ReplaceInventory"/> persists an <see cref="ImageLibraryReport"/>
+/// (from <see cref="ImageLibraryScanner"/>) into the aggregate inventory tables.
 /// </summary>
 public sealed class CatalogStore : IDisposable
 {
@@ -16,7 +17,7 @@ public sealed class CatalogStore : IDisposable
 
     private CatalogStore(SqliteConnection connection) => _connection = connection;
 
-    /// <summary>Opens (creating + migrating if needed) a read-write catalog at <paramref name="databasePath"/>.</summary>
+    /// <summary>Opens (creating + ensuring the schema) a read-write catalog at <paramref name="databasePath"/>.</summary>
     public static CatalogStore Open(string databasePath) => new(SchemaManager.Open(databasePath));
 
     /// <summary>Opens an existing catalog read-only (safe for consumers reading while TCM writes).</summary>
@@ -28,7 +29,7 @@ public sealed class CatalogStore : IDisposable
     /// <inheritdoc/>
     public void Dispose() => _connection.Dispose();
 
-    // ---- Inserts -----------------------------------------------------------
+    // ---- Plan-plane inserts ------------------------------------------------
 
     /// <summary>Inserts a <see cref="Profile"/> row.</summary>
     public void InsertProfile(Profile p) => Execute(
@@ -86,23 +87,7 @@ public sealed class CatalogStore : IDisposable
         ("$desired", p.DesiredCount), ("$acquired", p.AcquiredCount), ("$accepted", p.AcceptedCount),
         ("$enabled", Bit(p.Enabled)), ("$ts", p.ImportedFromTsGuid));
 
-    /// <summary>Inserts an <see cref="ImageFile"/> inventory row.</summary>
-    public void InsertImageFile(ImageFile f) => Execute(
-        """
-        INSERT INTO image_file (id, path, target_id, target_name, filter_name, frame_type_id, processing_stage_id,
-            exposure_seconds, captured_at, camera, gain, offset_adu, ra_hours, dec_degrees_signed, file_mtime,
-            file_size, scanned_at)
-        VALUES ($id, $path, $target, $targetName, $filter, $frame, $stage, $exp, $captured, $camera, $gain,
-            $offset, $ra, $dec, $mtime, $size, $scanned);
-        """,
-        ("$id", GuidBlob.ToBlob(f.Id)), ("$path", f.Path),
-        ("$target", f.TargetId is Guid g ? GuidBlob.ToBlob(g) : null), ("$targetName", f.TargetName),
-        ("$filter", f.FilterName), ("$frame", (int?)f.FrameType), ("$stage", (int?)f.ProcessingStage),
-        ("$exp", f.ExposureSeconds), ("$captured", f.CapturedAt), ("$camera", f.Camera), ("$gain", f.Gain),
-        ("$offset", f.OffsetAdu), ("$ra", f.RaHours), ("$dec", f.DecDegreesSigned), ("$mtime", f.FileMtime),
-        ("$size", f.FileSize), ("$scanned", f.ScannedAt));
-
-    // ---- Reads -------------------------------------------------------------
+    // ---- Plan-plane reads --------------------------------------------------
 
     /// <summary>All projects.</summary>
     public IReadOnlyList<Project> GetProjects() => Query("SELECT * FROM project;", ProjectMapper.Instance);
@@ -118,15 +103,83 @@ public sealed class CatalogStore : IDisposable
     public IReadOnlyList<ExposurePlan> GetExposurePlans(Guid targetId) =>
         Query("SELECT * FROM exposure_plan WHERE target_id = $t;", ExposurePlanMapper.Instance, ("$t", GuidBlob.ToBlob(targetId)));
 
-    /// <summary>The integration rollup (per target/filter/stage, lights only).</summary>
-    public IReadOnlyList<InventoryRollupRow> GetInventoryRollup() =>
-        Query("SELECT * FROM inventory_rollup;", InventoryRollupMapper.Instance);
+    // ---- Inventory ---------------------------------------------------------
+
+    /// <summary>All scanned targets.</summary>
+    public IReadOnlyList<InventoryTarget> GetInventoryTargets() =>
+        Query("SELECT * FROM inventory_target;", InventoryTargetMapper.Instance);
+
+    /// <summary>All per-filter inventory rows.</summary>
+    public IReadOnlyList<InventoryFilter> GetInventoryFilters() =>
+        Query("SELECT * FROM inventory_filter;", InventoryFilterMapper.Instance);
+
+    /// <summary>Per-filter inventory rows for one scanned target.</summary>
+    public IReadOnlyList<InventoryFilter> GetInventoryFilters(string directoryName) =>
+        Query("SELECT * FROM inventory_filter WHERE directory_name = $d;", InventoryFilterMapper.Instance, ("$d", directoryName));
+
+    /// <summary>
+    /// Replaces the entire inventory with the aggregates from a fresh scan. Transactional: clears
+    /// <c>inventory_filter</c>/<c>inventory_target</c>, then inserts each <see cref="TargetReport"/> and its
+    /// <see cref="FilterAggregate"/>s.
+    /// </summary>
+    public void ReplaceInventory(ImageLibraryReport report)
+    {
+        ArgumentNullException.ThrowIfNull(report);
+        long scannedAt = new DateTimeOffset(report.ScannedAtUtc).ToUnixTimeSeconds();
+
+        using SqliteTransaction tx = _connection.BeginTransaction();
+
+        ExecuteTx(tx, "DELETE FROM inventory_filter;");
+        ExecuteTx(tx, "DELETE FROM inventory_target;");
+
+        foreach (TargetReport t in report.Targets)
+        {
+            ExecuteTx(tx,
+                """
+                INSERT INTO inventory_target (directory_name, catalog, common_name, object_name, ra_hours,
+                    dec_degrees_signed, scanned_at)
+                VALUES ($dir, $cat, $common, $obj, $ra, $dec, $scanned);
+                """,
+                ("$dir", t.DirectoryName), ("$cat", t.Catalog), ("$common", t.CommonName), ("$obj", t.ObjectName),
+                ("$ra", t.RaHours), ("$dec", t.DecDegrees), ("$scanned", scannedAt));
+
+            foreach (FilterAggregate f in t.Filters)
+            {
+                ExecuteTx(tx,
+                    """
+                    INSERT INTO inventory_filter (directory_name, filter_code, frame_purpose_id, filter_name,
+                        exposure_count, total_integration_seconds, first_imaged_at, last_imaged_at, typical_gain,
+                        typical_offset, typical_set_temp_c, typical_binning_x, typical_binning_y,
+                        typical_exposure_seconds, cameras)
+                    VALUES ($dir, $code, $purpose, $name, $count, $integ, $first, $last, $gain, $offset, $temp,
+                        $binx, $biny, $exp, $cameras);
+                    """,
+                    ("$dir", t.DirectoryName), ("$code", f.FilterCode), ("$purpose", (int)f.Purpose),
+                    ("$name", f.FilterName), ("$count", f.ExposureCount),
+                    ("$integ", f.TotalIntegration.TotalSeconds),
+                    ("$first", new DateTimeOffset(f.FirstImagedUtc).ToUnixTimeSeconds()),
+                    ("$last", new DateTimeOffset(f.LastImagedUtc).ToUnixTimeSeconds()),
+                    ("$gain", f.Typical.Gain), ("$offset", f.Typical.Offset), ("$temp", f.Typical.SetTempC),
+                    ("$binx", f.Typical.Binning.X), ("$biny", f.Typical.Binning.Y),
+                    ("$exp", f.Typical.ExposureSec), ("$cameras", string.Join(",", f.CamerasSeen)));
+            }
+        }
+
+        tx.Commit();
+    }
 
     // ---- Helpers -----------------------------------------------------------
 
-    private void Execute(string sql, params (string Name, object? Value)[] parameters)
+    private void Execute(string sql, params (string Name, object? Value)[] parameters) =>
+        ExecuteCore(null, sql, parameters);
+
+    private void ExecuteTx(SqliteTransaction transaction, string sql, params (string Name, object? Value)[] parameters) =>
+        ExecuteCore(transaction, sql, parameters);
+
+    private void ExecuteCore(SqliteTransaction? transaction, string sql, (string Name, object? Value)[] parameters)
     {
         using SqliteCommand command = _connection.CreateCommand();
+        command.Transaction = transaction;
         command.CommandText = sql;
         foreach ((string name, object? value) in parameters)
             command.Parameters.AddWithValue(name, value ?? DBNull.Value);

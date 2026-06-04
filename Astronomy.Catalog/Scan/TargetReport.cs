@@ -1,4 +1,4 @@
-namespace Astronomy.NINA.Xisf;
+namespace Astronomy.Catalog.Scan;
 
 /// <summary>
 /// Per-target summary derived from scanning one top-level directory under the

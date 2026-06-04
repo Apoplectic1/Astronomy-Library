@@ -1,3 +1,5 @@
+using Astronomy.Catalog.Scan;
+
 namespace Astronomy.NINA.Xisf;
 
 /// <summary>

@@ -1,4 +1,4 @@
-namespace Astronomy.NINA.Xisf;
+namespace Astronomy.Catalog.Scan;
 
 /// <summary>
 /// Per-filter rollup of a target's imaging history. One instance per
