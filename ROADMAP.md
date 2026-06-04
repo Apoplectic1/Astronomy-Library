@@ -1,5 +1,31 @@
 # Astronomy Library — Roadmap
 
+## Recently shipped (2026-06): Astronomy.Catalog — catalog DB + library-scanner home
+
+New `Astronomy.Catalog` library (9th + 10th projects) owns `Catalog.db` and the shared
+`.xisf`-library scanner moved out of `Astronomy.NINA`.
+
+- **Scanner moved** `Astronomy.NINA.Xisf` → `Astronomy.Catalog.Scan` (`ImageLibraryScanner`
+  + `ImageLibraryReport`/`TargetReport`/`FilterAggregate`/`TypicalSettings`/`FilterPurpose`);
+  it depended only on `Astronomy.XISF`. `ReportToTargetAdapter` stays in NINA as the
+  scan→`Target` bridge, so NINA now references `Astronomy.Catalog` (planning consumes
+  inventory; no cycle). TP unaffected (it has its own scanner).
+- **No migration framework**: the catalog is fully derived (scan + TS import; goals live in
+  the scheduler DB) and rebuildable; `SchemaManager` applies one idempotent `schema.sql`.
+- **Aggregate inventory**: `inventory_target` + `inventory_filter` (1:1 of `TargetReport`/
+  `FilterAggregate`); `CatalogStore.ReplaceInventory(report)` persists a scan transactionally.
+- Plan plane (profile/project/target/exposure_template/exposure_plan) + read-only
+  `TargetSchedulerReader` for TS's `schedulerdb.sqlite` already in place; TS→Catalog import next.
+
+Astronomy.Catalog.Tests 28 + Astronomy.NINA.Tests 45 pass; TargetPlanner builds.
+
+## Recently shipped (2026-06): Astronomy.XISF.Compression — shared zlib+sh + SHA-1 codec
+
+Ported XFM's image-block codec into `Astronomy.XISF` (`Compression/`): byte-shuffle + zlib
+(max level) + SHA-1, symmetric `Compress`/`Decompress`, plus `BlockCompressionInfo`
+(compression/checksum attribute parse/format) — the Tier-4 "compression + checksum"
+foundation. XFM now consumes it instead of its own copy. 8 codec tests (34 XISF total).
+
 ## Recently shipped (2026-05-28): MoonEphemeris + AltitudeCurve.Sample reshape
 
 Extracted the per-minute observational compute that TargetPlanner rolled
