@@ -1,5 +1,17 @@
 # Astronomy Library — Roadmap
 
+## Recently shipped (2026-06): Astronomy.Catalog — goal-vs-actual reconciliation
+
+`Reconcile/` joins TS goals to disk actuals so consumers can answer "how close is each target/filter to its
+goal." Goals = `exposure_plan.desired_count` (summed per filter via the template); actuals = disk
+`inventory_filter` — **not** TS's own `acquired_count`, which is often badly stale (real Wizard example: TS said
+0 H frames, disk had 140). Join key is `(target, filter_name)` — both planes already use the same single-letter
+names, so no normalization. `ReconcilePolicy.Combined` (default) counts Light + Stars toward a goal (fits
+shooting RGB only as Stars for star colour); `LightOnly` excludes Stars. `Reconciler` (pure) +
+`CatalogStore.GetReconciliation` → per-(target,filter) desired/acquired/remaining/% + a target rollup status
+(NotStarted/InProgress/Complete/Unplanned). First real run: 101 planned targets (6 complete / 33 in-progress /
+62 not-started), 8221/30088 frames done; the TCM host prints the summary. 42 Catalog tests pass.
+
 ## Recently shipped (2026-06): Astronomy.Catalog — disk(actual) + TS(plan) reconciled onto one canonical target
 
 Follow-on to the Catalog/scanner entry below. The two parallel target tables collapsed into **one canonical
