@@ -1,5 +1,30 @@
 # Astronomy Library — Roadmap
 
+## Recently shipped (2026-06): Astronomy.Catalog — disk(actual) + TS(plan) reconciled onto one canonical target
+
+Follow-on to the Catalog/scanner entry below. The two parallel target tables collapsed into **one canonical
+`target`** carrying both facets (disk identity + plan attributes), discriminated by `source_id` — `Actual`
+(on disk only), `Planned` (in TS only / not yet shot), `Both` (merged). The disk library is ACTUAL (truth);
+TS is the PLAN; the catalog re-organizes the plan clean and anchored to actual. `inventory_filter` (actuals)
+and `exposure_plan` (goals) both hang off the one target.
+
+- **`Build/TargetResolver`** (pure, unit-tested): **coordinate-primary** match — each TS target anchors to the
+  nearest disk target within a tolerance (default 0.5° haversine); name only validates; disk plate-solved coords
+  win on merge; **the TS guid is retained on `Both` for the planned write-back-to-TS path**; TS duplicates fold
+  onto one canonical, and name-mismatch / ambiguous / unanchored / out-of-range rows are reported in
+  `CatalogBuildReport` (surfacing TS's "problems and errors"), not dropped.
+- **`Build/CatalogBuilder.BuildAsync`**: full rebuild = scan disk + read TS → resolve → `WriteCatalog` in one
+  transaction. Either source may be omitted (library-only → actuals-only; TS-only → planned-only).
+- **`CatalogStore.WriteCatalog(graph)`** replaces `ImportPlan`/`ReplaceInventory`; `GetShotTargets()`
+  (source `Actual`|`Both`) is XFM's actual-only view (a `Both` target has frames on disk, so it belongs;
+  planned-only excluded).
+- **Harden:** never pass a raw TS integer into a CHECK/FK column — unknown epoch/state/priority codes coerce to a
+  safe default and planned RA/Dec normalize/clamp, so one bad external TS row can't abort the rebuild. (From an
+  adversarial review: 3 confirmed of 13 raised, all this root cause.)
+- Dropped `inventory_target` (folded into the canonical `target`) and `TsCatalogImporter` (absorbed into the resolver).
+
+Astronomy.Catalog.Tests 36 + Astronomy.NINA.Tests 45 pass, 0 warnings.
+
 ## Recently shipped (2026-06): Astronomy.Catalog — catalog DB + library-scanner home
 
 New `Astronomy.Catalog` library (9th + 10th projects) owns `Catalog.db` and the shared
@@ -14,8 +39,9 @@ New `Astronomy.Catalog` library (9th + 10th projects) owns `Catalog.db` and the 
   the scheduler DB) and rebuildable; `SchemaManager` applies one idempotent `schema.sql`.
 - **Aggregate inventory**: `inventory_target` + `inventory_filter` (1:1 of `TargetReport`/
   `FilterAggregate`); `CatalogStore.ReplaceInventory(report)` persists a scan transactionally.
+  *(Superseded — `inventory_target` later folded into the canonical `target` and `ReplaceInventory` → `WriteCatalog`; see top entry.)*
 - Plan plane (profile/project/target/exposure_template/exposure_plan) + read-only
-  `TargetSchedulerReader` for TS's `schedulerdb.sqlite` already in place; TS→Catalog import next.
+  `TargetSchedulerReader` for TS's `schedulerdb.sqlite`. *(TS→Catalog import + disk reconciliation shipped — see top entry.)*
 
 Astronomy.Catalog.Tests 28 + Astronomy.NINA.Tests 45 pass; TargetPlanner builds.
 
