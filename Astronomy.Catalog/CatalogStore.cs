@@ -1,5 +1,6 @@
 using Astronomy.Catalog.Build;
 using Astronomy.Catalog.Data;
+using Astronomy.Catalog.Reconcile;
 using Astronomy.Catalog.Schema;
 using Microsoft.Data.Sqlite;
 
@@ -175,6 +176,16 @@ public sealed class CatalogStore : IDisposable
     /// <summary>Per-filter inventory rows for one canonical target.</summary>
     public IReadOnlyList<InventoryFilter> GetInventoryFilters(Guid targetId) =>
         Query("SELECT * FROM inventory_filter WHERE target_id = $t;", InventoryFilterMapper.Instance, ("$t", GuidBlob.ToBlob(targetId)));
+
+    // ---- Reconciliation (goal vs actual) -----------------------------------
+
+    /// <summary>
+    /// Goal (TS <c>desired_count</c>) vs actual (disk inventory) per target/filter, for every target. Actual is
+    /// disk truth; TS's own acquired counts are ignored. <paramref name="policy"/> chooses whether Stars frames
+    /// count toward a filter's goal (default <see cref="ReconcilePolicy.Combined"/>).
+    /// </summary>
+    public IReadOnlyList<TargetReconciliation> GetReconciliation(ReconcilePolicy policy = ReconcilePolicy.Combined) =>
+        Reconciler.Reconcile(GetTargets(), GetExposurePlans(), GetExposureTemplates(), GetInventoryFilters(), policy);
 
     // ---- Helpers -----------------------------------------------------------
 
