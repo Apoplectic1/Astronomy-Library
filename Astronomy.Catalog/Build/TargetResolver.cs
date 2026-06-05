@@ -1,0 +1,328 @@
+using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
+using System.Security.Cryptography;
+using System.Text;
+using Astronomy.Catalog.Scan;
+using Astronomy.Catalog.Schema;
+using Astronomy.Catalog.TargetScheduler;
+
+namespace Astronomy.Catalog.Build;
+
+/// <summary>Knobs for <see cref="TargetResolver.Resolve"/>.</summary>
+/// <param name="MatchToleranceDegrees">
+/// Maximum angular separation for a TS target to be considered the same object as a disk target. Generous enough
+/// for framing/recenter drift between the planned and plate-solved positions, tight enough to rarely collide with
+/// a neighbouring target. A large mosaic whose panels spread beyond this from the folded centroid may miss — tune
+/// after reviewing the first real-data <see cref="CatalogBuildReport"/>.
+/// </param>
+public sealed record ResolveOptions(double MatchToleranceDegrees = 0.5)
+{
+    /// <summary>The default options (0.5° tolerance).</summary>
+    public static ResolveOptions Default { get; } = new();
+}
+
+/// <summary>
+/// Reconciles the two source planes into one canonical target list. The disk library is ACTUAL (truth); TS is the
+/// PLAN. Matching is <b>coordinate-primary</b>: each TS target is anchored to the nearest disk target within
+/// <see cref="ResolveOptions.MatchToleranceDegrees"/> (name only validates the match); when they merge, the disk
+/// (plate-solved) coordinates win and the TS guid is retained for write-back. TS targets with no disk match become
+/// planned-only (goals, 0 actual); disk targets with no TS match become actual-only. TS duplicates that collapse
+/// onto one disk target, name disagreements, ambiguous matches, and un-anchorable TS targets are reported, not
+/// silently dropped. Pure and deterministic (no I/O, no clock) — pass the timestamp and disk/TS data in.
+/// </summary>
+public static class TargetResolver
+{
+    private const double DegPerRad = 180.0 / Math.PI;
+    private const double RadPerDeg = Math.PI / 180.0;
+
+    /// <summary>Resolves <paramref name="diskTargets"/> (actuals) against <paramref name="ts"/> (the plan).</summary>
+    /// <param name="diskTargets">Per-target scanner aggregates from the image library.</param>
+    /// <param name="ts">The TS plan snapshot (may be <see cref="TsPlanData.Empty"/>).</param>
+    /// <param name="createdAtUnix">Build timestamp (UNIX seconds) stamped as created_at/scanned_at.</param>
+    /// <param name="options">Match tolerance; defaults to <see cref="ResolveOptions.Default"/>.</param>
+    public static (CatalogGraph Graph, CatalogBuildReport Report) Resolve(
+        IReadOnlyList<TargetReport> diskTargets,
+        TsPlanData ts,
+        long createdAtUnix,
+        ResolveOptions? options = null)
+    {
+        ArgumentNullException.ThrowIfNull(diskTargets);
+        ArgumentNullException.ThrowIfNull(ts);
+        double tolerance = (options ?? ResolveOptions.Default).MatchToleranceDegrees;
+
+        // ---- Profiles: one per distinct TS profileId (a NINA profile GUID string). --------------------------
+        Dictionary<string, Guid> profileIds = new(StringComparer.OrdinalIgnoreCase);
+        foreach (string profileId in ts.Projects.Select(p => p.ProfileId)
+                     .Concat(ts.Templates.Select(t => t.ProfileId))
+                     .Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            profileIds[profileId] = ParseOrDerive(profileId, $"profile:{profileId}");
+        }
+
+        List<Profile> profiles = [.. profileIds.Select(kv => new Profile(kv.Value, kv.Key, kv.Key, createdAtUnix))];
+
+        // ---- Projects. --------------------------------------------------------------------------------------
+        Dictionary<long, Guid> projectIds = [];
+        List<Project> projects = new(ts.Projects.Count);
+        foreach (TsProject p in ts.Projects)
+        {
+            Guid id = ParseOrDerive(p.TsGuid, $"project:{p.Id}");
+            projectIds[p.Id] = id;
+            projects.Add(new Project(
+                id, profileIds[p.ProfileId], p.Name, Description: null,
+                State: SafeState(p.State), Priority: SafeProjectPriority(p.Priority),
+                MinimumAltitudeDeg: p.MinimumAltitude, MaximumAltitudeDeg: null, MinimumTimeMinutes: null,
+                UseCustomHorizon: false, HorizonOffsetDeg: null, MeridianWindowMinutes: null,
+                IsMosaic: p.IsMosaic != 0, EnableGrader: true,
+                CreatedAt: createdAtUnix, ActiveAt: null, InactiveAt: null, ImportedFromTsGuid: Provenance(p.TsGuid, p.Id)));
+        }
+
+        // ---- Exposure templates. ----------------------------------------------------------------------------
+        Dictionary<long, Guid> templateIds = [];
+        List<ExposureTemplate> templates = new(ts.Templates.Count);
+        foreach (TsExposureTemplate t in ts.Templates)
+        {
+            if (!profileIds.TryGetValue(t.ProfileId, out Guid profileGuid)) continue;
+            Guid id = DeterministicGuid($"template:{t.Id}");
+            templateIds[t.Id] = id;
+            templates.Add(new ExposureTemplate(
+                id, profileGuid, t.Name, t.FilterName, Gain: t.Gain, OffsetAdu: t.Offset, Binning: t.Bin,
+                ReadoutMode: null, DefaultExposureSeconds: t.DefaultExposure,
+                ImportedFromTsGuid: t.Id.ToString(CultureInfo.InvariantCulture)));
+        }
+
+        // ---- Disk working set (one canonical id per directory). ---------------------------------------------
+        List<WorkingTarget> diskWorking = [.. diskTargets.Select(d =>
+            new WorkingTarget(DeterministicGuid($"disk:{d.DirectoryName}"), d))];
+
+        // ---- Resolve each TS target spatially onto the disk set. --------------------------------------------
+        Dictionary<long, Guid> tsTargetToCanonical = [];
+        List<Target> plannedTargets = [];
+        List<NameMismatch> nameMismatches = [];
+        List<AmbiguousMatch> ambiguousMatches = [];
+        List<UnanchoredTsTarget> unanchored = [];
+        List<InvalidTsTarget> invalidTsTargets = [];
+
+        foreach (TsTarget tst in ts.Targets)
+        {
+            if (tst.ProjectId is not long projectId || !projectIds.ContainsKey(projectId))
+                continue; // orphan TS target (no project) — skip
+
+            if (tst.Ra is not double raHours || tst.Dec is not double decDegrees)
+            {
+                // No coordinates — cannot anchor to disk; keep as planned-only and flag.
+                Guid id = ParseOrDerive(tst.TsGuid, $"target:{tst.Id}");
+                tsTargetToCanonical[tst.Id] = id;
+                plannedTargets.Add(BuildPlanned(tst, id, projectIds[projectId], createdAtUnix));
+                unanchored.Add(new UnanchoredTsTarget(tst.TsGuid, tst.Name));
+                FlagIfSuspect(tst, invalidTsTargets);
+                continue;
+            }
+
+            List<(WorkingTarget Work, double Sep)> candidates = [.. diskWorking
+                .Select(w => (Work: w, Sep: SeparationDegrees(raHours, decDegrees, w.Disk.RaHours, w.Disk.DecDegrees)))
+                .Where(x => x.Sep <= tolerance)
+                .OrderBy(x => x.Sep)];
+
+            if (candidates.Count == 0)
+            {
+                Guid id = ParseOrDerive(tst.TsGuid, $"target:{tst.Id}");
+                tsTargetToCanonical[tst.Id] = id;
+                plannedTargets.Add(BuildPlanned(tst, id, projectIds[projectId], createdAtUnix));
+                FlagIfSuspect(tst, invalidTsTargets);
+                continue;
+            }
+
+            (WorkingTarget nearest, double nearestSep) = candidates[0];
+            nearest.AssignedTs.Add((tst, nearestSep));
+            tsTargetToCanonical[tst.Id] = nearest.Id;
+
+            if (candidates.Count > 1)
+            {
+                ambiguousMatches.Add(new AmbiguousMatch(
+                    tst.TsGuid, tst.Name, [.. candidates.Select(c => c.Work.Disk.DirectoryName)], nearestSep));
+            }
+
+            if (!NameAligned(tst.Name, nearest.Disk))
+            {
+                nameMismatches.Add(new NameMismatch(
+                    tst.TsGuid, tst.Name, nearest.Disk.DirectoryName, nearest.Disk.ObjectName, nearestSep));
+            }
+        }
+
+        // ---- Build canonical disk targets (Actual or Both) + their inventory. -------------------------------
+        List<Target> targets = new(diskWorking.Count + plannedTargets.Count);
+        List<InventoryFilter> inventory = [];
+        List<DuplicateTsTarget> duplicates = [];
+        int bothCount = 0;
+        int actualOnly = 0;
+
+        foreach (WorkingTarget w in diskWorking)
+        {
+            if (w.AssignedTs.Count == 0)
+            {
+                targets.Add(BuildActual(w.Disk, w.Id, createdAtUnix));
+                actualOnly++;
+            }
+            else
+            {
+                TsTarget primary = w.AssignedTs.OrderBy(a => a.Sep).First().Ts;
+                targets.Add(BuildBoth(w.Disk, primary, w.Id, projectIds, createdAtUnix));
+                bothCount++;
+                if (w.AssignedTs.Count > 1)
+                    duplicates.Add(new DuplicateTsTarget(w.Disk.DirectoryName, [.. w.AssignedTs.Select(a => a.Ts.Name)]));
+            }
+
+            foreach (FilterAggregate f in w.Disk.Filters)
+                inventory.Add(ToInventoryFilter(w.Id, f));
+        }
+
+        targets.AddRange(plannedTargets);
+
+        // ---- Exposure plans, rewired to the canonical target id. --------------------------------------------
+        List<ExposurePlan> plans = new(ts.Plans.Count);
+        foreach (TsExposurePlan p in ts.Plans)
+        {
+            if (!tsTargetToCanonical.TryGetValue(p.TargetId, out Guid targetGuid)) continue;
+            if (!templateIds.TryGetValue(p.ExposureTemplateId, out Guid templateGuid)) continue;
+            plans.Add(new ExposurePlan(
+                DeterministicGuid($"plan:{p.Id}"), targetGuid, templateGuid,
+                ExposureSeconds: p.Exposure < 0 ? null : p.Exposure,
+                DesiredCount: p.Desired, AcquiredCount: p.Acquired, AcceptedCount: p.Accepted,
+                Enabled: true, ImportedFromTsGuid: p.Id.ToString(CultureInfo.InvariantCulture)));
+        }
+
+        CatalogGraph graph = new(profiles, projects, templates, targets, plans, inventory);
+        CatalogBuildReport report = new(
+            DiskTargetCount: diskTargets.Count, TsTargetCount: ts.Targets.Count,
+            BothCount: bothCount, PlannedOnlyCount: plannedTargets.Count, ActualOnlyCount: actualOnly,
+            NameMismatches: nameMismatches, AmbiguousMatches: ambiguousMatches,
+            DuplicateTsTargets: duplicates, UnanchoredTsTargets: unanchored, InvalidTsTargets: invalidTsTargets);
+        return (graph, report);
+    }
+
+    // ---- Target builders ------------------------------------------------------------------------------------
+
+    private static Target BuildActual(TargetReport d, Guid id, long now) => new(
+        id, TargetSource.Actual, ProjectId: null, d.DirectoryName, Enabled: true,
+        RaHours: d.RaHours, DecDegreesSigned: d.DecDegrees, Epoch.J2000, RotationDeg: null, RoiPercent: null,
+        Priority: null, DirectoryName: d.DirectoryName, Catalog: d.Catalog, CommonName: d.CommonName,
+        ObjectName: d.ObjectName, ScannedAt: now, CreatedAt: now, ImportedFromTsGuid: null);
+
+    private static Target BuildBoth(TargetReport d, TsTarget ts, Guid id, Dictionary<long, Guid> projectIds, long now) => new(
+        id, TargetSource.Both, projectIds[ts.ProjectId!.Value], d.DirectoryName, Enabled: ts.Active != 0,
+        // Disk coordinates win (plate-solved truth); the disk frames are J2000 astrometry.
+        RaHours: d.RaHours, DecDegreesSigned: d.DecDegrees, Epoch.J2000, RotationDeg: ts.Rotation, RoiPercent: ts.Roi,
+        Priority: SafeTargetPriority(ts.Priority),
+        DirectoryName: d.DirectoryName, Catalog: d.Catalog, CommonName: d.CommonName, ObjectName: d.ObjectName,
+        ScannedAt: now, CreatedAt: now, ImportedFromTsGuid: Provenance(ts.TsGuid, ts.Id));
+
+    private static Target BuildPlanned(TsTarget ts, Guid id, Guid projectGuid, long now) => new(
+        id, TargetSource.Planned, projectGuid, ts.Name, Enabled: ts.Active != 0,
+        // TS is a hand-maintained external plan: normalize/clamp before its values hit CHECK/FK columns.
+        RaHours: NormalizeRaHours(ts.Ra), DecDegreesSigned: ClampDec(ts.Dec), SafeEpoch(ts.EpochCode),
+        RotationDeg: ts.Rotation, RoiPercent: ts.Roi,
+        Priority: SafeTargetPriority(ts.Priority),
+        DirectoryName: null, Catalog: null, CommonName: null, ObjectName: null,
+        ScannedAt: null, CreatedAt: now, ImportedFromTsGuid: Provenance(ts.TsGuid, ts.Id));
+
+    private static InventoryFilter ToInventoryFilter(Guid targetId, FilterAggregate f) => new(
+        targetId, f.FilterCode, f.Purpose, f.FilterName, f.ExposureCount, f.TotalIntegration.TotalSeconds,
+        new DateTimeOffset(f.FirstImagedUtc).ToUnixTimeSeconds(), new DateTimeOffset(f.LastImagedUtc).ToUnixTimeSeconds(),
+        f.Typical.Gain, f.Typical.Offset, f.Typical.SetTempC, f.Typical.Binning.X, f.Typical.Binning.Y,
+        f.Typical.ExposureSec, string.Join(",", f.CamerasSeen));
+
+    // ---- Matching helpers -----------------------------------------------------------------------------------
+
+    /// <summary>Great-circle angular separation in degrees (haversine; RA inputs are decimal hours).</summary>
+    internal static double SeparationDegrees(double raHours1, double dec1, double raHours2, double dec2)
+    {
+        double ra1 = raHours1 * 15.0 * RadPerDeg;
+        double ra2 = raHours2 * 15.0 * RadPerDeg;
+        double d1 = dec1 * RadPerDeg;
+        double d2 = dec2 * RadPerDeg;
+        double dRa = ra2 - ra1;
+        double dDec = d2 - d1;
+        double h = (Math.Sin(dDec / 2.0) * Math.Sin(dDec / 2.0))
+                 + (Math.Cos(d1) * Math.Cos(d2) * Math.Sin(dRa / 2.0) * Math.Sin(dRa / 2.0));
+        return 2.0 * Math.Asin(Math.Min(1.0, Math.Sqrt(h))) * DegPerRad;
+    }
+
+    /// <summary>True if the TS name reasonably corresponds to the disk identity (alphanumeric, case-insensitive).</summary>
+    internal static bool NameAligned(string tsName, TargetReport disk)
+    {
+        string a = Normalize(tsName);
+        if (a.Length == 0) return true; // nothing to disagree with
+
+        foreach (string? candidate in new[] { disk.Catalog, disk.ObjectName, disk.DirectoryName, disk.CommonName })
+        {
+            string b = Normalize(candidate);
+            if (b.Length == 0) continue;
+            if (a == b) return true;
+            if (a.Length >= 2 && b.Length >= 2 &&
+                (a.Contains(b, StringComparison.Ordinal) || b.Contains(a, StringComparison.Ordinal)))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static string Normalize(string? value) =>
+        value is null ? string.Empty : new string([.. value.Where(char.IsLetterOrDigit)]).ToUpperInvariant();
+
+    // ---- Stable id helpers ----------------------------------------------------------------------------------
+
+    private static string Provenance(string? tsGuid, long tsId) =>
+        tsGuid ?? tsId.ToString(CultureInfo.InvariantCulture);
+
+    private static Guid ParseOrDerive(string? tsGuid, string fallbackKey) =>
+        Guid.TryParse(tsGuid, out Guid g) ? g : DeterministicGuid(fallbackKey);
+
+    [SuppressMessage("Security", "CA5351:Do Not Use Broken Cryptographic Algorithms",
+        Justification = "MD5 derives a stable GUID from a row key (UUIDv3 style); not a security mechanism.")]
+    private static Guid DeterministicGuid(string key) => new(MD5.HashData(Encoding.UTF8.GetBytes(key)));
+
+    // ---- Defensive coercion of TS values into FK/CHECK-bound columns ----------------------------------------
+    // The disk path validates/clamps at the scanner; the TS plan does not, so a single out-of-range external row
+    // must never abort the whole rebuild. Unknown enum codes map to a safe default; coordinates are normalized.
+
+    private static Epoch SafeEpoch(int code) => code is 0 or 1 or 2 ? (Epoch)code : Epoch.J2000;
+
+    private static ProjectState SafeState(int state) =>
+        state is 0 or 1 or 2 or 3 ? (ProjectState)state : ProjectState.Draft;
+
+    private static ProjectPriority SafeProjectPriority(int priority) =>
+        priority is 0 or 1 or 2 ? (ProjectPriority)priority : ProjectPriority.Normal;
+
+    // Target priority: -1 = inherit and any unknown value both collapse to NULL (inherit from project).
+    private static ProjectPriority? SafeTargetPriority(int priority) =>
+        priority is 0 or 1 or 2 ? (ProjectPriority)priority : null;
+
+    private static double? NormalizeRaHours(double? ra) => ra is double r ? (((r % 24.0) + 24.0) % 24.0) : null;
+
+    private static double? ClampDec(double? dec) => dec is double d ? Math.Clamp(d, -90.0, 90.0) : null;
+
+    // Records (without rejecting) any TS target whose raw coordinates/epoch were out of range, so the coercion is
+    // visible in the build report rather than silently hidden.
+    private static void FlagIfSuspect(TsTarget t, List<InvalidTsTarget> sink)
+    {
+        List<string> issues = [];
+        if (t.Ra is double ra && (ra < 0.0 || ra >= 24.0))
+            issues.Add(FormattableString.Invariant($"RA {ra:0.###}h out of [0,24)"));
+        if (t.Dec is double dec && (dec < -90.0 || dec > 90.0))
+            issues.Add(FormattableString.Invariant($"Dec {dec:0.###} out of [-90,90]"));
+        if (t.EpochCode is < 0 or > 2)
+            issues.Add(FormattableString.Invariant($"epoch code {t.EpochCode} unknown"));
+        if (issues.Count > 0)
+            sink.Add(new InvalidTsTarget(t.TsGuid, t.Name, string.Join("; ", issues)));
+    }
+
+    // A disk target accumulating the TS targets that resolved onto it (usually 0 or 1; >1 = a TS duplicate).
+    private sealed class WorkingTarget(Guid id, TargetReport disk)
+    {
+        public Guid Id { get; } = id;
+        public TargetReport Disk { get; } = disk;
+        public List<(TsTarget Ts, double Sep)> AssignedTs { get; } = [];
+    }
+}

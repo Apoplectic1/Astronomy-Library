@@ -64,7 +64,8 @@ public sealed class TargetMapper : ITableMapper<Target>
     /// <inheritdoc/>
     public Target Map(SqliteDataReader reader) => new(
         reader.GetGuid("id"),
-        reader.GetGuid("project_id"),
+        (TargetSource)reader.GetInt32("source_id"),
+        reader.GetGuidOrNull("project_id"),
         reader.GetString("name"),
         reader.GetBoolean("enabled"),
         reader.GetDoubleOrNull("ra_hours"),
@@ -73,6 +74,11 @@ public sealed class TargetMapper : ITableMapper<Target>
         reader.GetDoubleOrNull("rotation_deg"),
         reader.GetDoubleOrNull("roi_percent"),
         reader.GetInt32OrNull("priority_id") is int p ? (ProjectPriority)p : null,
+        reader.GetStringOrNull("directory_name"),
+        reader.GetStringOrNull("catalog"),
+        reader.GetStringOrNull("common_name"),
+        reader.GetStringOrNull("object_name"),
+        reader.GetInt64OrNull("scanned_at"),
         reader.GetInt64("created_at"),
         reader.GetStringOrNull("imported_from_ts_guid"));
 }
@@ -122,26 +128,6 @@ public sealed class ExposurePlanMapper : ITableMapper<ExposurePlan>
         reader.GetStringOrNull("imported_from_ts_guid"));
 }
 
-/// <summary>Maps <c>inventory_target</c> rows.</summary>
-public sealed class InventoryTargetMapper : ITableMapper<InventoryTarget>
-{
-    /// <summary>Shared stateless instance.</summary>
-    public static readonly InventoryTargetMapper Instance = new();
-
-    /// <inheritdoc/>
-    public string TableName => "inventory_target";
-
-    /// <inheritdoc/>
-    public InventoryTarget Map(SqliteDataReader reader) => new(
-        reader.GetString("directory_name"),
-        reader.GetString("catalog"),
-        reader.GetStringOrNull("common_name"),
-        reader.GetString("object_name"),
-        reader.GetDouble("ra_hours"),
-        reader.GetDouble("dec_degrees_signed"),
-        reader.GetInt64("scanned_at"));
-}
-
 /// <summary>Maps <c>inventory_filter</c> rows.</summary>
 public sealed class InventoryFilterMapper : ITableMapper<InventoryFilter>
 {
@@ -153,7 +139,7 @@ public sealed class InventoryFilterMapper : ITableMapper<InventoryFilter>
 
     /// <inheritdoc/>
     public InventoryFilter Map(SqliteDataReader reader) => new(
-        reader.GetString("directory_name"),
+        reader.GetGuid("target_id"),
         reader.GetString("filter_code"),
         (FilterPurpose)reader.GetInt32("frame_purpose_id"),
         reader.GetString("filter_name"),

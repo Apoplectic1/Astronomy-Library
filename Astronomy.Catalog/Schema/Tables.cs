@@ -29,10 +29,16 @@ public sealed record Project(
     long? InactiveAt,
     string? ImportedFromTsGuid);
 
-/// <summary>A sky target. RA is decimal hours [0,24); Dec is signed decimal degrees [-90,90].</summary>
+/// <summary>
+/// A canonical sky target carrying both facets of one object: disk identity (the actuals it was shot under) and
+/// plan attributes (its TS project/goal). <see cref="Source"/> says which facets are present. RA is decimal hours
+/// [0,24); Dec is signed decimal degrees [-90,90]. When a target is <see cref="TargetSource.Both"/>, the disk
+/// (plate-solved) coordinates are canonical and <see cref="ImportedFromTsGuid"/> is retained for write-back to TS.
+/// </summary>
 public sealed record Target(
     Guid Id,
-    Guid ProjectId,
+    TargetSource Source,
+    Guid? ProjectId,
     string Name,
     bool Enabled,
     double? RaHours,
@@ -41,6 +47,11 @@ public sealed record Target(
     double? RotationDeg,
     double? RoiPercent,
     ProjectPriority? Priority,
+    string? DirectoryName,
+    string? Catalog,
+    string? CommonName,
+    string? ObjectName,
+    long? ScannedAt,
     long CreatedAt,
     string? ImportedFromTsGuid);
 
@@ -70,20 +81,12 @@ public sealed record ExposurePlan(
     string? ImportedFromTsGuid);
 
 // ----- Inventory plane (persisted ImageLibraryScanner aggregates) -----------
-
-/// <summary>A scanned target's identity + coordinates (from <c>TargetReport</c>).</summary>
-public sealed record InventoryTarget(
-    string DirectoryName,
-    string Catalog,
-    string? CommonName,
-    string ObjectName,
-    double RaHours,
-    double DecDegreesSigned,
-    long ScannedAt);
+// A target's identity + coordinates live on the canonical Target (source Actual/Both); only the per-filter
+// actuals remain a separate table, keyed to that target.
 
 /// <summary>Per-(target, filter, purpose) imaging totals/history (from <c>FilterAggregate</c> + <c>TypicalSettings</c>).</summary>
 public sealed record InventoryFilter(
-    string DirectoryName,
+    Guid TargetId,
     string FilterCode,
     FilterPurpose Purpose,
     string FilterName,

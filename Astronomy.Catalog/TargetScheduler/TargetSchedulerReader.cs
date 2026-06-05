@@ -65,6 +65,9 @@ public sealed class TargetSchedulerReader : IDisposable
     /// <summary>True when the database is a newer schema than this reader was validated against.</summary>
     public bool IsNewerThanTested => SchemaUserVersion > TestedUserVersion;
 
+    /// <summary>Reads the whole plan plane (projects, targets, templates, plans) in one pass.</summary>
+    public TsPlanData ReadPlanData() => new(ReadProjects(), ReadTargets(), ReadExposureTemplates(), ReadExposurePlans());
+
     /// <summary>Reads all TS projects.</summary>
     public IReadOnlyList<TsProject> ReadProjects() => Query(
         "SELECT Id, profileId, name, state, priority, minimumaltitude, isMosaic, guid FROM project;",

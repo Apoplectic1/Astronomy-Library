@@ -1,5 +1,5 @@
+using Astronomy.Catalog.Build;
 using Astronomy.Catalog.Data;
-using Astronomy.Catalog.Scan;
 using Astronomy.Catalog.Schema;
 using Microsoft.Data.Sqlite;
 
@@ -7,9 +7,10 @@ namespace Astronomy.Catalog;
 
 /// <summary>
 /// Read/write access to a <c>Catalog.db</c> file. TCM (the writer) opens via <see cref="Open"/>; read-only
-/// consumers via <see cref="OpenReadOnly"/>. Owns a single open connection; dispose to close. Holds the plan-plane
-/// CRUD (plus <see cref="ImportPlan"/> for the one-shot TS import) and the disk-derived inventory
-/// (<see cref="ReplaceInventory"/> persists an <see cref="ImageLibraryReport"/> from <see cref="ImageLibraryScanner"/>).
+/// consumers via <see cref="OpenReadOnly"/>. Owns a single open connection; dispose to close. The catalog is fully
+/// derived, so writing is one atomic full-rebuild — <see cref="WriteCatalog"/> replaces the entire graph from a
+/// resolved <see cref="CatalogGraph"/> (see <see cref="CatalogBuilder"/>). The individual <c>Insert*</c> methods
+/// back that rebuild and remain available for ad-hoc/test use.
 /// </summary>
 public sealed class CatalogStore : IDisposable
 {
@@ -52,17 +53,36 @@ public sealed class CatalogStore : IDisposable
         ("$meridian", p.MeridianWindowMinutes), ("$mosaic", Bit(p.IsMosaic)), ("$grader", Bit(p.EnableGrader)),
         ("$created", p.CreatedAt), ("$active", p.ActiveAt), ("$inactive", p.InactiveAt), ("$ts", p.ImportedFromTsGuid));
 
-    /// <summary>Inserts a <see cref="Target"/> row.</summary>
+    /// <summary>Inserts a canonical <see cref="Target"/> row (disk identity + plan attributes).</summary>
     public void InsertTarget(Target t, SqliteTransaction? transaction = null) => Execute(transaction,
         """
-        INSERT INTO target (id, project_id, name, enabled, ra_hours, dec_degrees_signed, epoch_id, rotation_deg,
-            roi_percent, priority_id, created_at, imported_from_ts_guid)
-        VALUES ($id, $project, $name, $enabled, $ra, $dec, $epoch, $rotation, $roi, $priority, $created, $ts);
+        INSERT INTO target (id, source_id, project_id, name, enabled, ra_hours, dec_degrees_signed, epoch_id,
+            rotation_deg, roi_percent, priority_id, directory_name, catalog, common_name, object_name, scanned_at,
+            created_at, imported_from_ts_guid)
+        VALUES ($id, $source, $project, $name, $enabled, $ra, $dec, $epoch, $rotation, $roi, $priority, $dir, $cat,
+            $common, $obj, $scanned, $created, $ts);
         """,
-        ("$id", GuidBlob.ToBlob(t.Id)), ("$project", GuidBlob.ToBlob(t.ProjectId)), ("$name", t.Name),
+        ("$id", GuidBlob.ToBlob(t.Id)), ("$source", (int)t.Source),
+        ("$project", t.ProjectId is Guid pid ? GuidBlob.ToBlob(pid) : null), ("$name", t.Name),
         ("$enabled", Bit(t.Enabled)), ("$ra", t.RaHours), ("$dec", t.DecDegreesSigned), ("$epoch", (int)t.Epoch),
         ("$rotation", t.RotationDeg), ("$roi", t.RoiPercent), ("$priority", (int?)t.Priority),
-        ("$created", t.CreatedAt), ("$ts", t.ImportedFromTsGuid));
+        ("$dir", t.DirectoryName), ("$cat", t.Catalog), ("$common", t.CommonName), ("$obj", t.ObjectName),
+        ("$scanned", t.ScannedAt), ("$created", t.CreatedAt), ("$ts", t.ImportedFromTsGuid));
+
+    /// <summary>Inserts an <see cref="InventoryFilter"/> row (per-target/filter actuals).</summary>
+    public void InsertInventoryFilter(InventoryFilter f, SqliteTransaction? transaction = null) => Execute(transaction,
+        """
+        INSERT INTO inventory_filter (target_id, filter_code, frame_purpose_id, filter_name, exposure_count,
+            total_integration_seconds, first_imaged_at, last_imaged_at, typical_gain, typical_offset,
+            typical_set_temp_c, typical_binning_x, typical_binning_y, typical_exposure_seconds, cameras)
+        VALUES ($target, $code, $purpose, $name, $count, $integ, $first, $last, $gain, $offset, $temp, $binx, $biny,
+            $exp, $cameras);
+        """,
+        ("$target", GuidBlob.ToBlob(f.TargetId)), ("$code", f.FilterCode), ("$purpose", (int)f.Purpose),
+        ("$name", f.FilterName), ("$count", f.ExposureCount), ("$integ", f.TotalIntegrationSeconds),
+        ("$first", f.FirstImagedAt), ("$last", f.LastImagedAt), ("$gain", f.TypicalGain), ("$offset", f.TypicalOffset),
+        ("$temp", f.TypicalSetTempC), ("$binx", f.TypicalBinningX), ("$biny", f.TypicalBinningY),
+        ("$exp", f.TypicalExposureSeconds), ("$cameras", f.Cameras));
 
     /// <summary>Inserts an <see cref="ExposureTemplate"/> row.</summary>
     public void InsertExposureTemplate(ExposureTemplate t, SqliteTransaction? transaction = null) => Execute(transaction,
@@ -88,32 +108,25 @@ public sealed class CatalogStore : IDisposable
         ("$enabled", Bit(p.Enabled)), ("$ts", p.ImportedFromTsGuid));
 
     /// <summary>
-    /// Replaces the entire plan plane with the given rows (the one-shot TS import). Transactional: clears
-    /// profile/project/target/exposure_template/exposure_plan, then inserts in FK order.
+    /// Replaces the entire catalog with a resolved <see cref="CatalogGraph"/> (the full rebuild). Transactional:
+    /// clears every plan/inventory table, then inserts in foreign-key order
+    /// (profile → project → exposure_template → target → exposure_plan → inventory_filter).
     /// </summary>
-    public void ImportPlan(
-        IReadOnlyList<Profile> profiles,
-        IReadOnlyList<Project> projects,
-        IReadOnlyList<Target> targets,
-        IReadOnlyList<ExposureTemplate> templates,
-        IReadOnlyList<ExposurePlan> plans)
+    public void WriteCatalog(CatalogGraph graph)
     {
-        ArgumentNullException.ThrowIfNull(profiles);
-        ArgumentNullException.ThrowIfNull(projects);
-        ArgumentNullException.ThrowIfNull(targets);
-        ArgumentNullException.ThrowIfNull(templates);
-        ArgumentNullException.ThrowIfNull(plans);
+        ArgumentNullException.ThrowIfNull(graph);
 
         using SqliteTransaction tx = _connection.BeginTransaction();
 
-        foreach (string table in new[] { "exposure_plan", "target", "exposure_template", "project", "profile" })
+        foreach (string table in new[] { "inventory_filter", "exposure_plan", "target", "exposure_template", "project", "profile" })
             Execute(tx, $"DELETE FROM {table};");
 
-        foreach (Profile p in profiles) InsertProfile(p, tx);
-        foreach (Project p in projects) InsertProject(p, tx);
-        foreach (Target t in targets) InsertTarget(t, tx);
-        foreach (ExposureTemplate t in templates) InsertExposureTemplate(t, tx);
-        foreach (ExposurePlan p in plans) InsertExposurePlan(p, tx);
+        foreach (Profile p in graph.Profiles) InsertProfile(p, tx);
+        foreach (Project p in graph.Projects) InsertProject(p, tx);
+        foreach (ExposureTemplate t in graph.Templates) InsertExposureTemplate(t, tx);
+        foreach (Target t in graph.Targets) InsertTarget(t, tx);
+        foreach (ExposurePlan p in graph.Plans) InsertExposurePlan(p, tx);
+        foreach (InventoryFilter f in graph.InventoryFilters) InsertInventoryFilter(f, tx);
 
         tx.Commit();
     }
@@ -126,8 +139,16 @@ public sealed class CatalogStore : IDisposable
     /// <summary>All projects.</summary>
     public IReadOnlyList<Project> GetProjects() => Query("SELECT * FROM project;", ProjectMapper.Instance);
 
-    /// <summary>All targets.</summary>
+    /// <summary>All targets (actual, planned, and both).</summary>
     public IReadOnlyList<Target> GetTargets() => Query("SELECT * FROM target;", TargetMapper.Instance);
+
+    /// <summary>
+    /// Targets that have frames on disk — i.e. they have been shot (<see cref="TargetSource.Actual"/> OR
+    /// <see cref="TargetSource.Both"/>). This is XFM's actual-only world: a <c>Both</c> target has been shot (it
+    /// just also carries a plan), so it belongs here; only planned-only targets (no files yet) are excluded.
+    /// </summary>
+    public IReadOnlyList<Target> GetShotTargets() =>
+        Query("SELECT * FROM target WHERE source_id IN (0, 2);", TargetMapper.Instance);
 
     /// <summary>Targets belonging to a project.</summary>
     public IReadOnlyList<Target> GetTargets(Guid projectId) =>
@@ -147,68 +168,13 @@ public sealed class CatalogStore : IDisposable
 
     // ---- Inventory ---------------------------------------------------------
 
-    /// <summary>All scanned targets.</summary>
-    public IReadOnlyList<InventoryTarget> GetInventoryTargets() =>
-        Query("SELECT * FROM inventory_target;", InventoryTargetMapper.Instance);
-
     /// <summary>All per-filter inventory rows.</summary>
     public IReadOnlyList<InventoryFilter> GetInventoryFilters() =>
         Query("SELECT * FROM inventory_filter;", InventoryFilterMapper.Instance);
 
-    /// <summary>Per-filter inventory rows for one scanned target.</summary>
-    public IReadOnlyList<InventoryFilter> GetInventoryFilters(string directoryName) =>
-        Query("SELECT * FROM inventory_filter WHERE directory_name = $d;", InventoryFilterMapper.Instance, ("$d", directoryName));
-
-    /// <summary>
-    /// Replaces the entire inventory with the aggregates from a fresh scan. Transactional: clears
-    /// <c>inventory_filter</c>/<c>inventory_target</c>, then inserts each <see cref="TargetReport"/> and its
-    /// <see cref="FilterAggregate"/>s.
-    /// </summary>
-    public void ReplaceInventory(ImageLibraryReport report)
-    {
-        ArgumentNullException.ThrowIfNull(report);
-        long scannedAt = new DateTimeOffset(report.ScannedAtUtc).ToUnixTimeSeconds();
-
-        using SqliteTransaction tx = _connection.BeginTransaction();
-
-        Execute(tx, "DELETE FROM inventory_filter;");
-        Execute(tx, "DELETE FROM inventory_target;");
-
-        foreach (TargetReport t in report.Targets)
-        {
-            Execute(tx,
-                """
-                INSERT INTO inventory_target (directory_name, catalog, common_name, object_name, ra_hours,
-                    dec_degrees_signed, scanned_at)
-                VALUES ($dir, $cat, $common, $obj, $ra, $dec, $scanned);
-                """,
-                ("$dir", t.DirectoryName), ("$cat", t.Catalog), ("$common", t.CommonName), ("$obj", t.ObjectName),
-                ("$ra", t.RaHours), ("$dec", t.DecDegrees), ("$scanned", scannedAt));
-
-            foreach (FilterAggregate f in t.Filters)
-            {
-                Execute(tx,
-                    """
-                    INSERT INTO inventory_filter (directory_name, filter_code, frame_purpose_id, filter_name,
-                        exposure_count, total_integration_seconds, first_imaged_at, last_imaged_at, typical_gain,
-                        typical_offset, typical_set_temp_c, typical_binning_x, typical_binning_y,
-                        typical_exposure_seconds, cameras)
-                    VALUES ($dir, $code, $purpose, $name, $count, $integ, $first, $last, $gain, $offset, $temp,
-                        $binx, $biny, $exp, $cameras);
-                    """,
-                    ("$dir", t.DirectoryName), ("$code", f.FilterCode), ("$purpose", (int)f.Purpose),
-                    ("$name", f.FilterName), ("$count", f.ExposureCount),
-                    ("$integ", f.TotalIntegration.TotalSeconds),
-                    ("$first", new DateTimeOffset(f.FirstImagedUtc).ToUnixTimeSeconds()),
-                    ("$last", new DateTimeOffset(f.LastImagedUtc).ToUnixTimeSeconds()),
-                    ("$gain", f.Typical.Gain), ("$offset", f.Typical.Offset), ("$temp", f.Typical.SetTempC),
-                    ("$binx", f.Typical.Binning.X), ("$biny", f.Typical.Binning.Y),
-                    ("$exp", f.Typical.ExposureSec), ("$cameras", string.Join(",", f.CamerasSeen)));
-            }
-        }
-
-        tx.Commit();
-    }
+    /// <summary>Per-filter inventory rows for one canonical target.</summary>
+    public IReadOnlyList<InventoryFilter> GetInventoryFilters(Guid targetId) =>
+        Query("SELECT * FROM inventory_filter WHERE target_id = $t;", InventoryFilterMapper.Instance, ("$t", GuidBlob.ToBlob(targetId)));
 
     // ---- Helpers -----------------------------------------------------------
 

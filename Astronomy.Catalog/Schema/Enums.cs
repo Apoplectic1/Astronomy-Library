@@ -35,5 +35,16 @@ public enum Epoch
     J2000 = 2,
 }
 
+/// <summary>How a target entered the catalog. Mirrors the <c>target_source</c> lookup table.</summary>
+public enum TargetSource
+{
+    /// <summary>Shot on disk, with no matching TS plan (id 0) — actuals only.</summary>
+    Actual = 0,
+    /// <summary>Planned in TS but not yet shot on disk (id 1) — goals only, 0 actual.</summary>
+    Planned = 1,
+    /// <summary>Both planned (TS) and shot (disk) — the two resolved onto one canonical target (id 2).</summary>
+    Both = 2,
+}
+
 // Light/Stars is the scanner's Astronomy.Catalog.Scan.FilterPurpose (id-aligned with the frame_purpose lookup:
 // Light = 0, Stars = 1) — no separate catalog enum needed.

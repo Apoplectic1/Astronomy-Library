@@ -1,4 +1,5 @@
 using Astronomy.Catalog;
+using Astronomy.Catalog.Build;
 using Astronomy.Catalog.Scan;
 using Astronomy.Catalog.Schema;
 using Microsoft.Data.Sqlite;
@@ -19,12 +20,13 @@ public sealed class SchemaManagerTests
             Assert.Equal("wal", (string)TestSupport.Scalar(connection, "PRAGMA journal_mode;")!);
 
             foreach (string table in new[] { "profile", "project", "target", "exposure_template", "exposure_plan",
-                "inventory_target", "inventory_filter" })
+                "inventory_filter", "target_source" })
                 Assert.Equal(1, TestSupport.ScalarLong(connection, $"SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='{table}';"));
 
             // Lookup tables seeded.
             Assert.Equal(4, TestSupport.ScalarLong(connection, "SELECT COUNT(*) FROM project_state;"));
             Assert.Equal(2, TestSupport.ScalarLong(connection, "SELECT COUNT(*) FROM frame_purpose;"));
+            Assert.Equal(3, TestSupport.ScalarLong(connection, "SELECT COUNT(*) FROM target_source;"));
         }
         finally
         {
@@ -44,6 +46,7 @@ public sealed class SchemaManagerTests
             // Re-applying the schema (CREATE IF NOT EXISTS + INSERT OR IGNORE) must not duplicate seed rows.
             Assert.Equal(2, TestSupport.ScalarLong(second, "SELECT COUNT(*) FROM frame_purpose;"));
             Assert.Equal(3, TestSupport.ScalarLong(second, "SELECT COUNT(*) FROM epoch;"));
+            Assert.Equal(3, TestSupport.ScalarLong(second, "SELECT COUNT(*) FROM target_source;"));
         }
         finally
         {
@@ -73,9 +76,12 @@ public sealed class CatalogStoreTests
                 EnableGrader: true, CreatedAt: now, ActiveAt: now, InactiveAt: null, ImportedFromTsGuid: null);
             store.InsertProject(project);
 
+            // A fully-populated "Both" target exercises every column (disk identity + plan attributes).
             Target target = new(
-                Guid.NewGuid(), project.Id, "M42", Enabled: true, RaHours: 5.59, DecDegreesSigned: -5.39,
-                Epoch.J2000, RotationDeg: 0.0, RoiPercent: 100.0, Priority: null, CreatedAt: now, ImportedFromTsGuid: null);
+                Guid.NewGuid(), TargetSource.Both, project.Id, "M42 - Orion", Enabled: true, RaHours: 5.59,
+                DecDegreesSigned: -5.39, Epoch.J2000, RotationDeg: 0.0, RoiPercent: 100.0, Priority: null,
+                DirectoryName: "M42 - Orion", Catalog: "M42", CommonName: "Orion", ObjectName: "M42",
+                ScannedAt: now, CreatedAt: now, ImportedFromTsGuid: "ts-target-1");
             store.InsertTarget(target);
 
             ExposureTemplate template = new(
@@ -90,6 +96,7 @@ public sealed class CatalogStoreTests
 
             Assert.Equal(project, Assert.Single(store.GetProjects()));
             Assert.Equal(target, Assert.Single(store.GetTargets(project.Id)));
+            Assert.Equal(target, Assert.Single(store.GetShotTargets()));
             Assert.Equal(plan, Assert.Single(store.GetExposurePlans(target.Id)));
         }
         finally
@@ -99,47 +106,24 @@ public sealed class CatalogStoreTests
     }
 
     [Fact]
-    public void ReplaceInventory_PersistsScannerAggregates()
+    public void WriteCatalog_RoundTrips_Graph_AndFullyReplaces()
     {
         string path = TestSupport.NewDbPath();
+        long now = TestSupport.NowUnix();
         try
         {
             using CatalogStore store = CatalogStore.Open(path);
 
-            store.ReplaceInventory(SampleReport());
+            CatalogGraph graph = SampleGraph(now, out Target target, out ExposurePlan plan, out InventoryFilter inventory);
+            store.WriteCatalog(graph);
 
-            InventoryTarget it = Assert.Single(store.GetInventoryTargets());
-            Assert.Equal("M42 - Orion", it.DirectoryName);
-            Assert.Equal("M42", it.Catalog);
-            Assert.Equal("Orion", it.CommonName);
-            Assert.Equal(5.59, it.RaHours);
+            Assert.Equal(target, Assert.Single(store.GetShotTargets()));
+            Assert.Equal(inventory, Assert.Single(store.GetInventoryFilters(target.Id)));
+            Assert.Equal(plan, Assert.Single(store.GetExposurePlans(target.Id)));
 
-            InventoryFilter inf = Assert.Single(store.GetInventoryFilters("M42 - Orion"));
-            Assert.Equal("H", inf.FilterName);
-            Assert.Equal(FilterPurpose.Light, inf.Purpose);
-            Assert.Equal(12, inf.ExposureCount);
-            Assert.Equal(3600.0, inf.TotalIntegrationSeconds);
-            Assert.Equal(100, inf.TypicalGain);
-            Assert.Equal(1, inf.TypicalBinningX);
-            Assert.Equal("Z533", inf.Cameras);
-        }
-        finally
-        {
-            TestSupport.Cleanup(path);
-        }
-    }
-
-    [Fact]
-    public void ReplaceInventory_IsAFullReplace()
-    {
-        string path = TestSupport.NewDbPath();
-        try
-        {
-            using CatalogStore store = CatalogStore.Open(path);
-            store.ReplaceInventory(SampleReport());
-            store.ReplaceInventory(SampleReport()); // second scan replaces, not appends
-
-            Assert.Single(store.GetInventoryTargets());
+            // Second write fully replaces, not appends.
+            store.WriteCatalog(graph);
+            Assert.Single(store.GetTargets());
             Assert.Single(store.GetInventoryFilters());
         }
         finally
@@ -148,19 +132,28 @@ public sealed class CatalogStoreTests
         }
     }
 
-    private static ImageLibraryReport SampleReport()
+    private static CatalogGraph SampleGraph(long now, out Target target, out ExposurePlan plan, out InventoryFilter inventory)
     {
-        DateTime first = new(2024, 1, 1, 22, 0, 0, DateTimeKind.Utc);
-        TypicalSettings typical = new(gain: 100, offset: 50, setTempC: -10.0, binning: (1, 1), exposureSec: 300.0);
-        FilterAggregate ha = new(
-            filterName: "H", filterCode: "H", purpose: FilterPurpose.Light, exposureCount: 12,
-            totalIntegration: TimeSpan.FromSeconds(3600), firstImagedUtc: first, lastImagedUtc: first.AddHours(2),
-            typical: typical, camerasSeen: new[] { "Z533" });
-        TargetReport target = new(
-            directoryName: "M42 - Orion", catalog: "M42", commonName: "Orion", objectName: "M42",
-            raHours: 5.59, decDegrees: -5.39, filters: new[] { ha });
-        return new ImageLibraryReport(
-            libraryRoot: @"C:\proc", scannedAtUtc: new DateTime(2024, 6, 1, 12, 0, 0, DateTimeKind.Utc),
-            targets: new[] { target }, skippedFiles: new Dictionary<string, string>());
+        Profile profile = new(Guid.NewGuid(), "Penns Park", "nina-guid", now);
+        Project project = new(
+            Guid.NewGuid(), profile.Id, "Winter Nebulae", null, ProjectState.Active, ProjectPriority.Normal,
+            null, null, null, false, null, null, false, true, now, null, null, "ts-project-1");
+        Guid targetId = Guid.NewGuid();
+        target = new(
+            targetId, TargetSource.Both, project.Id, "M42 - Orion", Enabled: true, RaHours: 5.59,
+            DecDegreesSigned: -5.39, Epoch.J2000, RotationDeg: null, RoiPercent: null, Priority: null,
+            DirectoryName: "M42 - Orion", Catalog: "M42", CommonName: "Orion", ObjectName: "M42",
+            ScannedAt: now, CreatedAt: now, ImportedFromTsGuid: "ts-target-1");
+        ExposureTemplate template = new(
+            Guid.NewGuid(), profile.Id, "Ha 3nm", "H", 100, 50, 1, null, 300.0, "ts-template-1");
+        plan = new(
+            Guid.NewGuid(), targetId, template.Id, ExposureSeconds: 300.0, DesiredCount: 60, AcquiredCount: 20,
+            AcceptedCount: 18, Enabled: true, ImportedFromTsGuid: "ts-plan-1");
+        inventory = new(
+            targetId, "H", FilterPurpose.Light, "H", ExposureCount: 12, TotalIntegrationSeconds: 3600.0,
+            FirstImagedAt: 1_700_000_000, LastImagedAt: 1_700_007_200, TypicalGain: 100, TypicalOffset: 50,
+            TypicalSetTempC: -10.0, TypicalBinningX: 1, TypicalBinningY: 1, TypicalExposureSeconds: 300.0,
+            Cameras: "Z533");
+        return new CatalogGraph([profile], [project], [template], [target], [plan], [inventory]);
     }
 }
