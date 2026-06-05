@@ -1,5 +1,15 @@
 # Astronomy Library — Roadmap
 
+## Next up: catalog write-back to TS (`TargetSchedulerWriter`)
+
+The catalog now reconciles disk (actual) ↔ TS (plan) onto one canonical target and computes goal-vs-actual (the
+two entries below). The open thread is **Phase 4**: write reconciled disk-derived counts (and plan edits) back
+into TS's `schedulerdb.sqlite`, mapping catalog → exact TS rows via the retained `imported_from_ts_guid`
+provenance. TS's own `acquired_count` is badly stale vs disk (real example: TS said 0 H frames, disk has 140), so
+the write-back keeps TS usable while it's still the capture driver. Driven from TCM
+(`E:\Projects\VisualStudio\Astronomy\TargetCatalogManager`, ROADMAP Phase 4). Caveat: the live TS DB lives on the
+imaging PC (cross-machine; WAL share caveat).
+
 ## Recently shipped (2026-06): Astronomy.Catalog — goal-vs-actual reconciliation
 
 `Reconcile/` joins TS goals to disk actuals so consumers can answer "how close is each target/filter to its
