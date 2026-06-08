@@ -147,12 +147,11 @@ public static class ImageLibraryScanner
     internal static (string Code, FilterPurpose Purpose) ParseFilterDirName(string dirName)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(dirName);
-        const string starsPrefix = "Stars ";
-        if (dirName.StartsWith(starsPrefix, StringComparison.OrdinalIgnoreCase))
-        {
-            return (dirName[starsPrefix.Length..].Trim(), FilterPurpose.Stars);
-        }
-        return (dirName.Trim(), FilterPurpose.Light);
+        FilterPurpose purpose = FilterPurposeClassifier.Classify(dirName);
+        string code = purpose == FilterPurpose.Stars
+            ? dirName[FilterPurposeClassifier.StarsPrefix.Length..].Trim()
+            : dirName.Trim();
+        return (code, purpose);
     }
 
     /// <summary>
