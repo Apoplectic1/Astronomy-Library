@@ -5,25 +5,26 @@ using Xunit;
 
 namespace Astronomy.Catalog.Tests;
 
-// Integration: build a real catalog (disk library + a COPY of the pinned TS snapshot), then exercise the writer
-// against the copy. Gated on BOTH the snapshot and the disk library being present (without the library every
-// target is Planned-only and there is nothing to write) — silent no-op otherwise, matching the suite convention.
+// Integration: build a real catalog (disk library + a COPY of the local TS working db), then exercise the writer
+// against the copy. Gated on BOTH the TS db and the disk library being present (without the library every target
+// is Planned-only and there is nothing to write) — silent no-op otherwise, matching the suite convention. Always
+// writes a temp COPY, never the source, so a manual `tcm writeback --apply` on the working db can't affect it.
 public sealed class TargetSchedulerWriterTests
 {
-    private const string SnapshotPath =
-        @"E:\Projects\VisualStudio\Astronomy\IntervalScheduler\TS DataBase Example\schedulerdb.sqlite";
+    private const string TsDbPath =
+        @"E:\Projects\VisualStudio\Astronomy\TargetCatalogManager\TS Database\schedulerdb.sqlite";
     private const string LibraryPath = @"E:\Photography\Astro Photography\Processing";
 
     [Fact]
     public async Task Apply_WritesDiskCounts_AndVerifies()
     {
-        if (!File.Exists(SnapshotPath) || !Directory.Exists(LibraryPath))
+        if (!File.Exists(TsDbPath) || !Directory.Exists(LibraryPath))
             return;
 
         string catalog = TestSupport.NewDbPath();
         string tsCopy = TestSupport.NewDbPath();
-        File.Copy(SnapshotPath, tsCopy, overwrite: true);
-        File.SetAttributes(tsCopy, FileAttributes.Normal);   // pinned snapshot is read-only; the copy inherits it
+        File.Copy(TsDbPath, tsCopy, overwrite: true);
+        File.SetAttributes(tsCopy, FileAttributes.Normal);   // defensive: a read-only source would yield a read-only copy
         try
         {
             WriteBackPlan plan = await BuildPlanAsync(catalog, tsCopy);
@@ -32,7 +33,7 @@ public sealed class TargetSchedulerWriterTests
             WriteBackResult result;
             using (TargetSchedulerWriter writer = new(tsCopy))
             {
-                Assert.Equal(TargetSchedulerWriter.RequiredUserVersion, writer.SchemaUserVersion);
+                Assert.True(writer.HasRequiredColumns);   // exposureplan has acquired/accepted/Id (version-agnostic)
                 Assert.False(writer.HasOpenSidecar);
                 result = writer.Execute(plan, apply: true);
             }
@@ -56,13 +57,13 @@ public sealed class TargetSchedulerWriterTests
     [Fact]
     public async Task DryRun_DoesNotMutate()
     {
-        if (!File.Exists(SnapshotPath) || !Directory.Exists(LibraryPath))
+        if (!File.Exists(TsDbPath) || !Directory.Exists(LibraryPath))
             return;
 
         string catalog = TestSupport.NewDbPath();
         string tsCopy = TestSupport.NewDbPath();
-        File.Copy(SnapshotPath, tsCopy, overwrite: true);
-        File.SetAttributes(tsCopy, FileAttributes.Normal);   // pinned snapshot is read-only; the copy inherits it
+        File.Copy(TsDbPath, tsCopy, overwrite: true);
+        File.SetAttributes(tsCopy, FileAttributes.Normal);
         try
         {
             WriteBackPlan plan = await BuildPlanAsync(catalog, tsCopy);

@@ -5,33 +5,31 @@ namespace Astronomy.Catalog.Tests;
 
 public sealed class TargetSchedulerReaderTests
 {
-    // The pinned TS snapshot documented in TS_SCHEDULER_INGEST.md (schema user_version 24).
-    private const string SnapshotPath =
-        @"E:\Projects\VisualStudio\Astronomy\IntervalScheduler\TS DataBase Example\schedulerdb.sqlite";
-
-    // Documented row counts for the pinned snapshot.
-    private const int ExpectedProjects = 10;
-    private const int ExpectedTargets = 102;
-    private const int ExpectedExposurePlans = 662;
-    private const int ExpectedAcquiredImages = 1178;
+    // Local TS working db under TCM's TS Database/ (a re-copyable BIRDWATCHER snapshot on the NINA-nightly schema).
+    // It is a LIVING db (re-copied as imaging progresses + schema bumps each nightly), so assertions are structural
+    // invariants, not exact counts or an exact user_version.
+    private const string TsDbPath =
+        @"E:\Projects\VisualStudio\Astronomy\TargetCatalogManager\TS Database\schedulerdb.sqlite";
 
     [Fact]
-    public void ReadsPinnedSnapshot_CountsAndInvariants()
+    public void ReadsDevDb_Invariants()
     {
-        if (!File.Exists(SnapshotPath))
-            return; // Silent no-op when the pinned snapshot isn't present (matches the NINA smoke-test convention).
+        if (!File.Exists(TsDbPath))
+            return; // silent no-op when the dev db isn't present (matches the suite convention)
 
-        using TargetSchedulerReader reader = new(SnapshotPath);
+        using TargetSchedulerReader reader = new(TsDbPath);
 
-        Assert.Equal(TargetSchedulerReader.TestedUserVersion, reader.SchemaUserVersion);
-        Assert.False(reader.IsNewerThanTested);
+        // Schema floor: at least the baseline we support. Newer-than-tested is allowed — the nightly bumps
+        // user_version regularly, and the reader proceeds regardless (IsNewerThanTested is only a soft signal).
+        Assert.True(reader.SchemaUserVersion >= 24);
 
-        Assert.Equal(ExpectedProjects, reader.ReadProjects().Count);
-        Assert.Equal(ExpectedExposurePlans, reader.ReadExposurePlans().Count);
-        Assert.Equal(ExpectedAcquiredImages, reader.ReadAcquiredImages().Count);
+        Assert.NotEmpty(reader.ReadProjects());
+        Assert.NotEmpty(reader.ReadExposureTemplates());
+        Assert.NotEmpty(reader.ReadExposurePlans());
+        _ = reader.ReadAcquiredImages();   // smoke: reads without throwing (count varies with imaging)
 
         IReadOnlyList<TsTarget> targets = reader.ReadTargets();
-        Assert.Equal(ExpectedTargets, targets.Count);
+        Assert.NotEmpty(targets);
 
         // Documented invariants: all J2000, coordinates within range.
         Assert.All(targets, t =>

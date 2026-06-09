@@ -30,8 +30,8 @@ public sealed record TsAcquiredImage(long Id, long ProjectId, long TargetId, lon
 /// </summary>
 public sealed class TargetSchedulerReader : IDisposable
 {
-    /// <summary>The TS schema version this reader was validated against (the pinned snapshot).</summary>
-    public const long TestedUserVersion = 24;
+    /// <summary>The TS schema version this reader was last validated against (a soft signal — reads proceed regardless; see <see cref="IsNewerThanTested"/>).</summary>
+    public const long TestedUserVersion = 25;
 
     private readonly SqliteConnection _connection;
 

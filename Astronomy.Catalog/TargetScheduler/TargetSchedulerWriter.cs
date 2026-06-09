@@ -33,16 +33,15 @@ public sealed record WriteBackResult(
 /// <summary>
 /// Writes reconciled disk counts into a <b>local</b> N.I.N.A. Target Scheduler <c>schedulerdb.sqlite</c> copy
 /// (never the live imaging-PC db). Mirrors <see cref="TargetSchedulerReader"/>'s hardening but opens
-/// <c>Mode=ReadWrite</c>: busy-timeout, explicit columns, and <see cref="SchemaUserVersion"/> /
-/// <see cref="HasOpenSidecar"/> exposed so the caller can refuse a mismatched or apparently-open db. Sets only
+/// <c>Mode=ReadWrite</c>: busy-timeout, explicit columns, and <see cref="HasRequiredColumns"/> /
+/// <see cref="HasOpenSidecar"/> / <see cref="IsReadOnly"/> exposed so the caller can refuse an incompatible or
+/// apparently-open db (validated by <c>exposureplan</c> column presence, not exact <see cref="SchemaUserVersion"/>,
+/// which TS bumps on every nightly migration). Sets only
 /// <c>exposureplan.acquired</c>/<c>accepted</c> (no <c>acquiredimage</c> rows); it never alters the journal mode,
 /// so TS's rollback-journal db is left as-is. Dispose to close. Transitional — retires at the IS/ISP cutover.
 /// </summary>
 public sealed class TargetSchedulerWriter : IDisposable
 {
-    /// <summary>The single TS schema version writes are validated against; the caller refuses anything else.</summary>
-    public const long RequiredUserVersion = 24;
-
     private readonly SqliteConnection _connection;
 
     /// <summary>Opens <paramref name="schedulerDbPath"/> read-write with a busy-timeout.</summary>
@@ -79,6 +78,10 @@ public sealed class TargetSchedulerWriter : IDisposable
         using SqliteCommand version = _connection.CreateCommand();
         version.CommandText = "PRAGMA user_version;";
         SchemaUserVersion = (long)(version.ExecuteScalar() ?? 0L);
+
+        // Validate the writer's actual contract — the columns it updates — instead of an exact user_version. TS
+        // bumps user_version on every NINA-nightly migration, but the exposureplan columns it touches are stable.
+        HasRequiredColumns = ExposurePlanHasColumns("Id", "acquired", "accepted");
     }
 
     /// <summary>The TS database's <c>PRAGMA user_version</c>.</summary>
@@ -89,6 +92,9 @@ public sealed class TargetSchedulerWriter : IDisposable
 
     /// <summary>True when the db file has the read-only attribute (a copy of a protected snapshot keeps it; writes would fail).</summary>
     public bool IsReadOnly { get; }
+
+    /// <summary>True when <c>exposureplan</c> has the <c>Id</c>/<c>acquired</c>/<c>accepted</c> columns write-back updates — its real contract, independent of TS's churning schema version.</summary>
+    public bool HasRequiredColumns { get; }
 
     /// <summary>
     /// Reads each planned row's current counts to form the diff. When <paramref name="apply"/> is true, writes all
@@ -146,6 +152,18 @@ public sealed class TargetSchedulerWriter : IDisposable
         int acquired = reader.IsDBNull(0) ? 0 : reader.GetInt32(0);
         int accepted = reader.IsDBNull(1) ? 0 : reader.GetInt32(1);
         return (acquired, accepted);
+    }
+
+    private bool ExposurePlanHasColumns(params string[] required)
+    {
+        HashSet<string> columns = new(StringComparer.OrdinalIgnoreCase);
+        using SqliteCommand cmd = _connection.CreateCommand();
+        cmd.CommandText = "PRAGMA table_info(exposureplan);";
+        using SqliteDataReader reader = cmd.ExecuteReader();
+        while (reader.Read())
+            columns.Add(reader.GetString(1));   // PRAGMA table_info column 1 = name
+
+        return required.All(columns.Contains);
     }
 
     /// <inheritdoc/>

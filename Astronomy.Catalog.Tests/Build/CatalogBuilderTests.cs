@@ -7,33 +7,34 @@ namespace Astronomy.Catalog.Tests;
 
 public sealed class CatalogBuilderTests
 {
-    private const string SnapshotPath =
-        @"E:\Projects\VisualStudio\Astronomy\IntervalScheduler\TS DataBase Example\schedulerdb.sqlite";
+    // Local TS working db under TCM's TS Database/ (NINA-nightly schema; living — assert invariants, not exact counts).
+    private const string TsDbPath =
+        @"E:\Projects\VisualStudio\Astronomy\TargetCatalogManager\TS Database\schedulerdb.sqlite";
 
     [Fact]
-    public async Task BuildAsync_TsSnapshotOnly_PopulatesPlannedOnly()
+    public async Task BuildAsync_TsOnly_PopulatesPlannedOnly()
     {
-        if (!File.Exists(SnapshotPath))
-            return; // pinned snapshot not present — silent no-op
+        if (!File.Exists(TsDbPath))
+            return; // dev db not present — silent no-op
 
         string path = TestSupport.NewDbPath();
         try
         {
-            // No library root → disk plane empty → the whole TS plan lands as planned-only, anchored to nothing.
+            // No library root → disk plane empty → every TS target lands as planned-only, anchored to nothing.
             CatalogBuildReport report =
-                await CatalogBuilder.BuildAsync(path, libraryRoot: null, targetSchedulerDbPath: SnapshotPath);
+                await CatalogBuilder.BuildAsync(path, libraryRoot: null, targetSchedulerDbPath: TsDbPath);
 
-            Assert.Equal(102, report.TsTargetCount);
+            Assert.True(report.TsTargetCount > 0);
             Assert.Equal(0, report.DiskTargetCount);
             Assert.Equal(0, report.BothCount);
             Assert.Equal(0, report.ActualOnlyCount);
-            Assert.Equal(102, report.PlannedOnlyCount);
+            Assert.Equal(report.TsTargetCount, report.PlannedOnlyCount);   // all TS targets → planned-only
 
             using CatalogStore store = CatalogStore.Open(path);
-            Assert.Equal(10, store.GetProjects().Count);
-            Assert.Equal(102, store.GetTargets().Count);
-            Assert.Equal(20, store.GetExposureTemplates().Count);
-            Assert.Equal(662, store.GetExposurePlans().Count);
+            Assert.NotEmpty(store.GetProjects());
+            Assert.NotEmpty(store.GetExposureTemplates());
+            Assert.NotEmpty(store.GetExposurePlans());
+            Assert.Equal(report.TsTargetCount, store.GetTargets().Count);
             Assert.Empty(store.GetShotTargets());
             Assert.Empty(store.GetInventoryFilters());
             Assert.All(store.GetTargets(), t => Assert.Equal(TargetSource.Planned, t.Source));
