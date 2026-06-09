@@ -7,9 +7,9 @@ namespace Astronomy.Catalog.Tests;
 
 public sealed class CatalogBuilderTests
 {
-    // Local TS working db under TCM's TS Database/ (NINA-nightly schema; living — assert invariants, not exact counts).
+    // Shared TS working db at Processing\Catalog\TS Database\ (NINA-nightly schema; living — assert invariants, not exact counts).
     private const string TsDbPath =
-        @"E:\Projects\VisualStudio\Astronomy\TargetCatalogManager\TS Database\schedulerdb.sqlite";
+        @"E:\Photography\Astro Photography\Processing\Catalog\TS Database\schedulerdb.sqlite";
 
     [Fact]
     public async Task BuildAsync_TsOnly_PopulatesPlannedOnly()

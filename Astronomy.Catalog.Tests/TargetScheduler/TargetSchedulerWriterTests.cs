@@ -12,7 +12,7 @@ namespace Astronomy.Catalog.Tests;
 public sealed class TargetSchedulerWriterTests
 {
     private const string TsDbPath =
-        @"E:\Projects\VisualStudio\Astronomy\TargetCatalogManager\TS Database\schedulerdb.sqlite";
+        @"E:\Photography\Astro Photography\Processing\Catalog\TS Database\schedulerdb.sqlite";
     private const string LibraryPath = @"E:\Photography\Astro Photography\Processing";
 
     [Fact]
