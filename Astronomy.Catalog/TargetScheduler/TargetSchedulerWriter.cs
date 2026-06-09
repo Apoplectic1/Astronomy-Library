@@ -3,8 +3,9 @@ using Microsoft.Data.Sqlite;
 
 namespace Astronomy.Catalog.TargetScheduler;
 
-/// <summary>One staged/applied count change: TS plan <see cref="TsExposurePlanId"/> goes from its current
-/// <see cref="OldAcquired"/>/<see cref="OldAccepted"/> to <see cref="NewCount"/> (written to both columns).</summary>
+/// <summary>One staged/applied count change: TS plan <see cref="TsExposurePlanId"/>'s acquired and accepted go to
+/// <see cref="NewCount"/> (the disk count); desired is ratcheted up to <see cref="NewDesired"/> = <c>max(OldDesired,
+/// NewCount)</c> so a goal is never below what was kept — raised only, never lowered.</summary>
 public sealed record WriteBackChange(
     long TsExposurePlanId,
     string TargetName,
@@ -12,13 +13,18 @@ public sealed record WriteBackChange(
     FilterPurpose Purpose,
     int OldAcquired,
     int OldAccepted,
-    int NewCount)
+    int OldDesired,
+    int NewCount,
+    int NewDesired)
 {
     /// <summary>True when the disk count is below either current TS count (disk wins, but worth flagging).</summary>
     public bool IsDecrease => NewCount < OldAcquired || NewCount < OldAccepted;
 
-    /// <summary>True when both columns already equal the disk count (nothing to write).</summary>
-    public bool IsNoOp => NewCount == OldAcquired && NewCount == OldAccepted;
+    /// <summary>True when the goal was raised so desired stays ≥ accepted/acquired.</summary>
+    public bool RaisesDesired => NewDesired > OldDesired;
+
+    /// <summary>True when nothing changes — both counts already equal the disk count and the goal is unchanged.</summary>
+    public bool IsNoOp => NewCount == OldAcquired && NewCount == OldAccepted && NewDesired == OldDesired;
 }
 
 /// <summary>A post-commit read-back mismatch: the row did not end up at the expected count.</summary>
@@ -107,9 +113,10 @@ public sealed class TargetSchedulerWriter : IDisposable
         List<WriteBackChange> changes = [];
         foreach (PlannedWrite w in plan.Writes)
         {
-            (int acquired, int accepted) = ReadCounts(w.TsExposurePlanId) ?? (-1, -1);
+            (int acquired, int accepted, int desired) = ReadCounts(w.TsExposurePlanId) ?? (-1, -1, -1);
             changes.Add(new WriteBackChange(
-                w.TsExposurePlanId, w.TargetName, w.Filter, w.Purpose, acquired, accepted, w.DiskCount));
+                w.TsExposurePlanId, w.TargetName, w.Filter, w.Purpose,
+                acquired, accepted, desired, w.DiskCount, Math.Max(desired, w.DiskCount)));
         }
 
         if (!apply)
@@ -117,13 +124,14 @@ public sealed class TargetSchedulerWriter : IDisposable
 
         using (SqliteTransaction tx = _connection.BeginTransaction())
         {
-            foreach (PlannedWrite w in plan.Writes)
+            foreach (WriteBackChange c in changes)
             {
                 using SqliteCommand cmd = _connection.CreateCommand();
                 cmd.Transaction = tx;
-                cmd.CommandText = "UPDATE exposureplan SET acquired = $n, accepted = $n WHERE Id = $id;";
-                cmd.Parameters.AddWithValue("$n", w.DiskCount);
-                cmd.Parameters.AddWithValue("$id", w.TsExposurePlanId);
+                cmd.CommandText = "UPDATE exposureplan SET acquired = $n, accepted = $n, desired = $d WHERE Id = $id;";
+                cmd.Parameters.AddWithValue("$n", c.NewCount);
+                cmd.Parameters.AddWithValue("$d", c.NewDesired);
+                cmd.Parameters.AddWithValue("$id", c.TsExposurePlanId);
                 cmd.ExecuteNonQuery();
             }
 
@@ -131,27 +139,28 @@ public sealed class TargetSchedulerWriter : IDisposable
         }
 
         List<WriteBackVerifyFailure> failures = [];
-        foreach (PlannedWrite w in plan.Writes)
+        foreach (WriteBackChange c in changes)
         {
-            (int acquired, int accepted) = ReadCounts(w.TsExposurePlanId) ?? (-1, -1);
-            if (acquired != w.DiskCount || accepted != w.DiskCount)
-                failures.Add(new WriteBackVerifyFailure(w.TsExposurePlanId, w.DiskCount, acquired, accepted));
+            (int acquired, int accepted, int desired) = ReadCounts(c.TsExposurePlanId) ?? (-1, -1, -1);
+            if (acquired != c.NewCount || accepted != c.NewCount || desired != c.NewDesired)
+                failures.Add(new WriteBackVerifyFailure(c.TsExposurePlanId, c.NewCount, acquired, accepted));
         }
 
         return new WriteBackResult(changes, Applied: true, failures);
     }
 
-    private (int Acquired, int Accepted)? ReadCounts(long tsExposurePlanId)
+    private (int Acquired, int Accepted, int Desired)? ReadCounts(long tsExposurePlanId)
     {
         using SqliteCommand cmd = _connection.CreateCommand();
-        cmd.CommandText = "SELECT acquired, accepted FROM exposureplan WHERE Id = $id;";
+        cmd.CommandText = "SELECT acquired, accepted, desired FROM exposureplan WHERE Id = $id;";
         cmd.Parameters.AddWithValue("$id", tsExposurePlanId);
         using SqliteDataReader reader = cmd.ExecuteReader();
         if (!reader.Read())
             return null;
         int acquired = reader.IsDBNull(0) ? 0 : reader.GetInt32(0);
         int accepted = reader.IsDBNull(1) ? 0 : reader.GetInt32(1);
-        return (acquired, accepted);
+        int desired = reader.IsDBNull(2) ? 0 : reader.GetInt32(2);
+        return (acquired, accepted, desired);
     }
 
     private bool ExposurePlanHasColumns(params string[] required)

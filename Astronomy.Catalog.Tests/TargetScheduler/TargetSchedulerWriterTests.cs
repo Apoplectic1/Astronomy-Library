@@ -1,4 +1,5 @@
 using Astronomy.Catalog.Build;
+using Astronomy.Catalog.Scan;
 using Astronomy.Catalog.TargetScheduler;
 using Microsoft.Data.Sqlite;
 using Xunit;
@@ -41,11 +42,13 @@ public sealed class TargetSchedulerWriterTests
             Assert.True(result.Applied);
             Assert.Empty(result.VerifyFailures);
 
-            // Independent read-back (fresh connection): a sampled written row is now acquired == accepted == DiskCount.
+            // Independent read-back (fresh connection): a sampled written row is now acquired == accepted == DiskCount,
+            // and desired was ratcheted to at least the disk count (never below what was kept).
             PlannedWrite sample = plan.Writes[0];
-            (int acquired, int accepted) = ReadCounts(tsCopy, sample.TsExposurePlanId);
+            (int acquired, int accepted, int desired) = ReadCounts(tsCopy, sample.TsExposurePlanId);
             Assert.Equal(sample.DiskCount, acquired);
             Assert.Equal(sample.DiskCount, accepted);
+            Assert.True(desired >= sample.DiskCount);
         }
         finally
         {
@@ -70,7 +73,7 @@ public sealed class TargetSchedulerWriterTests
             Assert.NotEmpty(plan.Writes);
 
             PlannedWrite sample = plan.Writes[0];
-            (int beforeAcq, int beforeAcc) = ReadCounts(tsCopy, sample.TsExposurePlanId);
+            (int beforeAcq, int beforeAcc, int beforeDes) = ReadCounts(tsCopy, sample.TsExposurePlanId);
 
             using (TargetSchedulerWriter writer = new(tsCopy))
             {
@@ -79,14 +82,53 @@ public sealed class TargetSchedulerWriterTests
                 Assert.Empty(result.VerifyFailures);
             }
 
-            (int afterAcq, int afterAcc) = ReadCounts(tsCopy, sample.TsExposurePlanId);
+            (int afterAcq, int afterAcc, int afterDes) = ReadCounts(tsCopy, sample.TsExposurePlanId);
             Assert.Equal(beforeAcq, afterAcq);
             Assert.Equal(beforeAcc, afterAcc);
+            Assert.Equal(beforeDes, afterDes);
         }
         finally
         {
             TestSupport.Cleanup(catalog);
             TestSupport.Cleanup(tsCopy);
+        }
+    }
+
+    [Fact]
+    public void Apply_RatchetsDesiredUp_OnOvershoot_NeverDown_OnUndershoot()
+    {
+        string tsDb = TestSupport.NewDbPath();
+        using (SqliteConnection setup = new(new SqliteConnectionStringBuilder { DataSource = tsDb }.ToString()))
+        {
+            setup.Open();
+            using SqliteCommand cmd = setup.CreateCommand();
+            cmd.CommandText =
+                "CREATE TABLE exposureplan (Id INTEGER PRIMARY KEY, acquired INTEGER, accepted INTEGER, desired INTEGER);"
+                + "INSERT INTO exposureplan (Id, acquired, accepted, desired) VALUES (1, 0, 0, 100), (2, 0, 0, 100);";
+            cmd.ExecuteNonQuery();
+        }
+        SqliteConnection.ClearAllPools();   // release the setup connection before the writer opens read-write
+        try
+        {
+            // plan 1 over-shoots its goal (disk 140 > desired 100); plan 2 under-shoots (disk 50 < 100).
+            WriteBackPlan plan = new(
+                [new PlannedWrite(1, Guid.NewGuid(), "Over", "H", FilterPurpose.Light, 140),
+                 new PlannedWrite(2, Guid.NewGuid(), "Under", "H", FilterPurpose.Light, 50)],
+                [], [], 0);
+
+            using (TargetSchedulerWriter writer = new(tsDb))
+            {
+                Assert.True(writer.HasRequiredColumns);
+                WriteBackResult result = writer.Execute(plan, apply: true);
+                Assert.Empty(result.VerifyFailures);
+            }
+
+            Assert.Equal((140, 140, 140), ReadCounts(tsDb, 1));   // over-shoot: acc=acq=140, desired raised 100->140
+            Assert.Equal((50, 50, 100), ReadCounts(tsDb, 2));     // under-shoot: acc=acq=50, desired unchanged at 100
+        }
+        finally
+        {
+            TestSupport.Cleanup(tsDb);
         }
     }
 
@@ -100,7 +142,7 @@ public sealed class TargetSchedulerWriterTests
             store.GetInventoryFilters(), report);
     }
 
-    private static (int Acquired, int Accepted) ReadCounts(string tsDbPath, long planId)
+    private static (int Acquired, int Accepted, int Desired) ReadCounts(string tsDbPath, long planId)
     {
         using SqliteConnection conn = new(new SqliteConnectionStringBuilder
         {
@@ -109,10 +151,10 @@ public sealed class TargetSchedulerWriterTests
         }.ToString());
         conn.Open();
         using SqliteCommand cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT acquired, accepted FROM exposureplan WHERE Id = $id;";
+        cmd.CommandText = "SELECT acquired, accepted, desired FROM exposureplan WHERE Id = $id;";
         cmd.Parameters.AddWithValue("$id", planId);
         using SqliteDataReader r = cmd.ExecuteReader();
         Assert.True(r.Read());
-        return (r.GetInt32(0), r.GetInt32(1));
+        return (r.GetInt32(0), r.GetInt32(1), r.GetInt32(2));
     }
 }
