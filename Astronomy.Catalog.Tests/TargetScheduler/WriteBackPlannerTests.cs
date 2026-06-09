@@ -177,6 +177,24 @@ public sealed class WriteBackPlannerTests
         Assert.Equal(ManualReason.IdentityConflict, g.Reason);
     }
 
+    [Fact]
+    public void MosaicTarget_AlwaysManual_WithMosaicReason()
+    {
+        Guid t = Guid.NewGuid(), tpl = Guid.NewGuid();
+
+        // A single-plan cell would normally auto-write; a mosaic target never does — panels resolve in TS.
+        WriteBackPlan plan = WriteBackPlanner.Plan(
+            [Both(t, "Cygnus Loop", dir: "Mosaic - Cygnus Loop")],
+            [Plan(t, tpl, tsId: 1)],
+            [Tpl(tpl, "H", "H")],
+            [Inv(t, "H", FilterPurpose.Light, 100)],
+            Report());
+
+        Assert.Empty(plan.Writes);
+        ManualGroup g = Assert.Single(plan.Manual);
+        Assert.Equal(ManualReason.Mosaic, g.Reason);
+    }
+
     // ---- builders -----------------------------------------------------------
 
     private static Target Both(Guid id, string name, string? dir = null) => new(

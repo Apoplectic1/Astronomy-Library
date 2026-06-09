@@ -37,6 +37,9 @@ public enum ManualReason
 
     /// <summary>The target's identity is in question (name mismatch or ambiguous coordinate match); resolve before trusting the disk count.</summary>
     IdentityConflict,
+
+    /// <summary>A mosaic target (panels folded from a TS isMosaic project); panel-level counts are resolved in TS, not auto-written.</summary>
+    Mosaic,
 }
 
 /// <summary>A (target, filter, purpose) cell with 2+ competing TS plans — reported with everything needed to resolve it by hand.</summary>

@@ -21,6 +21,8 @@ namespace Astronomy.Catalog.Scan;
 ///    │     └─ Stars &lt;Filter&gt;/              short-exposure star-only frames
 ///    └─ &lt;Camera&gt; - &lt;Filter&gt; - N, H.h       XFM marker FILES (not dirs); ignored
 /// </code>
+/// A <c>Mosaic - &lt;Name&gt;</c> target nests one extra <i>opaque</i> panel level under the camera
+/// (<c>.../&lt;Camera&gt;/&lt;panel&gt;/&lt;Filter&gt;/</c>); panels are summed into one target's per-filter inventory.
 /// </para>
 /// <para>
 /// Per-target scans run in parallel. .xisf header parsing failures are recorded
@@ -82,6 +84,7 @@ public static class ImageLibraryScanner
         CancellationToken ct)
     {
         string dirName = Path.GetFileName(targetDir);
+        bool isMosaic = MosaicConvention.IsMosaicDirectory(dirName);
         string capturesDir = Path.Combine(targetDir, "Captures");
         if (!Directory.Exists(capturesDir)) return null;
 
@@ -96,7 +99,12 @@ public static class ImageLibraryScanner
                 continue;
             }
 
-            foreach (string filterDir in Directory.EnumerateDirectories(cameraDir))
+            // A mosaic nests one extra, opaque panel level under the camera; descend it and aggregate all panels.
+            IEnumerable<string> filterDirs = isMosaic
+                ? Directory.EnumerateDirectories(cameraDir).SelectMany(panelDir => Directory.EnumerateDirectories(panelDir))
+                : Directory.EnumerateDirectories(cameraDir);
+
+            foreach (string filterDir in filterDirs)
             {
                 ct.ThrowIfCancellationRequested();
                 (string code, FilterPurpose purpose) = ParseFilterDirName(Path.GetFileName(filterDir));

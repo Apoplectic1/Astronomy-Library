@@ -103,8 +103,35 @@ public static class TargetResolver
         List<UnanchoredTsTarget> unanchored = [];
         List<InvalidTsTarget> invalidTsTargets = [];
 
+        // ---- Mosaic pre-pass: name-match each disk "Mosaic - X" to the same-named isMosaic project and fold that
+        //      project's panel targets onto the one disk target (panels spread too far to coordinate-match). Folded
+        //      panels are skipped below, so they can't mis-anchor onto a spatially-overlapping standalone dir.
+        Dictionary<string, TsProject> mosaicProjectsByName = new(StringComparer.Ordinal);
+        foreach (TsProject mp in ts.Projects.Where(p => p.IsMosaic != 0))
+            mosaicProjectsByName[Normalize(mp.Name)] = mp;
+
+        ILookup<long?, TsTarget> tsTargetsByProject = ts.Targets.ToLookup(t => t.ProjectId);
+        HashSet<long> foldedPanelIds = [];
+        int mosaicsResolved = 0;
+        int panelsFolded = 0;
+        foreach (WorkingTarget mw in diskWorking)
+        {
+            if (!MosaicConvention.IsMosaicDirectory(mw.Disk.DirectoryName)) continue;
+            if (!mosaicProjectsByName.TryGetValue(Normalize(mw.Disk.DirectoryName), out TsProject? proj)) continue;
+
+            mw.MosaicProject = proj;
+            mosaicsResolved++;
+            foreach (TsTarget panel in tsTargetsByProject[proj.Id])
+            {
+                tsTargetToCanonical[panel.Id] = mw.Id;
+                foldedPanelIds.Add(panel.Id);
+                panelsFolded++;
+            }
+        }
+
         foreach (TsTarget tst in ts.Targets)
         {
+            if (foldedPanelIds.Contains(tst.Id)) continue; // a folded mosaic panel — handled above
             if (tst.ProjectId is not long projectId || !projectIds.ContainsKey(projectId))
                 continue; // orphan TS target (no project) — skip
 
@@ -120,6 +147,7 @@ public static class TargetResolver
             }
 
             List<(WorkingTarget Work, double Sep)> candidates = [.. diskWorking
+                .Where(w => !MosaicConvention.IsMosaicDirectory(w.Disk.DirectoryName))  // mosaics match by name, never coords
                 .Select(w => (Work: w, Sep: SeparationDegrees(raHours, decDegrees, w.Disk.RaHours, w.Disk.DecDegrees)))
                 .Where(x => x.Sep <= tolerance)
                 .OrderBy(x => x.Sep)];
@@ -159,7 +187,12 @@ public static class TargetResolver
 
         foreach (WorkingTarget w in diskWorking)
         {
-            if (w.AssignedTs.Count == 0)
+            if (w.MosaicProject is TsProject mosaic)
+            {
+                targets.Add(BuildBothMosaic(w.Disk, mosaic, w.Id, projectIds, createdAtUnix));
+                bothCount++;
+            }
+            else if (w.AssignedTs.Count == 0)
             {
                 targets.Add(BuildActual(w.Disk, w.Id, createdAtUnix));
                 actualOnly++;
@@ -197,7 +230,8 @@ public static class TargetResolver
             DiskTargetCount: diskTargets.Count, TsTargetCount: ts.Targets.Count,
             BothCount: bothCount, PlannedOnlyCount: plannedTargets.Count, ActualOnlyCount: actualOnly,
             NameMismatches: nameMismatches, AmbiguousMatches: ambiguousMatches,
-            DuplicateTsTargets: duplicates, UnanchoredTsTargets: unanchored, InvalidTsTargets: invalidTsTargets);
+            DuplicateTsTargets: duplicates, UnanchoredTsTargets: unanchored, InvalidTsTargets: invalidTsTargets,
+            MosaicsResolved: mosaicsResolved, PanelsFolded: panelsFolded);
         return (graph, report);
     }
 
@@ -216,6 +250,15 @@ public static class TargetResolver
         Priority: SafeTargetPriority(ts.Priority),
         DirectoryName: d.DirectoryName, Catalog: d.Catalog, CommonName: d.CommonName, ObjectName: d.ObjectName,
         ScannedAt: now, CreatedAt: now, ImportedFromTsGuid: Provenance(ts.TsGuid, ts.Id));
+
+    // A mosaic disk target name-matched to an isMosaic project (its panels' plans are folded on, goals accumulate).
+    // No single TS target, so ImportedFromTsGuid is null — write-back routes mosaics to manual; the project link
+    // carries the TS association. Disk coordinates are the panel centroid (descriptive; the match was by name).
+    private static Target BuildBothMosaic(TargetReport d, TsProject mosaic, Guid id, Dictionary<long, Guid> projectIds, long now) => new(
+        id, TargetSource.Both, projectIds[mosaic.Id], d.DirectoryName, Enabled: true,
+        RaHours: d.RaHours, DecDegreesSigned: d.DecDegrees, Epoch.J2000, RotationDeg: null, RoiPercent: null,
+        Priority: null, DirectoryName: d.DirectoryName, Catalog: d.Catalog, CommonName: d.CommonName,
+        ObjectName: d.ObjectName, ScannedAt: now, CreatedAt: now, ImportedFromTsGuid: null);
 
     private static Target BuildPlanned(TsTarget ts, Guid id, Guid projectGuid, long now) => new(
         id, TargetSource.Planned, projectGuid, ts.Name, Enabled: ts.Active != 0,
@@ -324,5 +367,8 @@ public static class TargetResolver
         public Guid Id { get; } = id;
         public TargetReport Disk { get; } = disk;
         public List<(TsTarget Ts, double Sep)> AssignedTs { get; } = [];
+
+        /// <summary>Set when this disk dir is a <c>"Mosaic - X"</c> target name-matched to a TS isMosaic project (its panels fold here).</summary>
+        public TsProject? MosaicProject { get; set; }
     }
 }

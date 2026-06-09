@@ -69,4 +69,34 @@ public class ImageLibraryScannerTests
         await Assert.ThrowsAsync<DirectoryNotFoundException>(
             () => ImageLibraryScanner.ScanAsync(@"Q:\definitely\does\not\exist"));
     }
+
+    [Fact]
+    public async Task ScanAsync_Mosaic_DescendsTheExtraPanelLevel()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "tcm_scan_" + Guid.NewGuid().ToString("N"));
+        // Mosaic: a frame nested one level deeper, under an opaque panel dir.
+        string mosaicFrame = Path.Combine(root, "Mosaic - Demo", "Captures", "Z183", "Panel 01of04", "H", "f.xisf");
+        // A standard target alongside it: a frame at the normal depth.
+        string standardFrame = Path.Combine(root, "M1 - Crab", "Captures", "Z183", "H", "f.xisf");
+        Directory.CreateDirectory(Path.GetDirectoryName(mosaicFrame)!);
+        Directory.CreateDirectory(Path.GetDirectoryName(standardFrame)!);
+        await File.WriteAllTextAsync(mosaicFrame, "not xisf");      // invalid header → recorded in SkippedFiles
+        await File.WriteAllTextAsync(standardFrame, "not xisf");
+        try
+        {
+            ImageLibraryReport report = await ImageLibraryScanner.ScanAsync(root);
+
+            // Both frames were reached by the walk. The mosaic frame sits one level deeper than a standard one, so
+            // reaching it proves the scanner descended the opaque panel level (a non-mosaic walk would look for
+            // *.xisf directly under "Panel 01of04" and never find it).
+            Assert.Contains(report.SkippedFiles.Keys, k => Slash(k).Contains("Mosaic - Demo/Captures/Z183/Panel 01of04/H/f.xisf"));
+            Assert.Contains(report.SkippedFiles.Keys, k => Slash(k).Contains("M1 - Crab/Captures/Z183/H/f.xisf"));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    private static string Slash(string p) => p.Replace('\\', '/');
 }

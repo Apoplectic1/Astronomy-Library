@@ -15,7 +15,9 @@ public sealed record CatalogBuildReport(
     IReadOnlyList<AmbiguousMatch> AmbiguousMatches,
     IReadOnlyList<DuplicateTsTarget> DuplicateTsTargets,
     IReadOnlyList<UnanchoredTsTarget> UnanchoredTsTargets,
-    IReadOnlyList<InvalidTsTarget> InvalidTsTargets);
+    IReadOnlyList<InvalidTsTarget> InvalidTsTargets,
+    int MosaicsResolved = 0,
+    int PanelsFolded = 0);
 
 /// <summary>A TS target whose coordinates matched a disk target but whose name disagrees (coords win; flagged).</summary>
 public sealed record NameMismatch(

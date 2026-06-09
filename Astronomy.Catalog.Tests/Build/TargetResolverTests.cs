@@ -147,6 +147,73 @@ public sealed class TargetResolverTests
         Assert.Equal("Bad Row", bad.TsName);
     }
 
+    [Fact]
+    public void Resolve_Mosaic_FoldsPanelsByName_SumsGoals_NotDuplicate()
+    {
+        TargetReport[] disk = [Disk("Mosaic - Cygnus Loop", "Mosaic", "Cygnus Loop", 20.7, 30.7, withFilter: true)];
+        TsPlanData ts = new(
+            [new TsProject(20, "profile-1", "Mosaic - Cygnus Loop", 1, 1, null, 1, "g-mosaic")],  // isMosaic
+            [TsT(1, "CygnusLoop P1", 20.5, 30.5, project: 20, guid: "g-p1"),
+             TsT(2, "CygnusLoop P2", 20.7, 30.7, project: 20, guid: "g-p2"),
+             TsT(3, "CygnusLoop P3", 20.9, 30.9, project: 20, guid: "g-p3")],
+            [new TsExposureTemplate(1000, "profile-1", "Ha", "H", 100, 50, 1, 300.0)],
+            [TsP(100, target: 1, template: 1000), TsP(101, target: 2, template: 1000), TsP(102, target: 3, template: 1000)]);
+
+        (CatalogGraph g, CatalogBuildReport r) = TargetResolver.Resolve(disk, ts, Now);
+
+        Target t = Assert.Single(g.Targets);                 // one canonical mosaic target — panels absorbed
+        Assert.Equal(TargetSource.Both, t.Source);
+        Assert.Equal("Mosaic - Cygnus Loop", t.DirectoryName);
+        Assert.NotNull(t.ProjectId);
+        Assert.Null(t.ImportedFromTsGuid);                   // no single TS target (matched by project name)
+        Assert.Equal(3, g.Plans.Count);                      // all 3 panels' plans folded on → goals accumulate
+        Assert.All(g.Plans, p => Assert.Equal(t.Id, p.TargetId));
+        Assert.Empty(r.DuplicateTsTargets);                  // a mosaic is NOT a duplicate
+        Assert.Equal(1, r.MosaicsResolved);
+        Assert.Equal(3, r.PanelsFolded);
+        Assert.Equal(1, r.BothCount);
+        Assert.Equal(0, r.PlannedOnlyCount);
+    }
+
+    [Fact]
+    public void Resolve_Mosaic_PanelDoesNotMisAnchorToOverlappingStandalone()
+    {
+        TargetReport[] disk =
+        [
+            Disk("Mosaic - Cygnus Loop", "Mosaic", "Cygnus Loop", 20.7, 30.7, withFilter: true),
+            Disk("NGC 6995 - Eastern Veil", "NGC 6995", "Eastern Veil", 20.9, 30.9, withFilter: true),
+        ];
+        TsPlanData ts = new(
+            [new TsProject(20, "profile-1", "Mosaic - Cygnus Loop", 1, 1, null, 1, "g-mosaic")],
+            [TsT(3, "CygnusLoop P3", 20.9, 30.9, project: 20, guid: "g-p3")],   // sits exactly on NGC 6995's coords
+            [new TsExposureTemplate(1000, "profile-1", "Ha", "H", 100, 50, 1, 300.0)],
+            [TsP(102, target: 3, template: 1000)]);
+
+        (CatalogGraph g, CatalogBuildReport r) = TargetResolver.Resolve(disk, ts, Now);
+
+        Target veil = Assert.Single(g.Targets, x => x.DirectoryName == "NGC 6995 - Eastern Veil");
+        Assert.Equal(TargetSource.Actual, veil.Source);                 // panel did NOT anchor here
+        Target mosaic = Assert.Single(g.Targets, x => x.DirectoryName == "Mosaic - Cygnus Loop");
+        Assert.Equal(mosaic.Id, Assert.Single(g.Plans).TargetId);       // the panel's plan folded onto the mosaic
+        Assert.Empty(r.NameMismatches);                                 // no CygnusLoop P3 ↔ NGC 6995 mismatch
+    }
+
+    [Fact]
+    public void Resolve_DiskOnlyMosaic_NoMatchingProject_IsActualOnly()
+    {
+        TargetReport[] disk = [Disk("Mosaic - Pinwheel", "Mosaic", "Pinwheel", 14.0, 54.0, withFilter: true)];
+        TsPlanData ts = new(   // a mosaic project exists, but not named Pinwheel
+            [new TsProject(20, "profile-1", "Mosaic - Cygnus Loop", 1, 1, null, 1, "g-mosaic")],
+            [], [new TsExposureTemplate(1000, "profile-1", "Ha", "H", 100, 50, 1, 300.0)], []);
+
+        (CatalogGraph g, CatalogBuildReport r) = TargetResolver.Resolve(disk, ts, Now);
+
+        Target t = Assert.Single(g.Targets);
+        Assert.Equal(TargetSource.Actual, t.Source);
+        Assert.Equal(0, r.MosaicsResolved);
+        Assert.Equal(1, r.ActualOnlyCount);
+    }
+
     // ---- synthetic builders -------------------------------------------------
 
     private static TargetReport Disk(string dir, string cat, string common, double raH, double dec, bool withFilter)

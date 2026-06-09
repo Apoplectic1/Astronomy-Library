@@ -72,8 +72,9 @@ public static class WriteBackPlanner
             Target t = targetById[targetId];
             int disk = diskCount.GetValueOrDefault(g.Key);
             bool flagged = t.DirectoryName is not null && flaggedDirs.Contains(t.DirectoryName);
+            bool isMosaic = t.DirectoryName is not null && MosaicConvention.IsMosaicDirectory(t.DirectoryName);
 
-            if (!flagged && gplans.Count == 1 && TryParseTsId(gplans[0].ImportedFromTsGuid, out long id))
+            if (!flagged && !isMosaic && gplans.Count == 1 && TryParseTsId(gplans[0].ImportedFromTsGuid, out long id))
             {
                 writes.Add(new PlannedWrite(id, targetId, t.Name, filter, purpose, disk));
             }
@@ -81,6 +82,7 @@ public static class WriteBackPlanner
             {
                 ManualReason reason =
                     flagged ? ManualReason.IdentityConflict
+                    : isMosaic ? ManualReason.Mosaic
                     : t.DirectoryName is not null && dupDirs.Contains(t.DirectoryName) ? ManualReason.DuplicateFold
                     : ManualReason.MultiPlan;
                 List<ManualPlan> mplans =
