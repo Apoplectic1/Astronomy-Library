@@ -1,14 +1,15 @@
 # Astronomy Library — Roadmap
 
-## Next up: catalog write-back to TS (`TargetSchedulerWriter`)
+## Shipped: catalog write-back to TS (`TargetSchedulerWriter`) — 2026-06-08
 
-The catalog now reconciles disk (actual) ↔ TS (plan) onto one canonical target and computes goal-vs-actual (the
-two entries below). The open thread is **Phase 4**: write reconciled disk-derived counts (and plan edits) back
-into TS's `schedulerdb.sqlite`, mapping catalog → exact TS rows via the retained `imported_from_ts_guid`
-provenance. TS's own `acquired_count` is badly stale vs disk (real example: TS said 0 H frames, disk has 140), so
-the write-back keeps TS usable while it's still the capture driver. Driven from TCM
-(`E:\Projects\VisualStudio\Astronomy\TargetCatalogManager`, ROADMAP Phase 4). Caveat: the live TS DB lives on the
-imaging PC (cross-machine; WAL share caveat).
+The catalog reconciles disk (actual) ↔ TS (plan) onto one canonical target and computes goal-vs-actual; **Phase 4
+write-back shipped**. `TargetSchedulerWriter` + the pure `WriteBackPlanner` write reconciled disk-derived counts
+back into a **local copy** of TS's `schedulerdb.sqlite`, mapping catalog → exact TS rows via the retained
+`imported_from_ts_guid` provenance (TS's own `acquired_count` was badly stale vs disk — e.g. 0 H frames vs 140 on
+disk). A surgical single-target path (`SingleTargetPlanner` + `ImageLibraryScanner.ScanUnitsAsync`, driven by `tcm
+writeback --target`) updates one target — **per panel for a mosaic** — without a catalog rebuild. Driven from TCM
+(`E:\Projects\VisualStudio\Astronomy\TargetCatalogManager`, ROADMAP Phase 4); operates on a local copy (the live TS
+DB lives on the imaging PC — cross-machine WAL caveat). Open: alias-vs-duplicate handling for `M27`/`Dumbell`.
 
 ## Recently shipped (2026-06): Astronomy.Catalog — goal-vs-actual reconciliation
 
