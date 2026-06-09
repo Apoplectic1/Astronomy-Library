@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Text;
 using Astronomy.Catalog.Scan;
 using Xunit;
 
@@ -98,5 +100,111 @@ public class ImageLibraryScannerTests
         }
     }
 
+    [Fact]
+    public async Task ScanUnitsAsync_Mosaic_ReturnsOneUnitPerPanel_WithOwnCountsAndBinning()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "tcm_units_" + Guid.NewGuid().ToString("N"));
+        string mosaic = Path.Combine(root, "Mosaic - Demo");
+        // Panel 1: two H frames @ 2x2; Panel 2: one H frame @ 2x2 — distinct sky positions, same camera.
+        WritePanelFrame(mosaic, "Z183", "Panel 01of02", "H", "p1a.xisf", ra: 305.0, dec: 30.5, bin: 2);
+        WritePanelFrame(mosaic, "Z183", "Panel 01of02", "H", "p1b.xisf", ra: 305.0, dec: 30.5, bin: 2);
+        WritePanelFrame(mosaic, "Z183", "Panel 02of02", "H", "p2a.xisf", ra: 312.0, dec: 31.5, bin: 2);
+        try
+        {
+            IReadOnlyList<TargetReport> units = await ImageLibraryScanner.ScanUnitsAsync(mosaic);
+
+            Assert.Equal(2, units.Count);
+            TargetReport p1 = Assert.Single(units, u => u.DirectoryName == "Panel 01of02");
+            TargetReport p2 = Assert.Single(units, u => u.DirectoryName == "Panel 02of02");
+            Assert.Equal(2, Assert.Single(p1.Filters).ExposureCount);   // not summed with panel 2
+            Assert.Equal(1, Assert.Single(p2.Filters).ExposureCount);
+            Assert.Equal((2, 2), Assert.Single(p1.Filters).Typical.Binning);
+            Assert.Equal(305.0 / 15.0, p1.RaHours, precision: 3);       // the panel's own centroid (RA deg → hours)
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task ScanUnitsAsync_Normal_ReturnsExactlyOneUnit_WithItsCells()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "tcm_units_" + Guid.NewGuid().ToString("N"));
+        string target = Path.Combine(root, "M1 - Crab");
+        WriteFrame(Path.Combine(target, "Captures", "Z183", "H"), "a.xisf", ra: 83.6, dec: 22.0, bin: 1);
+        WriteFrame(Path.Combine(target, "Captures", "Z183", "O"), "b.xisf", ra: 83.6, dec: 22.0, bin: 1);
+        try
+        {
+            IReadOnlyList<TargetReport> units = await ImageLibraryScanner.ScanUnitsAsync(target);
+
+            TargetReport u = Assert.Single(units);
+            Assert.Equal("M1 - Crab", u.DirectoryName);
+            Assert.Equal(2, u.Filters.Count);   // H and O cells on the one unit
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task ScanUnitsAsync_NonexistentDir_Throws()
+    {
+        await Assert.ThrowsAsync<DirectoryNotFoundException>(
+            () => ImageLibraryScanner.ScanUnitsAsync(@"Q:\definitely\does\not\exist"));
+    }
+
     private static string Slash(string p) => p.Replace('\\', '/');
+
+    // ---- synthetic XISF frame writers (header-only; mirrors Astronomy.XISF.Tests) --------------------------
+
+    private static void WritePanelFrame(
+        string mosaicDir, string camera, string panel, string filter, string file, double ra, double dec, int bin) =>
+        WriteFrame(Path.Combine(mosaicDir, "Captures", camera, panel, filter), file, ra, dec, bin);
+
+    private static void WriteFrame(string filterDir, string file, double ra, double dec, int bin)
+    {
+        Directory.CreateDirectory(filterDir);
+        WriteSyntheticXisf(Path.Combine(filterDir, file), new Dictionary<string, string>
+        {
+            ["OBJECT"] = "Demo",
+            ["RA"] = ra.ToString(CultureInfo.InvariantCulture),
+            ["DEC"] = dec.ToString(CultureInfo.InvariantCulture),
+            ["DATE-OBS"] = "2024-02-18T04:51:28",
+            ["EXPTIME"] = "300.0",
+            ["XBINNING"] = bin.ToString(CultureInfo.InvariantCulture),
+            ["YBINNING"] = bin.ToString(CultureInfo.InvariantCulture),
+        });
+    }
+
+    // Minimal valid XISF: 8-byte signature + 4-byte LE XML length + 4 reserved + UTF-8 XML (no image attachment).
+    private static void WriteSyntheticXisf(string path, IDictionary<string, string> fitsKeywords)
+    {
+        StringBuilder xml = new();
+        xml.Append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
+        xml.Append("<xisf version=\"1.0\" xmlns=\"http://www.pixinsight.com/xisf\">");
+        xml.Append("<Image>");
+        foreach (KeyValuePair<string, string> kv in fitsKeywords)
+        {
+            string val = double.TryParse(kv.Value, NumberStyles.Float, CultureInfo.InvariantCulture, out _)
+                ? kv.Value : $"'{kv.Value}'";
+            xml.Append($"<FITSKeyword name=\"{kv.Key}\" value=\"{val}\" comment=\"\" />");
+        }
+        xml.Append("</Image>");
+        xml.Append("</xisf>");
+
+        byte[] xmlBytes = Encoding.UTF8.GetBytes(xml.ToString());
+        byte[] header = new byte[16];
+        Encoding.ASCII.GetBytes("XISF0100", 0, 8, header, 0);
+        int len = xmlBytes.Length;
+        header[8] = (byte)(len & 0xFF);
+        header[9] = (byte)((len >> 8) & 0xFF);
+        header[10] = (byte)((len >> 16) & 0xFF);
+        header[11] = (byte)((len >> 24) & 0xFF);
+
+        using FileStream fs = new(path, FileMode.Create, FileAccess.Write);
+        fs.Write(header, 0, 16);
+        fs.Write(xmlBytes, 0, xmlBytes.Length);
+    }
 }

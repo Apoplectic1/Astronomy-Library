@@ -70,6 +70,68 @@ public static class ImageLibraryScanner
             skipped.ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase));
     }
 
+    /// <summary>
+    /// Scans a <b>single</b> target directory into its write-back <i>units</i> — the granularity at which counts
+    /// anchor to a TS target. A normal target is one unit (one <see cref="TargetReport"/>, the whole-target
+    /// aggregate); a <see cref="MosaicConvention">mosaic</see> is one unit <b>per panel</b> (each panel's own
+    /// per-filter aggregates and its own plate-solved centroid), so a panel's counts can land on that panel's TS
+    /// plan rather than the mosaic aggregate. Unlike <see cref="ScanAsync"/> this does not rebuild the catalog and
+    /// surfaces no <see cref="ImageLibraryReport.SkippedFiles"/> — it is the surgical per-target path.
+    /// </summary>
+    /// <param name="targetDir">Absolute path to one target directory under the library root (normal or <c>Mosaic - …</c>).</param>
+    /// <param name="ct">Cancellation token; observed at file-I/O boundaries.</param>
+    /// <returns>The target's units; empty when the directory has no usable frames.</returns>
+    public static async Task<IReadOnlyList<TargetReport>> ScanUnitsAsync(
+        string targetDir, CancellationToken ct = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(targetDir);
+        targetDir = Path.TrimEndingDirectorySeparator(targetDir);
+        if (!Directory.Exists(targetDir))
+            throw new DirectoryNotFoundException($"Target directory not found: '{targetDir}'.");
+
+        // A surgical scan reports nothing globally; bad frames are simply absent from the aggregate.
+        ConcurrentDictionary<string, string> skipped = new(StringComparer.OrdinalIgnoreCase);
+
+        if (!MosaicConvention.IsMosaicDirectory(Path.GetFileName(targetDir)))
+        {
+            // Normal target: a single unit — the whole-target aggregate the bulk path also produces.
+            TargetReport? one = await ScanTargetAsync(targetDir, skipped, ct).ConfigureAwait(false);
+            return one is null ? [] : [one];
+        }
+
+        // Mosaic: one unit per panel. Frames live at Captures/<camera>/<panel>/<filter>/; group by panel name across
+        // cameras so a panel shot on two rigs stays one unit.
+        string capturesDir = Path.Combine(targetDir, "Captures");
+        if (!Directory.Exists(capturesDir)) return [];
+
+        Dictionary<string, List<FrameReading>> byPanel = new(StringComparer.OrdinalIgnoreCase);
+        foreach (string cameraDir in Directory.EnumerateDirectories(capturesDir))
+        {
+            string cameraName = Path.GetFileName(cameraDir);
+            if (string.Equals(cameraName, "Calibration", StringComparison.OrdinalIgnoreCase)) continue;
+
+            foreach (string panelDir in Directory.EnumerateDirectories(cameraDir))
+            {
+                string panelName = Path.GetFileName(panelDir);
+                List<FrameReading> readings = await ReadFramesAsync(
+                    Directory.EnumerateDirectories(panelDir), cameraName, skipped, ct).ConfigureAwait(false);
+                if (readings.Count == 0) continue;
+                if (!byPanel.TryGetValue(panelName, out List<FrameReading>? list))
+                    byPanel[panelName] = list = [];
+                list.AddRange(readings);
+            }
+        }
+
+        List<TargetReport> units = [];
+        foreach ((string panelName, List<FrameReading> readings) in
+                 byPanel.OrderBy(kv => kv.Key, StringComparer.OrdinalIgnoreCase))
+        {
+            TargetReport? unit = BuildReport(panelName, readings);
+            if (unit is not null) units.Add(unit);
+        }
+        return units;
+    }
+
     // -----------------------------------------------------------------------
 
     private sealed record FrameReading(
@@ -99,34 +161,55 @@ public static class ImageLibraryScanner
                 continue;
             }
 
-            // A mosaic nests one extra, opaque panel level under the camera; descend it and aggregate all panels.
+            // A mosaic nests one extra, opaque panel level under the camera; descend it and aggregate all panels
+            // (the bulk catalog path summs panels into one target — ScanUnitsAsync keeps them separate instead).
             IEnumerable<string> filterDirs = isMosaic
                 ? Directory.EnumerateDirectories(cameraDir).SelectMany(panelDir => Directory.EnumerateDirectories(panelDir))
                 : Directory.EnumerateDirectories(cameraDir);
 
-            foreach (string filterDir in filterDirs)
-            {
-                ct.ThrowIfCancellationRequested();
-                (string code, FilterPurpose purpose) = ParseFilterDirName(Path.GetFileName(filterDir));
+            readings.AddRange(await ReadFramesAsync(filterDirs, cameraName, skipped, ct).ConfigureAwait(false));
+        }
 
-                foreach (string xisfPath in Directory.EnumerateFiles(filterDir, "*.xisf", SearchOption.TopDirectoryOnly))
+        return BuildReport(dirName, readings);
+    }
+
+    // Reads every *.xisf under each filter directory into frame readings, recording header-parse failures in
+    // <paramref name="skipped"/> rather than aborting. Shared by the whole-target walk and the per-panel walk.
+    private static async Task<List<FrameReading>> ReadFramesAsync(
+        IEnumerable<string> filterDirs,
+        string cameraName,
+        ConcurrentDictionary<string, string> skipped,
+        CancellationToken ct)
+    {
+        List<FrameReading> readings = new();
+        foreach (string filterDir in filterDirs)
+        {
+            ct.ThrowIfCancellationRequested();
+            (string code, FilterPurpose purpose) = ParseFilterDirName(Path.GetFileName(filterDir));
+
+            foreach (string xisfPath in Directory.EnumerateFiles(filterDir, "*.xisf", SearchOption.TopDirectoryOnly))
+            {
+                try
                 {
-                    try
-                    {
-                        XisfHeader header = await XisfHeaderReader.ReadAsync(xisfPath, ct).ConfigureAwait(false);
-                        readings.Add(new FrameReading(header, code, purpose, cameraName));
-                    }
-                    catch (Exception ex) when (ex is not OperationCanceledException)
-                    {
-                        skipped.TryAdd(xisfPath, ex.GetType().Name + ": " + ex.Message);
-                    }
+                    XisfHeader header = await XisfHeaderReader.ReadAsync(xisfPath, ct).ConfigureAwait(false);
+                    readings.Add(new FrameReading(header, code, purpose, cameraName));
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    skipped.TryAdd(xisfPath, ex.GetType().Name + ": " + ex.Message);
                 }
             }
         }
+        return readings;
+    }
 
+    // Folds a set of frame readings into one TargetReport labelled <paramref name="label"/> (a target dir name, or a
+    // panel name for a mosaic unit). Returns null when nothing aggregates (no frames, or none with EXPTIME+DATE-OBS).
+    private static TargetReport? BuildReport(string label, IReadOnlyList<FrameReading> readings)
+    {
         if (readings.Count == 0) return null;
 
-        (string catalog, string? commonName) = TargetReport.SplitDirectoryName(dirName);
+        (string catalog, string? commonName) = TargetReport.SplitDirectoryName(label);
         string objectName = ConsensusObjectName(readings, catalog);
         (double raHours, double decDegrees) = ConsensusCoordinates(readings);
 
@@ -141,7 +224,7 @@ public static class ImageLibraryScanner
 
         if (aggregates.Count == 0) return null;
 
-        return new TargetReport(dirName, catalog, commonName, objectName, raHours, decDegrees, aggregates);
+        return new TargetReport(label, catalog, commonName, objectName, raHours, decDegrees, aggregates);
     }
 
     // -----------------------------------------------------------------------

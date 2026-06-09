@@ -311,7 +311,8 @@ public static class TargetResolver
         return false;
     }
 
-    private static string Normalize(string? value) =>
+    /// <summary>Reduces a name to an alphanumeric, upper-cased key for case/punctuation-insensitive matching (shared with the surgical <c>--target</c> mosaic-project name-match).</summary>
+    internal static string Normalize(string? value) =>
         value is null ? string.Empty : new string([.. value.Where(char.IsLetterOrDigit)]).ToUpperInvariant();
 
     // ---- Stable id helpers ----------------------------------------------------------------------------------

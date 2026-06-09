@@ -40,6 +40,9 @@ public enum ManualReason
 
     /// <summary>A mosaic target (panels folded from a TS isMosaic project); panel-level counts are resolved in TS, not auto-written.</summary>
     Mosaic,
+
+    /// <summary>No TS exposure plan matches this disk cell's (filter, purpose, binning); there is nothing to write to (the surgical <c>--target</c> path — the cell may need a plan created in TS).</summary>
+    NoMatchingPlan,
 }
 
 /// <summary>A (target, filter, purpose) cell with 2+ competing TS plans — reported with everything needed to resolve it by hand.</summary>
