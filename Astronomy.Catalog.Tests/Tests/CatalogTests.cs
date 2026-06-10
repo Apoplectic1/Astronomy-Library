@@ -161,6 +161,107 @@ public sealed class CatalogStoreTests
         }
     }
 
+    [Fact]
+    public void WriteCatalog_PanelChildren_RoundTrip_AndConsumerViews()
+    {
+        string path = TestSupport.NewDbPath();
+        long now = TestSupport.NowUnix();
+        try
+        {
+            using CatalogStore store = CatalogStore.Open(path);
+
+            CatalogGraph g = SampleGraph(now, out Target parent, out ExposurePlan plan, out InventoryFilter inv);
+            // The panel model: plans and inventory hang off the child; the parent carries neither.
+            Target child = parent with
+            {
+                Id = Guid.NewGuid(),
+                Name = "Demo P1",
+                DirectoryName = parent.DirectoryName + "/Panel 01of02",
+                ParentTargetId = parent.Id,
+            };
+            ExposurePlan childPlan = plan with { TargetId = child.Id };
+            InventoryFilter childInv = inv with { TargetId = child.Id };
+            store.WriteCatalog(new CatalogGraph(
+                g.Profiles, g.Projects, g.Templates, [parent, child], [childPlan], [childInv]));
+
+            Assert.Equal(2, store.GetTargets().Count);
+            Target shot = Assert.Single(store.GetShotTargets());            // panel child excluded
+            Assert.Equal(parent.Id, shot.Id);
+            Target roundTripped = Assert.Single(store.GetChildTargets(parent.Id));
+            Assert.Equal(child.Id, roundTripped.Id);
+            Assert.Equal(parent.Id, roundTripped.ParentTargetId);
+            Assert.Equal(childPlan, Assert.Single(store.GetExposurePlans(child.Id)));
+            Assert.Equal(childInv, Assert.Single(store.GetInventoryFilters(child.Id)));
+        }
+        finally
+        {
+            TestSupport.Cleanup(path);
+        }
+    }
+
+    [Fact]
+    public void WriteCatalog_ChildBeforeParent_ThrowsFk()
+    {
+        string path = TestSupport.NewDbPath();
+        long now = TestSupport.NowUnix();
+        try
+        {
+            using CatalogStore store = CatalogStore.Open(path);
+
+            CatalogGraph g = SampleGraph(now, out Target parent, out _, out _);
+            Target child = parent with
+            {
+                Id = Guid.NewGuid(), Name = "Demo P1",
+                DirectoryName = parent.DirectoryName + "/Panel 01of02", ParentTargetId = parent.Id,
+            };
+
+            // The graph contract is parents-before-children; the self-FK enforces it.
+            Assert.Throws<SqliteException>(() => store.WriteCatalog(new CatalogGraph(
+                g.Profiles, g.Projects, g.Templates, [child, parent], [], [])));
+        }
+        finally
+        {
+            TestSupport.Cleanup(path);
+        }
+    }
+
+    [Fact]
+    public void DeletingParent_CascadesToChildren_AndTheirInventory()
+    {
+        string path = TestSupport.NewDbPath();
+        long now = TestSupport.NowUnix();
+        try
+        {
+            using (CatalogStore store = CatalogStore.Open(path))
+            {
+                CatalogGraph g = SampleGraph(now, out Target parent, out ExposurePlan plan, out InventoryFilter inv);
+                Target child = parent with
+                {
+                    Id = Guid.NewGuid(), Name = "Demo P1",
+                    DirectoryName = parent.DirectoryName + "/Panel 01of02", ParentTargetId = parent.Id,
+                };
+                store.WriteCatalog(new CatalogGraph(
+                    g.Profiles, g.Projects, g.Templates, [parent, child],
+                    [plan with { TargetId = child.Id }], [inv with { TargetId = child.Id }]));
+            }
+
+            using SqliteConnection cn = SchemaManager.Open(path);
+            using (SqliteCommand del = cn.CreateCommand())
+            {
+                del.CommandText = "DELETE FROM target WHERE name = 'M42 - Orion';";   // the parent
+                del.ExecuteNonQuery();
+            }
+
+            Assert.Equal(0, TestSupport.ScalarLong(cn, "SELECT COUNT(*) FROM target;"));
+            Assert.Equal(0, TestSupport.ScalarLong(cn, "SELECT COUNT(*) FROM inventory_filter;"));
+            Assert.Equal(0, TestSupport.ScalarLong(cn, "SELECT COUNT(*) FROM exposure_plan;"));
+        }
+        finally
+        {
+            TestSupport.Cleanup(path);
+        }
+    }
+
     private static CatalogGraph SampleGraph(long now, out Target target, out ExposurePlan plan, out InventoryFilter inventory)
     {
         Profile profile = new(Guid.NewGuid(), "Penns Park", "nina-guid", now);

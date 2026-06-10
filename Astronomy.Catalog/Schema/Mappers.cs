@@ -80,7 +80,8 @@ public sealed class TargetMapper : ITableMapper<Target>
         reader.GetStringOrNull("object_name"),
         reader.GetInt64OrNull("scanned_at"),
         reader.GetInt64("created_at"),
-        reader.GetStringOrNull("imported_from_ts_guid"));
+        reader.GetStringOrNull("imported_from_ts_guid"),
+        reader.GetGuidOrNull("parent_target_id"));
 }
 
 /// <summary>Maps <c>exposure_template</c> rows.</summary>

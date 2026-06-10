@@ -34,6 +34,8 @@ public sealed record Project(
 /// plan attributes (its TS project/goal). <see cref="Source"/> says which facets are present. RA is decimal hours
 /// [0,24); Dec is signed decimal degrees [-90,90]. When a target is <see cref="TargetSource.Both"/>, the disk
 /// (plate-solved) coordinates are canonical and <see cref="ImportedFromTsGuid"/> is retained for write-back to TS.
+/// A mosaic is one parent row plus one child row per panel (<see cref="ParentTargetId"/> set); the children
+/// carry the plans and inventory while the parent carries neither.
 /// </summary>
 public sealed record Target(
     Guid Id,
@@ -53,7 +55,8 @@ public sealed record Target(
     string? ObjectName,
     long? ScannedAt,
     long CreatedAt,
-    string? ImportedFromTsGuid);
+    string? ImportedFromTsGuid,
+    Guid? ParentTargetId = null);
 
 /// <summary>A reusable camera/filter configuration for exposures.</summary>
 public sealed record ExposureTemplate(

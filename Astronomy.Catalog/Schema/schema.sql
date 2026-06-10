@@ -67,11 +67,15 @@ CREATE INDEX IF NOT EXISTS ix_project_profile_state ON project(profile_id, state
 --   Both    (2): planned AND shot (merged) -> directory_name set, project_id set, imported_from_ts_guid set
 -- When merged, disk coordinates win (plate-solved = truth) and imported_from_ts_guid is retained so a future
 -- TargetSchedulerWriter can map catalog edits back to the exact TS target row.
+-- A mosaic is one PARENT row (directory_name = the mosaic directory; carries no plans/inventory) plus one
+-- CHILD row per panel (parent_target_id set; directory_name = '<mosaic dir>/<panel label>', satisfying the
+-- UNIQUE constraint). Plans and inventory hang off the children, each with its own provenance and coordinates.
 
 CREATE TABLE IF NOT EXISTS target (
     id                    BLOB NOT NULL PRIMARY KEY,
     source_id             INTEGER NOT NULL REFERENCES target_source(id),
     project_id            BLOB REFERENCES project(id),                  -- NULL for actual-only
+    parent_target_id      BLOB REFERENCES target(id) ON DELETE CASCADE, -- set on a panel child; NULL top-level
     name                  TEXT NOT NULL,                                -- canonical (disk directory name when on disk)
     enabled               INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1)),
     ra_hours              REAL CHECK (ra_hours IS NULL OR (ra_hours >= 0.0 AND ra_hours < 24.0)),
@@ -90,6 +94,7 @@ CREATE TABLE IF NOT EXISTS target (
 ) WITHOUT ROWID;
 CREATE INDEX IF NOT EXISTS ix_target_project_id ON target(project_id);
 CREATE INDEX IF NOT EXISTS ix_target_source ON target(source_id);
+CREATE INDEX IF NOT EXISTS ix_target_parent ON target(parent_target_id);
 
 CREATE TABLE IF NOT EXISTS exposure_template (
     id                       BLOB NOT NULL PRIMARY KEY,

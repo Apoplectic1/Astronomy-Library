@@ -54,17 +54,19 @@ public sealed class CatalogStore : IDisposable
         ("$meridian", p.MeridianWindowMinutes), ("$mosaic", Bit(p.IsMosaic)), ("$grader", Bit(p.EnableGrader)),
         ("$created", p.CreatedAt), ("$active", p.ActiveAt), ("$inactive", p.InactiveAt), ("$ts", p.ImportedFromTsGuid));
 
-    /// <summary>Inserts a canonical <see cref="Target"/> row (disk identity + plan attributes).</summary>
+    /// <summary>Inserts a canonical <see cref="Target"/> row (disk identity + plan attributes). A panel child's
+    /// parent row must already exist (self-referencing FK) — see <see cref="WriteCatalog"/>.</summary>
     public void InsertTarget(Target t, SqliteTransaction? transaction = null) => Execute(transaction,
         """
-        INSERT INTO target (id, source_id, project_id, name, enabled, ra_hours, dec_degrees_signed, epoch_id,
-            rotation_deg, roi_percent, priority_id, directory_name, catalog, common_name, object_name, scanned_at,
-            created_at, imported_from_ts_guid)
-        VALUES ($id, $source, $project, $name, $enabled, $ra, $dec, $epoch, $rotation, $roi, $priority, $dir, $cat,
-            $common, $obj, $scanned, $created, $ts);
+        INSERT INTO target (id, source_id, project_id, parent_target_id, name, enabled, ra_hours,
+            dec_degrees_signed, epoch_id, rotation_deg, roi_percent, priority_id, directory_name, catalog,
+            common_name, object_name, scanned_at, created_at, imported_from_ts_guid)
+        VALUES ($id, $source, $project, $parent, $name, $enabled, $ra, $dec, $epoch, $rotation, $roi, $priority,
+            $dir, $cat, $common, $obj, $scanned, $created, $ts);
         """,
         ("$id", GuidBlob.ToBlob(t.Id)), ("$source", (int)t.Source),
-        ("$project", t.ProjectId is Guid pid ? GuidBlob.ToBlob(pid) : null), ("$name", t.Name),
+        ("$project", t.ProjectId is Guid pid ? GuidBlob.ToBlob(pid) : null),
+        ("$parent", t.ParentTargetId is Guid par ? GuidBlob.ToBlob(par) : null), ("$name", t.Name),
         ("$enabled", Bit(t.Enabled)), ("$ra", t.RaHours), ("$dec", t.DecDegreesSigned), ("$epoch", (int)t.Epoch),
         ("$rotation", t.RotationDeg), ("$roi", t.RoiPercent), ("$priority", (int?)t.Priority),
         ("$dir", t.DirectoryName), ("$cat", t.Catalog), ("$common", t.CommonName), ("$obj", t.ObjectName),
@@ -111,7 +113,9 @@ public sealed class CatalogStore : IDisposable
     /// <summary>
     /// Replaces the entire catalog with a resolved <see cref="CatalogGraph"/> (the full rebuild). Transactional:
     /// clears every plan/inventory table, then inserts in foreign-key order
-    /// (profile → project → exposure_template → target → exposure_plan → inventory_filter).
+    /// (profile → project → exposure_template → target → exposure_plan → inventory_filter). Within targets,
+    /// the graph's order is parents-before-children (a panel child always follows its mosaic parent), which the
+    /// self-referencing <c>parent_target_id</c> FK requires.
     /// </summary>
     public void WriteCatalog(CatalogGraph graph)
     {
@@ -140,16 +144,24 @@ public sealed class CatalogStore : IDisposable
     /// <summary>All projects.</summary>
     public IReadOnlyList<Project> GetProjects() => Query("SELECT * FROM project;", ProjectMapper.Instance);
 
-    /// <summary>All targets (actual, planned, and both).</summary>
+    /// <summary>All targets (actual, planned, and both) — INCLUDING mosaic panel children; filter on
+    /// <see cref="Target.ParentTargetId"/> being null for the top-level view.</summary>
     public IReadOnlyList<Target> GetTargets() => Query("SELECT * FROM target;", TargetMapper.Instance);
 
     /// <summary>
-    /// Targets that have frames on disk — i.e. they have been shot (<see cref="TargetSource.Actual"/> OR
-    /// <see cref="TargetSource.Both"/>). This is XFM's actual-only world: a <c>Both</c> target has been shot (it
-    /// just also carries a plan), so it belongs here; only planned-only targets (no files yet) are excluded.
+    /// TOP-LEVEL targets that have frames on disk — i.e. they have been shot (<see cref="TargetSource.Actual"/>
+    /// OR <see cref="TargetSource.Both"/>). This is the consumer's actual-only world: a <c>Both</c> target has
+    /// been shot (it just also carries a plan), so it belongs here; planned-only targets (no files yet) are
+    /// excluded, and so are mosaic panel children (a mosaic is one entry — its panels are reachable via
+    /// <see cref="GetChildTargets"/>).
     /// </summary>
     public IReadOnlyList<Target> GetShotTargets() =>
-        Query("SELECT * FROM target WHERE source_id IN (0, 2);", TargetMapper.Instance);
+        Query("SELECT * FROM target WHERE source_id IN (0, 2) AND parent_target_id IS NULL;", TargetMapper.Instance);
+
+    /// <summary>Panel children of one mosaic target (empty for a normal target).</summary>
+    public IReadOnlyList<Target> GetChildTargets(Guid parentId) =>
+        Query("SELECT * FROM target WHERE parent_target_id = $p;", TargetMapper.Instance,
+            ("$p", GuidBlob.ToBlob(parentId)));
 
     /// <summary>Targets belonging to a project.</summary>
     public IReadOnlyList<Target> GetTargets(Guid projectId) =>
