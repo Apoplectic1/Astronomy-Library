@@ -105,6 +105,32 @@ public sealed class TargetResolverTests
         DuplicateTsTarget dup = Assert.Single(r.DuplicateTsTargets);
         Assert.Equal("M42 - Orion", dup.DiskDirectory);
         Assert.Equal(2, dup.TsTargetNames.Count);
+        Assert.Empty(r.AliasTsTargets); // "M42 core" is a genuine variant, not an exact-facet alias
+    }
+
+    [Fact]
+    public void Resolve_AliasTsTargets_ReportedAsAlias_NotDuplicate()
+    {
+        // Two TS targets whose names are exactly the two halves of the disk directory — same object, twice.
+        TargetReport[] disk = [Disk("M27 - Dumbell", "M27", "Dumbell", 19.99, 22.72, withFilter: false)];
+        TsPlanData ts = Plan(
+            targets:
+            [
+                TsT(1, "M27", 19.991, 22.72, project: 10, guid: "g1"),
+                TsT(2, "Dumbell", 19.99, 22.73, project: 10, guid: "g2"),
+            ],
+            plans: [TsP(100, target: 1, template: 1000), TsP(101, target: 2, template: 1000)]);
+
+        (CatalogGraph g, CatalogBuildReport r) = TargetResolver.Resolve(disk, ts, Now);
+
+        Target t = Assert.Single(g.Targets);    // both fold onto the one canonical, like any dup
+        Assert.Equal(TargetSource.Both, t.Source);
+        Assert.Equal(2, g.Plans.Count);
+        Assert.All(g.Plans, p => Assert.Equal(t.Id, p.TargetId));
+        Assert.Empty(r.DuplicateTsTargets);     // ...but reported as an alias, not a duplicate
+        AliasTsTarget alias = Assert.Single(r.AliasTsTargets);
+        Assert.Equal("M27 - Dumbell", alias.DiskDirectory);
+        Assert.Equal(2, alias.TsTargetNames.Count);
     }
 
     [Fact]

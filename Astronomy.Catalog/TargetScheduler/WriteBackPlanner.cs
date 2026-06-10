@@ -33,6 +33,12 @@ public static class WriteBackPlanner
         HashSet<string> dupDirs = new(
             report.DuplicateTsTargets.Select(d => d.DiskDirectory), StringComparer.OrdinalIgnoreCase);
 
+        // Alias folds (every TS name exactly matches a disk identity facet — same object): a cell carrying exactly
+        // one plan per alias member is auto-written to every member, so they all reflect disk truth.
+        Dictionary<string, int> aliasDirs = new(StringComparer.OrdinalIgnoreCase);
+        foreach (AliasTsTarget a in report.AliasTsTargets)
+            aliasDirs[a.DiskDirectory] = a.TsTargetNames.Count;
+
         // Disk directories whose target identity is in question — a name mismatch (coords matched, names disagree)
         // or an ambiguous match (>1 disk target in tolerance). These are held for manual resolution, never
         // auto-written: a false-positive coordinate match would otherwise overwrite a real TS target's counts.
@@ -78,6 +84,14 @@ public static class WriteBackPlanner
             {
                 writes.Add(new PlannedWrite(id, targetId, t.Name, filter, purpose, disk));
             }
+            else if (!flagged && !isMosaic
+                && t.DirectoryName is not null && aliasDirs.TryGetValue(t.DirectoryName, out int members)
+                && gplans.Count == members && TryParseTsIds(gplans, out List<long> ids))
+            {
+                // One plan per alias member on this cell — the fold explains the multiplicity exactly, so the
+                // disk count goes to every member's plan. Any other count is a genuine same-purpose multi-plan.
+                writes.AddRange(ids.Select(pid => new PlannedWrite(pid, targetId, t.Name, filter, purpose, disk)));
+            }
             else
             {
                 ManualReason reason =
@@ -116,6 +130,17 @@ public static class WriteBackPlanner
     // than throwing mid-plan.
     private static bool TryParseTsId(string? importedFromTsGuid, out long id) =>
         long.TryParse(importedFromTsGuid, NumberStyles.Integer, CultureInfo.InvariantCulture, out id);
+
+    private static bool TryParseTsIds(List<ExposurePlan> plans, out List<long> ids)
+    {
+        ids = new List<long>(plans.Count);
+        foreach (ExposurePlan p in plans)
+        {
+            if (!TryParseTsId(p.ImportedFromTsGuid, out long id)) return false;
+            ids.Add(id);
+        }
+        return true;
+    }
 
     private sealed class KeyComparer : IEqualityComparer<(Guid Target, string Filter, FilterPurpose Purpose)>
     {

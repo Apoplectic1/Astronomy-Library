@@ -93,6 +93,44 @@ public sealed class WriteBackPlannerTests
     }
 
     [Fact]
+    public void AliasFold_WritesDiskCountToEveryMember()
+    {
+        Guid t = Guid.NewGuid(), a = Guid.NewGuid(), b = Guid.NewGuid();
+
+        WriteBackPlan plan = WriteBackPlanner.Plan(
+            [Both(t, "M27 - Dumbell", dir: "M27 - Dumbell")],
+            [Plan(t, a, tsId: 1, desired: 60), Plan(t, b, tsId: 2, desired: 60)],   // one plan per alias member
+            [Tpl(a, "H", "H"), Tpl(b, "H", "H")],
+            [Inv(t, "H", FilterPurpose.Light, 140)],
+            Report(aliases: [new AliasTsTarget("M27 - Dumbell", ["M27", "Dumbell"])]));
+
+        Assert.Empty(plan.Manual);
+        Assert.Equal(2, plan.Writes.Count);                  // same object → disk truth to both TS plans
+        Assert.All(plan.Writes, w => Assert.Equal(140, w.DiskCount));
+        Assert.Contains(plan.Writes, w => w.TsExposurePlanId == 1);
+        Assert.Contains(plan.Writes, w => w.TsExposurePlanId == 2);
+    }
+
+    [Fact]
+    public void AliasFold_UnexpectedPlanCount_IsManual()
+    {
+        Guid t = Guid.NewGuid(), a = Guid.NewGuid(), b = Guid.NewGuid(), c = Guid.NewGuid();
+
+        WriteBackPlan plan = WriteBackPlanner.Plan(
+            [Both(t, "M27 - Dumbell", dir: "M27 - Dumbell")],
+            // Three plans on one cell of a two-member alias: one member has a genuine same-purpose multi-plan.
+            [Plan(t, a, tsId: 1), Plan(t, b, tsId: 2), Plan(t, c, tsId: 3)],
+            [Tpl(a, "H", "H"), Tpl(b, "H", "H"), Tpl(c, "H fast", "H")],
+            [Inv(t, "H", FilterPurpose.Light, 140)],
+            Report(aliases: [new AliasTsTarget("M27 - Dumbell", ["M27", "Dumbell"])]));
+
+        Assert.Empty(plan.Writes);
+        ManualGroup g = Assert.Single(plan.Manual);
+        Assert.Equal(ManualReason.MultiPlan, g.Reason);
+        Assert.Equal(3, g.Plans.Count);
+    }
+
+    [Fact]
     public void DiskWins_OverwriteDown()
     {
         Guid t = Guid.NewGuid(), tpl = Guid.NewGuid();
@@ -224,10 +262,11 @@ public sealed class WriteBackPlannerTests
         int plannedOnly = 0,
         int actualOnly = 0,
         IReadOnlyList<DuplicateTsTarget>? dups = null,
+        IReadOnlyList<AliasTsTarget>? aliases = null,
         IReadOnlyList<NameMismatch>? mismatches = null,
         IReadOnlyList<AmbiguousMatch>? ambiguous = null,
         IReadOnlyList<UnanchoredTsTarget>? unanchored = null) => new(
         DiskTargetCount: 0, TsTargetCount: 0, BothCount: 0, PlannedOnlyCount: plannedOnly, ActualOnlyCount: actualOnly,
         NameMismatches: mismatches ?? [], AmbiguousMatches: ambiguous ?? [], DuplicateTsTargets: dups ?? [],
-        UnanchoredTsTargets: unanchored ?? [], InvalidTsTargets: []);
+        AliasTsTargets: aliases ?? [], UnanchoredTsTargets: unanchored ?? [], InvalidTsTargets: []);
 }

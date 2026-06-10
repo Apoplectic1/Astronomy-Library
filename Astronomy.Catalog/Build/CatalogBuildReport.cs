@@ -14,6 +14,7 @@ public sealed record CatalogBuildReport(
     IReadOnlyList<NameMismatch> NameMismatches,
     IReadOnlyList<AmbiguousMatch> AmbiguousMatches,
     IReadOnlyList<DuplicateTsTarget> DuplicateTsTargets,
+    IReadOnlyList<AliasTsTarget> AliasTsTargets,
     IReadOnlyList<UnanchoredTsTarget> UnanchoredTsTargets,
     IReadOnlyList<InvalidTsTarget> InvalidTsTargets,
     int MosaicsResolved = 0,
@@ -27,8 +28,16 @@ public sealed record NameMismatch(
 public sealed record AmbiguousMatch(
     string? TsGuid, string TsName, IReadOnlyList<string> CandidateDirectories, double NearestSeparationDegrees);
 
-/// <summary>One disk target that two or more TS targets resolved onto — a duplicate in TS to clean up.</summary>
+/// <summary>One disk target that two or more TS targets resolved onto — a duplicate in TS to clean up.
+/// (When every colliding name exactly matches a disk identity facet, the fold is an <see cref="AliasTsTarget"/> instead.)</summary>
 public sealed record DuplicateTsTarget(string DiskDirectory, IReadOnlyList<string> TsTargetNames);
+
+/// <summary>
+/// One disk target that two or more TS targets resolved onto where every TS name exactly equals a disk identity
+/// facet (directory / catalog / common / object name) — aliases naming the same object, not a duplicate to clean
+/// up. Write-back treats the members as one object and writes the disk count to every member's plans.
+/// </summary>
+public sealed record AliasTsTarget(string DiskDirectory, IReadOnlyList<string> TsTargetNames);
 
 /// <summary>A TS target with no usable coordinates; it could not be anchored to disk and became planned-only.</summary>
 public sealed record UnanchoredTsTarget(string? TsGuid, string TsName);
