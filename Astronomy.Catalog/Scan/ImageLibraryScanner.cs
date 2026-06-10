@@ -21,8 +21,9 @@ namespace Astronomy.Catalog.Scan;
 ///    │     └─ Stars &lt;Filter&gt;/              short-exposure star-only frames
 ///    └─ &lt;Camera&gt; - &lt;Filter&gt; - N, H.h       XFM marker FILES (not dirs); ignored
 /// </code>
-/// A <c>Mosaic - &lt;Name&gt;</c> target nests one extra <i>opaque</i> panel level under the camera
-/// (<c>.../&lt;Camera&gt;/&lt;panel&gt;/&lt;Filter&gt;/</c>); panels are summed into one target's per-filter inventory.
+/// A <c>Mosaic - &lt;Name&gt;</c> target nests one extra panel level under the camera
+/// (<c>.../&lt;Camera&gt;/&lt;panel&gt;/&lt;Filter&gt;/</c>); the whole-target aggregate sums all panels AND each
+/// panel is retained as its own sub-report (<see cref="TargetReport.Panels"/>) with its own centroid.
 /// </para>
 /// <para>
 /// Per-target scans run in parallel. .xisf header parsing failures are recorded
@@ -104,6 +105,27 @@ public static class ImageLibraryScanner
         string capturesDir = Path.Combine(targetDir, "Captures");
         if (!Directory.Exists(capturesDir)) return [];
 
+        Dictionary<string, List<FrameReading>> byPanel =
+            await ReadMosaicPanelsAsync(capturesDir, skipped, ct).ConfigureAwait(false);
+
+        List<TargetReport> units = [];
+        foreach ((string panelName, List<FrameReading> readings) in
+                 byPanel.OrderBy(kv => kv.Key, StringComparer.OrdinalIgnoreCase))
+        {
+            TargetReport? unit = BuildReport(panelName, readings);
+            if (unit is not null) units.Add(unit);
+        }
+        return units;
+    }
+
+    // The mosaic panel walk: frames grouped by panel directory name across cameras (a panel shot on two rigs
+    // stays one group), Calibration/ skipped. Shared by the bulk scan (which also retains the groups as
+    // per-panel sub-reports) and the surgical per-unit scan.
+    private static async Task<Dictionary<string, List<FrameReading>>> ReadMosaicPanelsAsync(
+        string capturesDir,
+        ConcurrentDictionary<string, string> skipped,
+        CancellationToken ct)
+    {
         Dictionary<string, List<FrameReading>> byPanel = new(StringComparer.OrdinalIgnoreCase);
         foreach (string cameraDir in Directory.EnumerateDirectories(capturesDir))
         {
@@ -121,15 +143,7 @@ public static class ImageLibraryScanner
                 list.AddRange(readings);
             }
         }
-
-        List<TargetReport> units = [];
-        foreach ((string panelName, List<FrameReading> readings) in
-                 byPanel.OrderBy(kv => kv.Key, StringComparer.OrdinalIgnoreCase))
-        {
-            TargetReport? unit = BuildReport(panelName, readings);
-            if (unit is not null) units.Add(unit);
-        }
-        return units;
+        return byPanel;
     }
 
     // -----------------------------------------------------------------------
@@ -146,12 +160,28 @@ public static class ImageLibraryScanner
         CancellationToken ct)
     {
         string dirName = Path.GetFileName(targetDir);
-        bool isMosaic = MosaicConvention.IsMosaicDirectory(dirName);
         string capturesDir = Path.Combine(targetDir, "Captures");
         if (!Directory.Exists(capturesDir)) return null;
 
-        List<FrameReading> readings = new();
+        // A mosaic nests one extra panel level under the camera. One walk serves both granularities: the
+        // panel groups become per-panel sub-reports AND their union feeds the whole-target aggregate.
+        if (MosaicConvention.IsMosaicDirectory(dirName))
+        {
+            Dictionary<string, List<FrameReading>> byPanel =
+                await ReadMosaicPanelsAsync(capturesDir, skipped, ct).ConfigureAwait(false);
 
+            List<TargetReport> panels = [];
+            foreach ((string panelName, List<FrameReading> panelReadings) in
+                     byPanel.OrderBy(kv => kv.Key, StringComparer.OrdinalIgnoreCase))
+            {
+                TargetReport? panel = BuildReport(panelName, panelReadings);
+                if (panel is not null) panels.Add(panel);
+            }
+
+            return BuildReport(dirName, [.. byPanel.Values.SelectMany(r => r)], panels);
+        }
+
+        List<FrameReading> readings = new();
         foreach (string cameraDir in Directory.EnumerateDirectories(capturesDir))
         {
             string cameraName = Path.GetFileName(cameraDir);
@@ -161,13 +191,8 @@ public static class ImageLibraryScanner
                 continue;
             }
 
-            // A mosaic nests one extra, opaque panel level under the camera; descend it and aggregate all panels
-            // (the bulk catalog path summs panels into one target — ScanUnitsAsync keeps them separate instead).
-            IEnumerable<string> filterDirs = isMosaic
-                ? Directory.EnumerateDirectories(cameraDir).SelectMany(panelDir => Directory.EnumerateDirectories(panelDir))
-                : Directory.EnumerateDirectories(cameraDir);
-
-            readings.AddRange(await ReadFramesAsync(filterDirs, cameraName, skipped, ct).ConfigureAwait(false));
+            readings.AddRange(await ReadFramesAsync(
+                Directory.EnumerateDirectories(cameraDir), cameraName, skipped, ct).ConfigureAwait(false));
         }
 
         return BuildReport(dirName, readings);
@@ -204,8 +229,10 @@ public static class ImageLibraryScanner
     }
 
     // Folds a set of frame readings into one TargetReport labelled <paramref name="label"/> (a target dir name, or a
-    // panel name for a mosaic unit). Returns null when nothing aggregates (no frames, or none with EXPTIME+DATE-OBS).
-    private static TargetReport? BuildReport(string label, IReadOnlyList<FrameReading> readings)
+    // panel name for a mosaic unit), optionally carrying per-panel sub-reports for a mosaic parent. Returns null
+    // when nothing aggregates (no frames, or none with EXPTIME+DATE-OBS).
+    private static TargetReport? BuildReport(
+        string label, IReadOnlyList<FrameReading> readings, IReadOnlyList<TargetReport>? panels = null)
     {
         if (readings.Count == 0) return null;
 
@@ -228,7 +255,7 @@ public static class ImageLibraryScanner
 
         if (aggregates.Count == 0) return null;
 
-        return new TargetReport(label, catalog, commonName, objectName, raHours, decDegrees, aggregates);
+        return new TargetReport(label, catalog, commonName, objectName, raHours, decDegrees, aggregates, panels);
     }
 
     // -----------------------------------------------------------------------

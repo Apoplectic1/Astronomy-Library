@@ -128,6 +128,41 @@ public class ImageLibraryScannerTests
     }
 
     [Fact]
+    public async Task ScanAsync_Mosaic_RetainsPerPanelReports()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "tcm_scan_" + Guid.NewGuid().ToString("N"));
+        string mosaic = Path.Combine(root, "Mosaic - Demo");
+        WritePanelFrame(mosaic, "Z183", "Panel 01of02", "H", "p1a.xisf", ra: 305.0, dec: 30.5, bin: 2);
+        WritePanelFrame(mosaic, "Z183", "Panel 01of02", "H", "p1b.xisf", ra: 305.0, dec: 30.5, bin: 2);
+        WritePanelFrame(mosaic, "Z183", "Panel 02of02", "H", "p2a.xisf", ra: 312.0, dec: 31.5, bin: 2);
+        WriteFrame(Path.Combine(root, "M1 - Crab", "Captures", "Z183", "H"), "n.xisf", ra: 83.6, dec: 22.0, bin: 1);
+        try
+        {
+            ImageLibraryReport report = await ImageLibraryScanner.ScanAsync(root);
+
+            // The mosaic's whole-target aggregate still sums the panels (one walk, both granularities)...
+            TargetReport parent = Assert.Single(report.Targets, t => t.DirectoryName == "Mosaic - Demo");
+            Assert.Equal(3, Assert.Single(parent.Filters).ExposureCount);
+
+            // ...AND each panel survives as a sub-report with its own counts and centroid.
+            Assert.Equal(2, parent.Panels.Count);
+            TargetReport p1 = Assert.Single(parent.Panels, p => p.DirectoryName == "Panel 01of02");
+            TargetReport p2 = Assert.Single(parent.Panels, p => p.DirectoryName == "Panel 02of02");
+            Assert.Equal(2, Assert.Single(p1.Filters).ExposureCount);
+            Assert.Equal(1, Assert.Single(p2.Filters).ExposureCount);
+            Assert.Equal(305.0 / 15.0, p1.RaHours, precision: 3);
+
+            // A normal target carries no panels.
+            TargetReport normal = Assert.Single(report.Targets, t => t.DirectoryName == "M1 - Crab");
+            Assert.Empty(normal.Panels);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task ScanUnitsAsync_Normal_ReturnsExactlyOneUnit_WithItsCells()
     {
         string root = Path.Combine(Path.GetTempPath(), "tcm_units_" + Guid.NewGuid().ToString("N"));

@@ -29,6 +29,14 @@ public sealed class TargetReport
     /// <summary>Per-filter / per-purpose aggregates. Empty list when no LIGHT frames found in <c>Captures/</c>.</summary>
     public IReadOnlyList<FilterAggregate> Filters { get; }
 
+    /// <summary>
+    /// Per-panel sub-reports for a mosaic target, each carrying its own consensus centroid and per-filter
+    /// aggregates; empty for a normal target. A panel report's <see cref="DirectoryName"/> is the bare panel
+    /// directory label (e.g. <c>"Panel 01of16"</c>). <see cref="Filters"/> on the parent remains the
+    /// panel-summed whole-target aggregate.
+    /// </summary>
+    public IReadOnlyList<TargetReport> Panels { get; }
+
     /// <summary>Creates an immutable per-target report.</summary>
     public TargetReport(
         string directoryName,
@@ -37,7 +45,8 @@ public sealed class TargetReport
         string objectName,
         double raHours,
         double decDegrees,
-        IReadOnlyList<FilterAggregate> filters)
+        IReadOnlyList<FilterAggregate> filters,
+        IReadOnlyList<TargetReport>? panels = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(directoryName);
         ArgumentException.ThrowIfNullOrWhiteSpace(catalog);
@@ -54,6 +63,7 @@ public sealed class TargetReport
         RaHours = raHours;
         DecDegrees = decDegrees;
         Filters = filters;
+        Panels = panels ?? [];
     }
 
     /// <summary>
