@@ -241,21 +241,63 @@ public sealed class WriteBackPlannerTests
     }
 
     [Fact]
-    public void MosaicTarget_AlwaysManual_WithMosaicReason()
+    public void PanelChildTarget_AutoWrites()
     {
-        Guid t = Guid.NewGuid(), tpl = Guid.NewGuid();
+        Guid parent = Guid.NewGuid(), child = Guid.NewGuid(), tpl = Guid.NewGuid();
 
-        // A single-plan cell would normally auto-write; a mosaic target never does — panels resolve in TS.
+        // A panel child is an ordinary Both target one level down — its composite directory name starts with
+        // the mosaic prefix, which must not re-trip any mosaic special-casing.
+        Target panel = Both(child, "CygnusLoop P1", dir: "Mosaic - Cygnus Loop/Panel 01of16") with
+        {
+            ParentTargetId = parent,
+        };
+
         WriteBackPlan plan = WriteBackPlanner.Plan(
-            [Both(t, "Cygnus Loop", dir: "Mosaic - Cygnus Loop")],
-            [Plan(t, tpl, tsId: 1)],
+            [Both(parent, "Mosaic - Cygnus Loop"), panel],
+            [Plan(child, tpl, tsId: 73, desired: 33)],
             [Tpl(tpl, "H", "H")],
-            [Inv(t, "H", FilterPurpose.Light, 100)],
+            [Inv(child, "H", FilterPurpose.Light, 26)],
+            Report());
+
+        PlannedWrite w = Assert.Single(plan.Writes);
+        Assert.Equal(73, w.TsExposurePlanId);
+        Assert.Equal(26, w.DiskCount);
+        Assert.Empty(plan.Manual);
+    }
+
+    [Fact]
+    public void MosaicParent_NoPlansNoInventory_IsInert()
+    {
+        Guid parent = Guid.NewGuid();
+
+        WriteBackPlan plan = WriteBackPlanner.Plan(
+            [Both(parent, "Mosaic - Cygnus Loop")],
+            [], [], [],
             Report());
 
         Assert.Empty(plan.Writes);
+        Assert.Empty(plan.Manual);
+        Assert.Empty(plan.NeedsReconciliation);
+    }
+
+    [Fact]
+    public void AmbiguousPanel_HeldManual_IdentityConflict()
+    {
+        Guid parent = Guid.NewGuid(), child = Guid.NewGuid(), tpl = Guid.NewGuid();
+
+        Target panel = Both(child, "Tight P1", dir: "Mosaic - Tight/Panel 1of1") with { ParentTargetId = parent };
+
+        WriteBackPlan plan = WriteBackPlanner.Plan(
+            [Both(parent, "Mosaic - Tight"), panel],
+            [Plan(child, tpl, tsId: 9, desired: 33)],
+            [Tpl(tpl, "H", "H")],
+            [Inv(child, "H", FilterPurpose.Light, 26)],
+            Report(ambiguousPanels: [new AmbiguousPanel(
+                "Mosaic - Tight", "Mosaic - Tight/Panel 1of1", ["Tight P1", "Tight P2"], 0.2)]));
+
+        Assert.Empty(plan.Writes);
         ManualGroup g = Assert.Single(plan.Manual);
-        Assert.Equal(ManualReason.Mosaic, g.Reason);
+        Assert.Equal(ManualReason.IdentityConflict, g.Reason);
     }
 
     [Fact]
@@ -421,8 +463,10 @@ public sealed class WriteBackPlannerTests
         IReadOnlyList<AliasTsTarget>? aliases = null,
         IReadOnlyList<NameMismatch>? mismatches = null,
         IReadOnlyList<AmbiguousMatch>? ambiguous = null,
-        IReadOnlyList<UnanchoredTsTarget>? unanchored = null) => new(
+        IReadOnlyList<UnanchoredTsTarget>? unanchored = null,
+        IReadOnlyList<AmbiguousPanel>? ambiguousPanels = null) => new(
         DiskTargetCount: 0, TsTargetCount: 0, BothCount: 0, PlannedOnlyCount: plannedOnly, ActualOnlyCount: actualOnly,
         NameMismatches: mismatches ?? [], AmbiguousMatches: ambiguous ?? [], DuplicateTsTargets: dups ?? [],
-        AliasTsTargets: aliases ?? [], UnanchoredTsTargets: unanchored ?? [], InvalidTsTargets: []);
+        AliasTsTargets: aliases ?? [], UnanchoredTsTargets: unanchored ?? [], InvalidTsTargets: [],
+        AmbiguousPanels: ambiguousPanels);
 }

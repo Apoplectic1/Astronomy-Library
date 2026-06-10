@@ -39,11 +39,9 @@ public enum ManualReason
     /// <summary>Two or more TS targets folded onto one disk target; their plans collide on this cell.</summary>
     DuplicateFold,
 
-    /// <summary>The target's identity is in question (name mismatch or ambiguous coordinate match); resolve before trusting the disk count.</summary>
+    /// <summary>The target's identity is in question (name mismatch, ambiguous coordinate match, or an
+    /// ambiguously anchored mosaic panel); resolve before trusting the disk count.</summary>
     IdentityConflict,
-
-    /// <summary>A mosaic target (panels folded from a TS isMosaic project); panel-level counts are resolved in TS, not auto-written.</summary>
-    Mosaic,
 
     /// <summary>A same-seconds TS plan exists only at a different binning (the surgical <c>--target</c> path) —
     /// an equipment-identity question a human must resolve. A cell with no plan at its duration at all is an

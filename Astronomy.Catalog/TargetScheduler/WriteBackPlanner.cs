@@ -43,13 +43,15 @@ public static class WriteBackPlanner
         foreach (AliasTsTarget a in report.AliasTsTargets)
             aliasDirs[a.DiskDirectory] = a.TsTargetNames.Count;
 
-        // Disk directories whose target identity is in question — a name mismatch (coords matched, names disagree)
-        // or an ambiguous match (>1 disk target in tolerance). These are held for manual resolution, never
-        // auto-written: a false-positive coordinate match would otherwise overwrite a real TS target's counts.
+        // Disk directories whose target identity is in question — a name mismatch (coords matched, names
+        // disagree), an ambiguous match (>1 disk target in tolerance), or an ambiguously anchored mosaic
+        // panel. These are held for manual resolution, never auto-written: a false-positive match would
+        // otherwise overwrite a real TS target's counts.
         HashSet<string> flaggedDirs = new(StringComparer.OrdinalIgnoreCase);
         foreach (NameMismatch m in report.NameMismatches) flaggedDirs.Add(m.DiskDirectory);
         foreach (AmbiguousMatch a in report.AmbiguousMatches)
             foreach (string d in a.CandidateDirectories) flaggedDirs.Add(d);
+        foreach (AmbiguousPanel p in report.AmbiguousPanels) flaggedDirs.Add(p.PanelDirectoryName);
 
         // Disk actuals summed per (target, filter, purpose, seconds). Filter compared case-insensitively
         // (matches Reconciler); the scanner's whole-second exposure bucket is part of the key.
@@ -85,13 +87,14 @@ public static class WriteBackPlanner
             Target t = targetById[targetId];
             int disk = diskCount.GetValueOrDefault(g.Key);   // 0 when no frames at this duration: spec unmet
             bool flagged = t.DirectoryName is not null && flaggedDirs.Contains(t.DirectoryName);
-            bool isMosaic = t.DirectoryName is not null && MosaicConvention.IsMosaicDirectory(t.DirectoryName);
 
-            if (!flagged && !isMosaic && gplans.Count == 1 && TryParseTsId(gplans[0].ImportedFromTsGuid, out long id))
+            // Mosaic panels are ordinary Both targets here (own TS provenance, own inventory); the mosaic
+            // PARENT carries no plans and no inventory, so it never forms a group — inert by construction.
+            if (!flagged && gplans.Count == 1 && TryParseTsId(gplans[0].ImportedFromTsGuid, out long id))
             {
                 writes.Add(new PlannedWrite(id, targetId, t.Name, filter, purpose, seconds, disk));
             }
-            else if (!flagged && !isMosaic
+            else if (!flagged
                 && t.DirectoryName is not null && aliasDirs.TryGetValue(t.DirectoryName, out int members)
                 && gplans.Count == members && TryParseTsIds(gplans, out List<long> ids))
             {
@@ -104,7 +107,6 @@ public static class WriteBackPlanner
             {
                 ManualReason reason =
                     flagged ? ManualReason.IdentityConflict
-                    : isMosaic ? ManualReason.Mosaic
                     : t.DirectoryName is not null && dupDirs.Contains(t.DirectoryName) ? ManualReason.DuplicateFold
                     : ManualReason.MultiPlan;
                 List<ManualPlan> mplans =
