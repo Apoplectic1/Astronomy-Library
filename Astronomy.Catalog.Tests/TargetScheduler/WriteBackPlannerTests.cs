@@ -52,12 +52,12 @@ public sealed class WriteBackPlannerTests
     }
 
     [Fact]
-    public void ExposureSplitInventoryRows_SumIntoOneWrite()
+    public void ExposureSplitInventoryRows_RouteBySeconds()
     {
         Guid t = Guid.NewGuid(), tpl = Guid.NewGuid();
 
-        // The scanner emits one inventory row per (filter, purpose, exposure); the write key stays
-        // (filter, purpose) — 28×120s + 47×300s must land as ONE write of 75, not two competing writes.
+        // The plan's duration is its spec: a 300s plan receives only the 300s frames; the 120s bucket has
+        // no plan and surfaces as an informational note (write-back never creates plans).
         WriteBackPlan plan = WriteBackPlanner.Plan(
             [Both(t, "M1")],
             [Plan(t, tpl, tsId: 500)],
@@ -67,8 +67,12 @@ public sealed class WriteBackPlannerTests
             Report());
 
         PlannedWrite w = Assert.Single(plan.Writes);
-        Assert.Equal(75, w.DiskCount);
+        Assert.Equal(47, w.DiskCount);
+        Assert.Equal(300, w.PlanSeconds);
         Assert.Empty(plan.Manual);
+        ReconcileNote n = Assert.Single(plan.NeedsReconciliation);
+        Assert.Equal(ReconcileNote.UnplannedFramesKind, n.Kind);
+        Assert.Contains("28 frames @120s", n.Detail);
     }
 
     [Fact]
@@ -88,6 +92,7 @@ public sealed class WriteBackPlannerTests
         Assert.Equal(ManualReason.MultiPlan, g.Reason);
         Assert.Equal("H", g.Filter);
         Assert.Equal(FilterPurpose.Light, g.Purpose);
+        Assert.Equal(300, g.Seconds);   // both plans at the template-default duration: same key → manual
         Assert.Equal(30, g.DiskCount);
         Assert.Equal(2, g.Plans.Count);
         Assert.Contains(g.Plans, p =>
@@ -253,7 +258,135 @@ public sealed class WriteBackPlannerTests
         Assert.Equal(ManualReason.Mosaic, g.Reason);
     }
 
+    [Fact]
+    public void PlanWithNoDiskBucket_WritesZero()
+    {
+        Guid t = Guid.NewGuid(), tpl = Guid.NewGuid();
+
+        // The plan's 600s spec has no frames at all — its counts go to 0 (a flagged decrease at apply time);
+        // the 300s frames are an unplanned bucket, reported but never written.
+        WriteBackPlan plan = WriteBackPlanner.Plan(
+            [Both(t, "Medusa")],
+            [Plan(t, tpl, tsId: 1005, desired: 34, acquired: 34, accepted: 34)],
+            [Tpl(tpl, "H900", "H", defExp: 600.0)],
+            [Inv(t, "H", FilterPurpose.Light, 34, seconds: 300.0)],
+            Report());
+
+        PlannedWrite w = Assert.Single(plan.Writes);
+        Assert.Equal(0, w.DiskCount);
+        Assert.Equal(600, w.PlanSeconds);
+        Assert.Empty(plan.Manual);
+        ReconcileNote n = Assert.Single(plan.NeedsReconciliation);
+        Assert.Equal(ReconcileNote.UnplannedFramesKind, n.Kind);
+        Assert.Contains("34 frames @300s", n.Detail);
+    }
+
+    [Fact]
+    public void DifferentSecondsMultiPlans_AutoResolveIntoSeparateWrites()
+    {
+        Guid t = Guid.NewGuid(), a = Guid.NewGuid(), b = Guid.NewGuid();
+
+        // Two same-purpose plans at different durations are different cells, not a multi-plan conflict —
+        // each receives its own bucket's count.
+        WriteBackPlan plan = WriteBackPlanner.Plan(
+            [Both(t, "M17")],
+            [Plan(t, a, tsId: 299, desired: 64), Plan(t, b, tsId: 1040, desired: 1)],
+            [Tpl(a, "H", "H", defExp: 300.0), Tpl(b, "H short", "H", defExp: 600.0)],
+            [Inv(t, "H", FilterPurpose.Light, 47, seconds: 300.0),
+             Inv(t, "H", FilterPurpose.Light, 12, seconds: 600.0)],
+            Report());
+
+        Assert.Empty(plan.Manual);
+        Assert.Equal(2, plan.Writes.Count);
+        Assert.Contains(plan.Writes, w => w.TsExposurePlanId == 299 && w.DiskCount == 47 && w.PlanSeconds == 300);
+        Assert.Contains(plan.Writes, w => w.TsExposurePlanId == 1040 && w.DiskCount == 12 && w.PlanSeconds == 600);
+        Assert.Empty(plan.NeedsReconciliation);
+    }
+
+    [Fact]
+    public void PlanLevelSeconds_OverridesTemplateDefault()
+    {
+        Guid t = Guid.NewGuid(), tpl = Guid.NewGuid();
+
+        WriteBackPlan plan = WriteBackPlanner.Plan(
+            [Both(t, "M1")],
+            [Plan(t, tpl, tsId: 5, seconds: 600.0)],   // plan-level value wins over the 300s template default
+            [Tpl(tpl, "H", "H", defExp: 300.0)],
+            [Inv(t, "H", FilterPurpose.Light, 21, seconds: 600.0)],
+            Report());
+
+        PlannedWrite w = Assert.Single(plan.Writes);
+        Assert.Equal(21, w.DiskCount);
+        Assert.Equal(600, w.PlanSeconds);
+    }
+
+    [Fact]
+    public void UnmatchedDiskBucket_EmitsUnplannedNote_NotManual()
+    {
+        Guid t = Guid.NewGuid(), tpl = Guid.NewGuid();
+
+        WriteBackPlan plan = WriteBackPlanner.Plan(
+            [Both(t, "Medusa")],
+            [Plan(t, tpl, tsId: 1008, desired: 35)],
+            [Tpl(tpl, "Stars R", "R", defExp: 60.0)],
+            [Inv(t, "R", FilterPurpose.Stars, 40, seconds: 60.0),
+             Inv(t, "R", FilterPurpose.Stars, 35, seconds: 5.0)],
+            Report());
+
+        PlannedWrite w = Assert.Single(plan.Writes);
+        Assert.Equal(40, w.DiskCount);
+        Assert.Empty(plan.Manual);
+        ReconcileNote n = Assert.Single(plan.NeedsReconciliation);
+        Assert.Equal(ReconcileNote.UnplannedFramesKind, n.Kind);
+        Assert.Contains("35 frames @5s", n.Detail);
+    }
+
+    [Fact]
+    public void AliasFold_DifferentSeconds_EachMemberWritesItsOwnBucket()
+    {
+        Guid t = Guid.NewGuid(), a = Guid.NewGuid(), b = Guid.NewGuid();
+
+        // Alias members whose plans differ in duration land in separate single-plan groups and auto-write
+        // individually — the member-count fold only applies within one duration.
+        WriteBackPlan plan = WriteBackPlanner.Plan(
+            [Both(t, "M27 - Dumbell", dir: "M27 - Dumbell")],
+            [Plan(t, a, tsId: 1), Plan(t, b, tsId: 2)],
+            [Tpl(a, "H", "H", defExp: 300.0), Tpl(b, "H", "H", defExp: 600.0)],
+            [Inv(t, "H", FilterPurpose.Light, 100, seconds: 300.0),
+             Inv(t, "H", FilterPurpose.Light, 20, seconds: 600.0)],
+            Report(aliases: [new AliasTsTarget("M27 - Dumbell", ["M27", "Dumbell"])]));
+
+        Assert.Empty(plan.Manual);
+        Assert.Equal(2, plan.Writes.Count);
+        Assert.Contains(plan.Writes, w => w.TsExposurePlanId == 1 && w.DiskCount == 100);
+        Assert.Contains(plan.Writes, w => w.TsExposurePlanId == 2 && w.DiskCount == 20);
+    }
+
+    [Fact]
+    public void ActualOnlyInventory_NoUnplannedNote()
+    {
+        Guid t = Guid.NewGuid();
+
+        // One-sided targets stay in IgnoredMissing — their buckets are not "unplanned frames".
+        WriteBackPlan plan = WriteBackPlanner.Plan(
+            [Actual(t, "Shot Only")],
+            [],
+            [],
+            [Inv(t, "H", FilterPurpose.Light, 50, seconds: 300.0)],
+            Report(actualOnly: 1));
+
+        Assert.Empty(plan.Writes);
+        Assert.Empty(plan.Manual);
+        Assert.Empty(plan.NeedsReconciliation);
+        Assert.Equal(1, plan.IgnoredMissing);
+    }
+
     // ---- builders -----------------------------------------------------------
+
+    private static Target Actual(Guid id, string name) => new(
+        id, TargetSource.Actual, ProjectId: null, name, Enabled: true, RaHours: null, DecDegreesSigned: null,
+        Epoch.J2000, RotationDeg: null, RoiPercent: null, Priority: null, DirectoryName: name, Catalog: null,
+        CommonName: null, ObjectName: null, ScannedAt: 0, CreatedAt: 0, ImportedFromTsGuid: null);
 
     private static Target Both(Guid id, string name, string? dir = null) => new(
         id, TargetSource.Both, ProjectId: null, name, Enabled: true, RaHours: null, DecDegreesSigned: null,
@@ -265,12 +398,14 @@ public sealed class WriteBackPlannerTests
         Epoch.J2000, RotationDeg: null, RoiPercent: null, Priority: null, DirectoryName: null, Catalog: null,
         CommonName: null, ObjectName: null, ScannedAt: null, CreatedAt: 0, ImportedFromTsGuid: "guid");
 
-    private static ExposureTemplate Tpl(Guid id, string name, string filter) =>
+    private static ExposureTemplate Tpl(Guid id, string name, string filter, double? defExp = 300.0) =>
         new(id, Guid.NewGuid(), name, filter, Gain: null, OffsetAdu: null, Binning: null, ReadoutMode: null,
-            DefaultExposureSeconds: null, ImportedFromTsGuid: null);
+            DefaultExposureSeconds: defExp, ImportedFromTsGuid: null);
 
-    private static ExposurePlan Plan(Guid target, Guid template, long tsId, int desired = 0, int acquired = 0, int accepted = 0) =>
-        new(Guid.NewGuid(), target, template, ExposureSeconds: null, desired, acquired, accepted,
+    private static ExposurePlan Plan(
+        Guid target, Guid template, long tsId, int desired = 0, int acquired = 0, int accepted = 0,
+        double? seconds = null) =>
+        new(Guid.NewGuid(), target, template, ExposureSeconds: seconds, desired, acquired, accepted,
             Enabled: true, ImportedFromTsGuid: tsId.ToString(CultureInfo.InvariantCulture));
 
     private static InventoryFilter Inv(

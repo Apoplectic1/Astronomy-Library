@@ -30,27 +30,88 @@ public sealed class SingleTargetPlannerTests
     }
 
     [Fact]
-    public void ExposureSplitCells_FoldIntoOneWrite()
+    public void ExposureSplitCells_RouteToTheirOwnSecondsPlans()
     {
-        // The scanner emits one aggregate per (filter, purpose, exposure); the write key stays
-        // (filter, purpose, binning) — 28×120s + 47×300s H Light must fold into ONE write of 75,
-        // never two competing writes against the same TS plan.
+        // Disk: H Light at two sub lengths; TS: one plan per duration. Each cell writes its own plan —
+        // the plan's duration is its spec.
         TargetReport[] units = [Unit("Sh2-174 - Valentine", 23.0, 80.0,
             Cell("H", FilterPurpose.Light, 28, bin: 1, seconds: 120.0),
             Cell("H", FilterPurpose.Light, 47, bin: 1, seconds: 300.0))];
         TsPlanData ts = new(
             [Proj(10, "Proj", mosaic: false)],
             [TsT(1, "Sh2-174", 23.001, 80.0, project: 10)],
-            [Tpl(1000, "Ha", "H", bin: 1)],
-            [TsP(500, target: 1, template: 1000)]);
+            [Tpl(1000, "Ha fast", "H", bin: 1, defExp: 120.0), Tpl(1001, "Ha", "H", bin: 1, defExp: 300.0)],
+            [TsP(500, target: 1, template: 1000, exposure: -1), TsP(501, target: 1, template: 1001, exposure: -1)]);
 
         WriteBackPlan plan = SingleTargetPlanner.Plan(units, isMosaic: false, "Sh2-174 - Valentine", ts);
 
-        PlannedWrite w = Assert.Single(plan.Writes);
-        Assert.Equal(500, w.TsExposurePlanId);
-        Assert.Equal(75, w.DiskCount);
+        Assert.Equal(2, plan.Writes.Count);
+        Assert.Contains(plan.Writes, w => w.TsExposurePlanId == 500 && w.DiskCount == 28 && w.PlanSeconds == 120);
+        Assert.Contains(plan.Writes, w => w.TsExposurePlanId == 501 && w.DiskCount == 47 && w.PlanSeconds == 300);
         Assert.Empty(plan.Manual);
         Assert.Empty(plan.NeedsReconciliation);
+    }
+
+    [Fact]
+    public void SecondsMismatch_NoSameSecondsPlan_EmitsUnplannedNote_NotManual()
+    {
+        // 120s frames against a target whose only plan is 300s: no plan at this duration exists at any
+        // binning — informational note, never manual (write-back doesn't create plans).
+        TargetReport[] units = [Unit("Medusa", 7.48, 13.29, Cell("H", FilterPurpose.Light, 25, bin: 1, seconds: 120.0))];
+        TsPlanData ts = new(
+            [Proj(10, "Proj", mosaic: false)],
+            [TsT(1, "Medusa", 7.48, 13.29, project: 10)],
+            [Tpl(1000, "Ha", "H", bin: 1, defExp: 300.0)],
+            [TsP(500, target: 1, template: 1000)]);
+
+        WriteBackPlan plan = SingleTargetPlanner.Plan(units, isMosaic: false, "Medusa", ts);
+
+        Assert.Empty(plan.Writes);
+        Assert.Empty(plan.Manual);
+        ReconcileNote n = Assert.Single(plan.NeedsReconciliation);
+        Assert.Equal(ReconcileNote.UnplannedFramesKind, n.Kind);
+        Assert.Contains("25 frames @120s", n.Detail);
+    }
+
+    [Fact]
+    public void SecondsMismatch_SameSecondsOtherBinExists_IsManualNoMatchingPlan()
+    {
+        // A same-duration plan exists at a different binning — an equipment-identity question, shown as
+        // context; the 300s plan at the right binning is irrelevant to this 120s cell.
+        TargetReport[] units = [Unit("Wide", 5.0, 10.0, Cell("H", FilterPurpose.Light, 25, bin: 2, seconds: 120.0))];
+        TsPlanData ts = new(
+            [Proj(10, "Proj", mosaic: false)],
+            [TsT(1, "Wide", 5.0, 10.0, project: 10)],
+            [Tpl(1000, "Ha 1x1 fast", "H", bin: 1, defExp: 120.0), Tpl(1001, "Ha 2x2", "H", bin: 2, defExp: 300.0)],
+            [TsP(500, target: 1, template: 1000, exposure: 120.0), TsP(501, target: 1, template: 1001)]);
+
+        WriteBackPlan plan = SingleTargetPlanner.Plan(units, isMosaic: false, "Wide", ts);
+
+        Assert.Empty(plan.Writes);
+        ManualGroup g = Assert.Single(plan.Manual);
+        Assert.Equal(ManualReason.NoMatchingPlan, g.Reason);
+        Assert.Equal(120, g.Seconds);
+        ManualPlan ctx = Assert.Single(g.Plans);
+        Assert.Equal(500, ctx.TsExposurePlanId);   // only the same-seconds 1x1 plan shown as context
+        Assert.Equal(120, ctx.PlanSeconds);
+    }
+
+    [Fact]
+    public void PlanExposureMinusOne_UsesTemplateDefault()
+    {
+        // Raw TS sentinel: exposure -1 means "use the template default".
+        TargetReport[] units = [Unit("Wide", 5.0, 10.0, Cell("H", FilterPurpose.Light, 30, bin: 1, seconds: 600.0))];
+        TsPlanData ts = new(
+            [Proj(10, "Proj", mosaic: false)],
+            [TsT(1, "Wide", 5.0, 10.0, project: 10)],
+            [Tpl(1000, "Ha", "H", bin: 1, defExp: 600.0)],
+            [TsP(500, target: 1, template: 1000, exposure: -1)]);
+
+        WriteBackPlan plan = SingleTargetPlanner.Plan(units, isMosaic: false, "Wide", ts);
+
+        PlannedWrite w = Assert.Single(plan.Writes);
+        Assert.Equal(30, w.DiskCount);
+        Assert.Equal(600, w.PlanSeconds);
     }
 
     [Fact]
@@ -209,9 +270,11 @@ public sealed class SingleTargetPlannerTests
     private static TsTarget TsT(long id, string name, double ra, double dec, long project) =>
         new(id, name, 1, ra, dec, 2, null, null, project, -1, "g-t" + id);
 
-    private static TsExposureTemplate Tpl(long id, string name, string filter, int bin) =>
-        new(id, "profile-1", name, filter, 100, 50, bin, 300.0);
+    private static TsExposureTemplate Tpl(long id, string name, string filter, int bin, double defExp = 300.0) =>
+        new(id, "profile-1", name, filter, 100, 50, bin, defExp);
 
-    private static TsExposurePlan TsP(long id, long target, long template, int desired = 60, int acquired = 0, int accepted = 0) =>
-        new(id, "profile-1", 300.0, desired, acquired, accepted, target, template);
+    private static TsExposurePlan TsP(
+        long id, long target, long template, int desired = 60, int acquired = 0, int accepted = 0,
+        double exposure = 300.0) =>
+        new(id, "profile-1", exposure, desired, acquired, accepted, target, template);
 }

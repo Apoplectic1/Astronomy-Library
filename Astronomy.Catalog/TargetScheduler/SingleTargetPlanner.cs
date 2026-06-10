@@ -12,12 +12,17 @@ namespace Astronomy.Catalog.TargetScheduler;
 ///   <item><b>Unit → TS target</b> by coordinates: a normal target is one unit anchored to the nearest TS target;
 ///   a mosaic is one unit per panel, each anchored to the nearest panel <i>within the same-named isMosaic
 ///   project</i> (name-matched first, exactly like <see cref="TargetResolver"/>).</item>
-///   <item><b>Cell → TS plan</b> by <c>(filter, purpose, binning)</c>: each unit's per-filter aggregate lands on the
-///   plan whose template matches all three, so a 2×2 <c>Stars B</c> cell can't write a 1×1 plan.</item>
+///   <item><b>Cell → TS plan</b> by <c>(filter, purpose, binning, whole-second exposure)</c>: each per-sub-length
+///   aggregate lands on the plan whose template matches all four — a 2×2 <c>Stars B</c> cell can't write a 1×1
+///   plan, and 600 s frames can't satisfy a 900 s plan.</item>
 /// </list>
 /// Disk is the single source of truth, so a matched cell takes the disk count verbatim (the writer ratchets
-/// <c>desired</c> up). Anything that does not match cleanly — a unit beyond tolerance or ambiguous, a cell with no
-/// (or more than one) matching plan — is <b>reported, never forced</b>: TS conflicts are resolved by hand.
+/// <c>desired</c> up). A cell whose duration no plan targets is an informational
+/// <see cref="ReconcileNote.UnplannedFramesKind"/> note (write-back updates existing plan rows only); a cell whose
+/// only same-duration plans sit at a different binning, or with several plans at the full key, is
+/// <b>reported for manual resolution, never forced</b>. Unlike the bulk planner, plans with no matching cell are
+/// left untouched (never zeroed): this is a per-cell push tool, and a partial or unconventional directory scan
+/// must not be silently destructive to the anchored target's other plans.
 /// Transitional, like all TS interop: retires at the IS/ISP cutover.
 /// </summary>
 public static class SingleTargetPlanner
@@ -99,58 +104,78 @@ public static class SingleTargetPlanner
             TsTarget matched = near[0].Ts;
             List<TsExposurePlan> targetPlans = [.. plansByTarget[matched.Id]];
 
-            // The scanner splits aggregates per exposure time, but the write-back key stays
-            // (filter, purpose, binning) — fold the split cells back together (summing counts) so one
-            // TS plan receives one write covering all sub lengths, exactly as before the split.
-            foreach (IGrouping<(string, FilterPurpose, int), FilterAggregate> g in unit.Filters
-                .GroupBy(c => (c.FilterName.ToUpperInvariant(), c.Purpose, c.Typical.Binning.X)))
-            {
-                FilterAggregate cell = g.OrderByDescending(c => c.ExposureCount).First();
-                RouteCell(cell, g.Sum(c => c.ExposureCount), matched, targetPlans, templateById, writes, manual);
-            }
+            // Each per-sub-length aggregate routes on its own: the plan's duration is its spec, so a cell
+            // only ever writes a plan at exactly its (filter, purpose, binning, seconds).
+            foreach (FilterAggregate cell in unit.Filters)
+                RouteCell(cell, matched, targetPlans, templateById, writes, manual, needs);
         }
 
         return new WriteBackPlan(writes, manual, needs, IgnoredMissing: 0);
     }
 
-    // Matches one disk cell (filter, purpose, binning) to its TS plan on the anchored target. Exactly one match →
-    // an auto-write; none or several → a manual group (nothing forced). <paramref name="diskCount"/> is the
-    // count summed across the cell's exposure-time splits; <paramref name="cell"/> is the largest split
-    // (representative for filter/purpose/binning, which are uniform across the group).
+    // Matches one disk cell (filter, purpose, binning, seconds) to its TS plan on the anchored target.
+    // Exactly one match → an auto-write; several → manual; none → a same-seconds plan at another binning is an
+    // equipment-identity question (manual with context), otherwise the cell's duration simply has no plan and
+    // becomes an informational note (write-back never creates plans).
     private static void RouteCell(
         FilterAggregate cell,
-        int diskCount,
         TsTarget matched,
         List<TsExposurePlan> targetPlans,
         Dictionary<long, TsExposureTemplate> templateById,
         List<PlannedWrite> writes,
-        List<ManualGroup> manual)
+        List<ManualGroup> manual,
+        List<ReconcileNote> needs)
     {
+        int cellSeconds = (int)Math.Round(cell.Typical.ExposureSec);
+
+        // Raw TS rows here: exposure < 0 is TS's "use the template default" sentinel.
+        int PlanSeconds(TsExposurePlan p) =>
+            (int)Math.Round(p.Exposure < 0 ? templateById[p.ExposureTemplateId].DefaultExposure : p.Exposure);
+
         bool MatchesFilterPurpose(TsExposurePlan p) =>
             templateById.TryGetValue(p.ExposureTemplateId, out TsExposureTemplate? tpl)
             && string.Equals(tpl.FilterName, cell.FilterName, StringComparison.OrdinalIgnoreCase)
             && FilterPurposeClassifier.Classify(tpl.Name) == cell.Purpose;
 
-        // Filter + purpose + binning is the full key — a square-binned cell only writes a like-binned plan.
+        // Filter + purpose + binning + seconds is the full key — a square-binned cell only writes a
+        // like-binned plan, and frames only count toward a plan at exactly their duration.
         List<TsExposurePlan> matches = [.. targetPlans.Where(p =>
             MatchesFilterPurpose(p)
-            && templateById[p.ExposureTemplateId].Bin == cell.Typical.Binning.X)];
+            && templateById[p.ExposureTemplateId].Bin == cell.Typical.Binning.X
+            && PlanSeconds(p) == cellSeconds)];
 
         if (matches.Count == 1)
         {
             writes.Add(new PlannedWrite(
-                matches[0].Id, Guid.Empty, matched.Name, cell.FilterName, cell.Purpose, diskCount));
+                matches[0].Id, Guid.Empty, matched.Name, cell.FilterName, cell.Purpose, cellSeconds,
+                cell.ExposureCount));
             return;
         }
 
-        ManualReason reason = matches.Count == 0 ? ManualReason.NoMatchingPlan : ManualReason.MultiPlan;
+        if (matches.Count == 0)
+        {
+            // Same-duration plans at another binning are shown as context (e.g. a 1×1 plan when the disk
+            // cell is 2×2) — a human call. No plan at this duration at all → informational note.
+            List<TsExposurePlan> otherBin = [.. targetPlans.Where(p =>
+                MatchesFilterPurpose(p) && PlanSeconds(p) == cellSeconds)];
+            if (otherBin.Count == 0)
+            {
+                needs.Add(new ReconcileNote(ReconcileNote.UnplannedFramesKind, matched.Name,
+                    $"{cell.FilterName} {cell.Purpose} {cell.ExposureCount} frames @{cellSeconds}s " +
+                    $"(bin {cell.Typical.Binning.X}) - no TS plan at {cellSeconds}s"));
+                return;
+            }
 
-        // For "no bin match", show the same filter+purpose plans of other binnings as context so the user can see
-        // what TS does have (e.g. a 1×1 plan when the disk cell is 2×2). For >1, show the colliding plans.
-        IEnumerable<TsExposurePlan> shown = matches.Count == 0 ? targetPlans.Where(MatchesFilterPurpose) : matches;
-        List<ManualPlan> plans = [.. shown.Select(p => new ManualPlan(p.Id, p.Acquired, p.Accepted, p.Desired))];
+            manual.Add(new ManualGroup(
+                Guid.Empty, matched.Name, cell.FilterName, cell.Purpose, cellSeconds, cell.ExposureCount,
+                ManualReason.NoMatchingPlan,
+                [.. otherBin.Select(p => new ManualPlan(p.Id, PlanSeconds(p), p.Acquired, p.Accepted, p.Desired))]));
+            return;
+        }
 
         manual.Add(new ManualGroup(
-            Guid.Empty, matched.Name, cell.FilterName, cell.Purpose, diskCount, reason, plans));
+            Guid.Empty, matched.Name, cell.FilterName, cell.Purpose, cellSeconds, cell.ExposureCount,
+            ManualReason.MultiPlan,
+            [.. matches.Select(p => new ManualPlan(p.Id, PlanSeconds(p), p.Acquired, p.Accepted, p.Desired))]));
     }
 }

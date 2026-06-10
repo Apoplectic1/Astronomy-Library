@@ -11,6 +11,7 @@ public sealed record WriteBackChange(
     string TargetName,
     string Filter,
     FilterPurpose Purpose,
+    int PlanSeconds,
     int OldAcquired,
     int OldAccepted,
     int OldDesired,
@@ -115,7 +116,7 @@ public sealed class TargetSchedulerWriter : IDisposable
         {
             (int acquired, int accepted, int desired) = ReadCounts(w.TsExposurePlanId) ?? (-1, -1, -1);
             changes.Add(new WriteBackChange(
-                w.TsExposurePlanId, w.TargetName, w.Filter, w.Purpose,
+                w.TsExposurePlanId, w.TargetName, w.Filter, w.Purpose, w.PlanSeconds,
                 acquired, accepted, desired, w.DiskCount, Math.Max(desired, w.DiskCount)));
         }
 

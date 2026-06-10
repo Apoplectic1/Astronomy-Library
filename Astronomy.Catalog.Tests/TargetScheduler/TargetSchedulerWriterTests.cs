@@ -112,8 +112,8 @@ public sealed class TargetSchedulerWriterTests
         {
             // plan 1 over-shoots its goal (disk 140 > desired 100); plan 2 under-shoots (disk 50 < 100).
             WriteBackPlan plan = new(
-                [new PlannedWrite(1, Guid.NewGuid(), "Over", "H", FilterPurpose.Light, 140),
-                 new PlannedWrite(2, Guid.NewGuid(), "Under", "H", FilterPurpose.Light, 50)],
+                [new PlannedWrite(1, Guid.NewGuid(), "Over", "H", FilterPurpose.Light, 300, 140),
+                 new PlannedWrite(2, Guid.NewGuid(), "Under", "H", FilterPurpose.Light, 300, 50)],
                 [], [], 0);
 
             using (TargetSchedulerWriter writer = new(tsDb))
