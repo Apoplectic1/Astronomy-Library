@@ -174,9 +174,10 @@ public sealed class TargetResolverTests
     }
 
     [Fact]
-    public void Resolve_Mosaic_FoldsPanelsByName_SumsGoals_NotDuplicate()
+    public void Resolve_Mosaic_PanelsBecomeChildren_PlansRewireToChildren()
     {
-        TargetReport[] disk = [Disk("Mosaic - Cygnus Loop", "Mosaic", "Cygnus Loop", 20.7, 30.7, withFilter: true)];
+        TargetReport[] disk = [DiskMosaic("Mosaic - Cygnus Loop",
+            ("Panel 01of03", 20.5, 30.5), ("Panel 02of03", 20.7, 30.7), ("Panel 03of03", 20.9, 30.9))];
         TsPlanData ts = new(
             [new TsProject(20, "profile-1", "Mosaic - Cygnus Loop", 1, 1, null, 1, "g-mosaic")],  // isMosaic
             [TsT(1, "CygnusLoop P1", 20.5, 30.5, project: 20, guid: "g-p1"),
@@ -187,18 +188,34 @@ public sealed class TargetResolverTests
 
         (CatalogGraph g, CatalogBuildReport r) = TargetResolver.Resolve(disk, ts, Now);
 
-        Target t = Assert.Single(g.Targets);                 // one canonical mosaic target — panels absorbed
-        Assert.Equal(TargetSource.Both, t.Source);
-        Assert.Equal("Mosaic - Cygnus Loop", t.DirectoryName);
-        Assert.NotNull(t.ProjectId);
-        Assert.Null(t.ImportedFromTsGuid);                   // no single TS target (matched by project name)
-        Assert.Equal(3, g.Plans.Count);                      // all 3 panels' plans folded on → goals accumulate
-        Assert.All(g.Plans, p => Assert.Equal(t.Id, p.TargetId));
+        Assert.Equal(4, g.Targets.Count);                    // one parent + one child per panel
+        Target parent = Assert.Single(g.Targets, t => t.DirectoryName == "Mosaic - Cygnus Loop");
+        Assert.Equal(TargetSource.Both, parent.Source);
+        Assert.Null(parent.ImportedFromTsGuid);              // no single TS target (matched by project name)
+        Assert.Null(parent.ParentTargetId);
+        Assert.DoesNotContain(g.Plans, p => p.TargetId == parent.Id);            // parent carries no plans...
+        Assert.DoesNotContain(g.InventoryFilters, i => i.TargetId == parent.Id); // ...and no inventory
+
+        List<Target> children = [.. g.Targets.Where(t => t.ParentTargetId == parent.Id)];
+        Assert.Equal(3, children.Count);
+        Target p1 = Assert.Single(children, c => c.Name == "CygnusLoop P1");
+        Assert.Equal(TargetSource.Both, p1.Source);
+        Assert.Equal("Mosaic - Cygnus Loop/Panel 01of03", p1.DirectoryName);
+        Assert.Equal("g-p1", p1.ImportedFromTsGuid);
+        Assert.Equal(20.5, p1.RaHours!.Value, precision: 6);                  // disk panel centroid wins
+        Assert.Equal(p1.Id, Assert.Single(g.Plans, p => p.ImportedFromTsGuid == "100").TargetId);
+        Assert.Single(g.InventoryFilters, i => i.TargetId == p1.Id);
+
+        List<Target> ordered = [.. g.Targets];
+        Assert.True(ordered.IndexOf(parent) < children.Min(c => ordered.IndexOf(c)));  // FK order
+
         Assert.Empty(r.DuplicateTsTargets);                  // a mosaic is NOT a duplicate
         Assert.Equal(1, r.MosaicsResolved);
-        Assert.Equal(3, r.PanelsFolded);
-        Assert.Equal(1, r.BothCount);
+        Assert.Equal(3, r.PanelsMatched);
+        Assert.Equal(0, r.PanelsPlannedOnly);
+        Assert.Equal(1, r.BothCount);                        // top-level counts: the parent only
         Assert.Equal(0, r.PlannedOnlyCount);
+        Assert.Empty(r.AmbiguousPanels);
     }
 
     [Fact]
@@ -206,7 +223,7 @@ public sealed class TargetResolverTests
     {
         TargetReport[] disk =
         [
-            Disk("Mosaic - Cygnus Loop", "Mosaic", "Cygnus Loop", 20.7, 30.7, withFilter: true),
+            DiskMosaic("Mosaic - Cygnus Loop", ("Panel 01of03", 20.5, 30.5)),
             Disk("NGC 6995 - Eastern Veil", "NGC 6995", "Eastern Veil", 20.9, 30.9, withFilter: true),
         ];
         TsPlanData ts = new(
@@ -219,25 +236,112 @@ public sealed class TargetResolverTests
 
         Target veil = Assert.Single(g.Targets, x => x.DirectoryName == "NGC 6995 - Eastern Veil");
         Assert.Equal(TargetSource.Actual, veil.Source);                 // panel did NOT anchor here
-        Target mosaic = Assert.Single(g.Targets, x => x.DirectoryName == "Mosaic - Cygnus Loop");
-        Assert.Equal(mosaic.Id, Assert.Single(g.Plans).TargetId);       // the panel's plan folded onto the mosaic
+        // The TS panel is far from the only disk panel, so it becomes a PLANNED child of the mosaic
+        // and its plan targets that child — never the overlapping standalone target.
+        Target planned = Assert.Single(g.Targets, x => x.Name == "CygnusLoop P3");
+        Assert.Equal(TargetSource.Planned, planned.Source);
+        Assert.NotNull(planned.ParentTargetId);
+        Assert.Equal(planned.Id, Assert.Single(g.Plans).TargetId);
         Assert.Empty(r.NameMismatches);                                 // no CygnusLoop P3 ↔ NGC 6995 mismatch
+        Assert.Equal(1, r.PanelsActualOnly);                            // the unmatched disk panel
+        Assert.Equal(1, r.PanelsPlannedOnly);
     }
 
     [Fact]
-    public void Resolve_DiskOnlyMosaic_NoMatchingProject_IsActualOnly()
+    public void Resolve_DiskOnlyMosaic_NoMatchingProject_IsActualOnly_WithActualChildren()
     {
-        TargetReport[] disk = [Disk("Mosaic - Pinwheel", "Mosaic", "Pinwheel", 14.0, 54.0, withFilter: true)];
+        TargetReport[] disk = [DiskMosaic("Mosaic - Pinwheel", ("Panel 1of1", 14.0, 54.0))];
         TsPlanData ts = new(   // a mosaic project exists, but not named Pinwheel
             [new TsProject(20, "profile-1", "Mosaic - Cygnus Loop", 1, 1, null, 1, "g-mosaic")],
             [], [new TsExposureTemplate(1000, "profile-1", "Ha", "H", 100, 50, 1, 300.0)], []);
 
         (CatalogGraph g, CatalogBuildReport r) = TargetResolver.Resolve(disk, ts, Now);
 
-        Target t = Assert.Single(g.Targets);
-        Assert.Equal(TargetSource.Actual, t.Source);
+        Target parent = Assert.Single(g.Targets, t => t.ParentTargetId is null);
+        Assert.Equal(TargetSource.Actual, parent.Source);
+        Target child = Assert.Single(g.Targets, t => t.ParentTargetId == parent.Id);
+        Assert.Equal(TargetSource.Actual, child.Source);
+        Assert.Equal("Mosaic - Pinwheel/Panel 1of1", child.DirectoryName);
+        Assert.Equal(child.Id, Assert.Single(g.InventoryFilters).TargetId);   // inventory on the child
         Assert.Equal(0, r.MosaicsResolved);
         Assert.Equal(1, r.ActualOnlyCount);
+        Assert.Equal(1, r.PanelsActualOnly);
+    }
+
+    [Fact]
+    public void Resolve_Mosaic_UnmatchedTsPanels_BecomePlannedChildren()
+    {
+        // The Witch Head shape: one panel shot of a four-panel plan.
+        TargetReport[] disk = [DiskMosaic("Mosaic - Witch Head", ("Panel 1of4", 5.0, -7.0))];
+        TsPlanData ts = new(
+            [new TsProject(30, "profile-1", "Mosaic - Witch Head", 1, 1, null, 1, "g-wh")],
+            [TsT(1, "WitchHead P1", 5.0, -7.0, project: 30, guid: "g-w1"),
+             TsT(2, "WitchHead P2", 5.2, -7.0, project: 30, guid: "g-w2"),
+             TsT(3, "WitchHead P3", 5.0, -9.5, project: 30, guid: "g-w3"),
+             TsT(4, "WitchHead P4", 5.2, -9.5, project: 30, guid: "g-w4")],
+            [new TsExposureTemplate(1000, "profile-1", "Ha", "H", 100, 50, 1, 300.0)],
+            [TsP(100, target: 1, template: 1000), TsP(101, target: 2, template: 1000),
+             TsP(102, target: 3, template: 1000), TsP(103, target: 4, template: 1000)]);
+
+        (CatalogGraph g, CatalogBuildReport r) = TargetResolver.Resolve(disk, ts, Now);
+
+        Assert.Equal(5, g.Targets.Count);   // parent + 1 Both child + 3 Planned children
+        Target parent = Assert.Single(g.Targets, t => t.ParentTargetId is null);
+        Target both = Assert.Single(g.Targets, t => t.Source == TargetSource.Both && t.ParentTargetId is not null);
+        Assert.Equal("WitchHead P1", both.Name);
+        List<Target> planned = [.. g.Targets.Where(t => t.Source == TargetSource.Planned)];
+        Assert.Equal(3, planned.Count);
+        Assert.All(planned, p => Assert.Equal(parent.Id, p.ParentTargetId));
+        Assert.Equal(1, r.PanelsMatched);
+        Assert.Equal(3, r.PanelsPlannedOnly);
+        // Every plan targets its own panel child — none on the parent.
+        Assert.All(g.Plans, p => Assert.NotEqual(parent.Id, p.TargetId));
+        Assert.Equal(4, g.Plans.Select(p => p.TargetId).Distinct().Count());
+    }
+
+    [Fact]
+    public void Resolve_Mosaic_AmbiguousPanel_NearestWins_AndReported()
+    {
+        TargetReport[] disk = [DiskMosaic("Mosaic - Tight", ("Panel 1of1", 20.5, 30.5))];
+        TsPlanData ts = new(
+            [new TsProject(40, "profile-1", "Mosaic - Tight", 1, 1, null, 1, "g-t")],
+            [TsT(1, "Tight P1", 20.5, 30.5, project: 40, guid: "g-t1"),          // sep 0 — nearest
+             TsT(2, "Tight P2", 20.52, 30.5, project: 40, guid: "g-t2")],        // ~0.26° — also in tolerance
+            [new TsExposureTemplate(1000, "profile-1", "Ha", "H", 100, 50, 1, 300.0)],
+            [TsP(100, target: 1, template: 1000), TsP(101, target: 2, template: 1000)]);
+
+        (CatalogGraph g, CatalogBuildReport r) = TargetResolver.Resolve(disk, ts, Now);
+
+        Target both = Assert.Single(g.Targets, t => t.Source == TargetSource.Both && t.ParentTargetId is not null);
+        Assert.Equal("Tight P1", both.Name);                                     // nearest anchored
+        Assert.Single(g.Targets, t => t.Name == "Tight P2" && t.Source == TargetSource.Planned);
+        AmbiguousPanel a = Assert.Single(r.AmbiguousPanels);
+        Assert.Equal("Mosaic - Tight/Panel 1of1", a.PanelDirectoryName);
+        Assert.Equal(2, a.TsPanelNames.Count);
+        Assert.Equal(0.0, a.NearestSeparationDegrees, precision: 6);
+    }
+
+    [Fact]
+    public void Resolve_Mosaic_EmptyPanels_DegradesToParentInventory()
+    {
+        // Synthetic reports without per-panel detail keep today's shape: aggregate inventory on the parent,
+        // the project's TS panels as planned children.
+        TargetReport[] disk = [Disk("Mosaic - Cygnus Loop", "Mosaic", "Cygnus Loop", 20.7, 30.7, withFilter: true)];
+        TsPlanData ts = new(
+            [new TsProject(20, "profile-1", "Mosaic - Cygnus Loop", 1, 1, null, 1, "g-mosaic")],
+            [TsT(1, "CygnusLoop P1", 20.5, 30.5, project: 20, guid: "g-p1")],
+            [new TsExposureTemplate(1000, "profile-1", "Ha", "H", 100, 50, 1, 300.0)],
+            [TsP(100, target: 1, template: 1000)]);
+
+        (CatalogGraph g, CatalogBuildReport r) = TargetResolver.Resolve(disk, ts, Now);
+
+        Target parent = Assert.Single(g.Targets, t => t.ParentTargetId is null);
+        Assert.Equal(parent.Id, Assert.Single(g.InventoryFilters).TargetId);     // aggregate stays on parent
+        Target planned = Assert.Single(g.Targets, t => t.ParentTargetId is not null);
+        Assert.Equal(TargetSource.Planned, planned.Source);
+        Assert.Equal(planned.Id, Assert.Single(g.Plans).TargetId);
+        Assert.Equal(0, r.PanelsMatched);
+        Assert.Equal(1, r.PanelsPlannedOnly);
     }
 
     // ---- synthetic builders -------------------------------------------------
@@ -246,6 +350,16 @@ public sealed class TargetResolverTests
     {
         FilterAggregate[] filters = withFilter ? [SampleFilter()] : [];
         return new TargetReport(dir, cat, common, cat, raH, dec, filters);
+    }
+
+    private static TargetReport DiskMosaic(string dir, params (string Label, double RaH, double Dec)[] panels)
+    {
+        (string cat, string? common) = TargetReport.SplitDirectoryName(dir);
+        TargetReport[] subs = [.. panels.Select(p =>
+            new TargetReport(p.Label, p.Label, null, p.Label, p.RaH, p.Dec, new[] { SampleFilter() }))];
+        double ra = panels.Length > 0 ? panels.Average(p => p.RaH) : 20.0;
+        double dec = panels.Length > 0 ? panels.Average(p => p.Dec) : 30.0;
+        return new TargetReport(dir, cat, common, cat, ra, dec, [SampleFilter()], subs);
     }
 
     private static FilterAggregate SampleFilter()

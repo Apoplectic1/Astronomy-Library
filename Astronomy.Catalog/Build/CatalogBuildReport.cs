@@ -3,7 +3,8 @@ namespace Astronomy.Catalog.Build;
 /// <summary>
 /// Summary of a catalog rebuild: how many targets came from disk vs TS and how they resolved, plus the TS
 /// "problems and errors" that resolution surfaced for the user to reconcile. Counts: <see cref="BothCount"/> +
-/// <see cref="PlannedOnlyCount"/> + <see cref="ActualOnlyCount"/> = total canonical targets written.
+/// <see cref="PlannedOnlyCount"/> + <see cref="ActualOnlyCount"/> = total TOP-LEVEL canonical targets written
+/// (mosaic panel children are counted separately via the <c>Panels*</c> counters).
 /// </summary>
 public sealed record CatalogBuildReport(
     int DiskTargetCount,
@@ -18,7 +19,25 @@ public sealed record CatalogBuildReport(
     IReadOnlyList<UnanchoredTsTarget> UnanchoredTsTargets,
     IReadOnlyList<InvalidTsTarget> InvalidTsTargets,
     int MosaicsResolved = 0,
-    int PanelsFolded = 0);
+    int PanelsMatched = 0,
+    int PanelsPlannedOnly = 0,
+    int PanelsActualOnly = 0,
+    IReadOnlyList<AmbiguousPanel>? AmbiguousPanels = null)
+{
+    /// <summary>Disk panels with 2+ same-project TS panel candidates in tolerance (nearest anchored; flagged).</summary>
+    public IReadOnlyList<AmbiguousPanel> AmbiguousPanels { get; init; } = AmbiguousPanels ?? [];
+}
+
+/// <summary>
+/// One disk panel of a mosaic with two or more same-project TS panel targets inside the match tolerance.
+/// The nearest was anchored, but the choice is flagged: write-back holds the panel for manual resolution.
+/// <see cref="PanelDirectoryName"/> is the panel's composite catalog directory name.
+/// </summary>
+public sealed record AmbiguousPanel(
+    string MosaicDirectory,
+    string PanelDirectoryName,
+    IReadOnlyList<string> TsPanelNames,
+    double NearestSeparationDegrees);
 
 /// <summary>A TS target whose coordinates matched a disk target but whose name disagrees (coords win; flagged).</summary>
 public sealed record NameMismatch(
