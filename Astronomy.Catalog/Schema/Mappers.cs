@@ -152,6 +152,6 @@ public sealed class InventoryFilterMapper : ITableMapper<InventoryFilter>
         reader.GetDouble("typical_set_temp_c"),
         reader.GetInt32("typical_binning_x"),
         reader.GetInt32("typical_binning_y"),
-        reader.GetDouble("typical_exposure_seconds"),
+        reader.GetDouble("exposure_seconds"),
         reader.GetString("cameras"));
 }

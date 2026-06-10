@@ -213,13 +213,17 @@ public static class ImageLibraryScanner
         string objectName = ConsensusObjectName(readings, catalog);
         (double raHours, double decDegrees) = ConsensusCoordinates(readings);
 
+        // Exposure time is part of the aggregate identity: the same filter+purpose shot at different sub
+        // lengths (e.g. HDR 120 s + 300 s) yields separate aggregates. Bucketing to the nearest second
+        // matches ComputeTypical's clustering, so within a bucket Typical.ExposureSec IS the bucket value.
         List<FilterAggregate> aggregates = readings
-            .GroupBy(r => (r.FilterCode, r.Purpose))
+            .GroupBy(r => (r.FilterCode, r.Purpose, Seconds: ExposureBucket(r)))
             .Select(g => BuildAggregate(g.Key.FilterCode, g.Key.Purpose, g.ToList()))
             .Where(a => a is not null)
             .Cast<FilterAggregate>()
             .OrderBy(a => a.FilterCode, StringComparer.OrdinalIgnoreCase)
             .ThenBy(a => a.Purpose)
+            .ThenBy(a => a.Typical.ExposureSec)
             .ToList();
 
         if (aggregates.Count == 0) return null;
@@ -311,6 +315,10 @@ public static class ImageLibraryScanner
             typical: typical,
             camerasSeen: cameras);
     }
+
+    // Whole-second exposure bucket for aggregate identity (599.97 and 600.00 share a bucket). Frames without
+    // EXPTIME land in bucket 0 and are dropped by BuildAggregate's EXPTIME filter, exactly as before.
+    private static int ExposureBucket(FrameReading r) => (int)Math.Round(r.Header.ExposureSec ?? 0.0);
 
     private static TypicalSettings ComputeTypical(IReadOnlyList<FrameReading> frames)
     {

@@ -121,7 +121,7 @@ CREATE TABLE IF NOT EXISTS exposure_plan (
 CREATE INDEX IF NOT EXISTS ix_exposure_plan_target_id ON exposure_plan(target_id);
 CREATE INDEX IF NOT EXISTS ix_exposure_plan_template_id ON exposure_plan(exposure_template_id);
 
--- ----- Actuals: inventory_filter (what was shot, per target/filter/purpose) --
+-- ----- Actuals: inventory_filter (what was shot, per target/filter/purpose/exposure) --
 -- Derived ImageLibraryScanner aggregates; keyed to the canonical target (only Actual/Both targets have rows).
 
 CREATE TABLE IF NOT EXISTS inventory_filter (
@@ -138,9 +138,9 @@ CREATE TABLE IF NOT EXISTS inventory_filter (
     typical_set_temp_c        REAL NOT NULL,
     typical_binning_x         INTEGER NOT NULL,
     typical_binning_y         INTEGER NOT NULL,
-    typical_exposure_seconds  REAL NOT NULL,
+    exposure_seconds          REAL NOT NULL,         -- whole-second sub-length bucket; part of the row identity
     cameras                   TEXT NOT NULL,         -- CSV of distinct INSTRUME values
-    PRIMARY KEY (target_id, filter_code, frame_purpose_id)
+    PRIMARY KEY (target_id, filter_code, frame_purpose_id, exposure_seconds)
 ) WITHOUT ROWID;
 CREATE INDEX IF NOT EXISTS ix_inventory_filter_target ON inventory_filter(target_id);
 CREATE INDEX IF NOT EXISTS ix_inventory_filter_name ON inventory_filter(filter_name, frame_purpose_id);

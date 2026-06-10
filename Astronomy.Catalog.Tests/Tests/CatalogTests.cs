@@ -132,6 +132,35 @@ public sealed class CatalogStoreTests
         }
     }
 
+    [Fact]
+    public void WriteCatalog_KeepsExposureSplitInventoryRows()
+    {
+        string path = TestSupport.NewDbPath();
+        long now = TestSupport.NowUnix();
+        try
+        {
+            using CatalogStore store = CatalogStore.Open(path);
+
+            CatalogGraph graph = SampleGraph(now, out Target target, out _, out InventoryFilter inv300);
+            // Same (target, filter, purpose) at a second sub length — a separate identity row, not a PK clash.
+            InventoryFilter inv120 = inv300 with
+            {
+                ExposureSeconds = 120.0, ExposureCount = 28, TotalIntegrationSeconds = 28 * 120.0,
+            };
+            store.WriteCatalog(new CatalogGraph(
+                graph.Profiles, graph.Projects, graph.Templates, graph.Targets, graph.Plans, [inv300, inv120]));
+
+            IReadOnlyList<InventoryFilter> rows = store.GetInventoryFilters(target.Id);
+            Assert.Equal(2, rows.Count);
+            Assert.Contains(inv300, rows);
+            Assert.Contains(inv120, rows);
+        }
+        finally
+        {
+            TestSupport.Cleanup(path);
+        }
+    }
+
     private static CatalogGraph SampleGraph(long now, out Target target, out ExposurePlan plan, out InventoryFilter inventory)
     {
         Profile profile = new(Guid.NewGuid(), "Penns Park", "nina-guid", now);
@@ -152,7 +181,7 @@ public sealed class CatalogStoreTests
         inventory = new(
             targetId, "H", FilterPurpose.Light, "H", ExposureCount: 12, TotalIntegrationSeconds: 3600.0,
             FirstImagedAt: 1_700_000_000, LastImagedAt: 1_700_007_200, TypicalGain: 100, TypicalOffset: 50,
-            TypicalSetTempC: -10.0, TypicalBinningX: 1, TypicalBinningY: 1, TypicalExposureSeconds: 300.0,
+            TypicalSetTempC: -10.0, TypicalBinningX: 1, TypicalBinningY: 1, ExposureSeconds: 300.0,
             Cameras: "Z533");
         return new CatalogGraph([profile], [project], [template], [target], [plan], [inventory]);
     }

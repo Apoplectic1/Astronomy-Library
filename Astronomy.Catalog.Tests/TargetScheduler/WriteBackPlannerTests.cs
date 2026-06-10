@@ -52,6 +52,26 @@ public sealed class WriteBackPlannerTests
     }
 
     [Fact]
+    public void ExposureSplitInventoryRows_SumIntoOneWrite()
+    {
+        Guid t = Guid.NewGuid(), tpl = Guid.NewGuid();
+
+        // The scanner emits one inventory row per (filter, purpose, exposure); the write key stays
+        // (filter, purpose) — 28×120s + 47×300s must land as ONE write of 75, not two competing writes.
+        WriteBackPlan plan = WriteBackPlanner.Plan(
+            [Both(t, "M1")],
+            [Plan(t, tpl, tsId: 500)],
+            [Tpl(tpl, "H", "H")],
+            [Inv(t, "H", FilterPurpose.Light, 28, seconds: 120.0),
+             Inv(t, "H", FilterPurpose.Light, 47, seconds: 300.0)],
+            Report());
+
+        PlannedWrite w = Assert.Single(plan.Writes);
+        Assert.Equal(75, w.DiskCount);
+        Assert.Empty(plan.Manual);
+    }
+
+    [Fact]
     public void SamePurposeMultiPlan_IsManual()
     {
         Guid t = Guid.NewGuid(), a = Guid.NewGuid(), b = Guid.NewGuid();
@@ -253,10 +273,11 @@ public sealed class WriteBackPlannerTests
         new(Guid.NewGuid(), target, template, ExposureSeconds: null, desired, acquired, accepted,
             Enabled: true, ImportedFromTsGuid: tsId.ToString(CultureInfo.InvariantCulture));
 
-    private static InventoryFilter Inv(Guid target, string filter, FilterPurpose purpose, int count) =>
-        new(target, filter, purpose, filter, count, count * 300.0, FirstImagedAt: 0, LastImagedAt: 0,
+    private static InventoryFilter Inv(
+        Guid target, string filter, FilterPurpose purpose, int count, double seconds = 300.0) =>
+        new(target, filter, purpose, filter, count, count * seconds, FirstImagedAt: 0, LastImagedAt: 0,
             TypicalGain: 100, TypicalOffset: 50, TypicalSetTempC: -10.0, TypicalBinningX: 1, TypicalBinningY: 1,
-            TypicalExposureSeconds: 300.0, Cameras: "Z533");
+            ExposureSeconds: seconds, Cameras: "Z533");
 
     private static CatalogBuildReport Report(
         int plannedOnly = 0,

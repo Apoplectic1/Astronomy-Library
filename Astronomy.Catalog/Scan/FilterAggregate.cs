@@ -2,8 +2,10 @@ namespace Astronomy.Catalog.Scan;
 
 /// <summary>
 /// Per-filter rollup of a target's imaging history. One instance per
-/// (target, filter directory, purpose) — Light and Stars variants of the same
-/// filter become separate aggregates, e.g. <c>"B"</c> Light vs <c>"B"</c> Stars.
+/// (target, filter directory, purpose, exposure-time bucket) — Light and Stars variants of the same
+/// filter become separate aggregates (<c>"B"</c> Light vs <c>"B"</c> Stars), and so do different sub
+/// lengths of the same filter (<c>"H"</c> 120 s vs <c>"H"</c> 300 s). Within an aggregate the exposure
+/// time is therefore uniform: <see cref="Typical"/>.<c>ExposureSec</c> is the bucket's whole-second value.
 /// </summary>
 public sealed class FilterAggregate
 {

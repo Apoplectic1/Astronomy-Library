@@ -30,6 +30,30 @@ public sealed class SingleTargetPlannerTests
     }
 
     [Fact]
+    public void ExposureSplitCells_FoldIntoOneWrite()
+    {
+        // The scanner emits one aggregate per (filter, purpose, exposure); the write key stays
+        // (filter, purpose, binning) — 28×120s + 47×300s H Light must fold into ONE write of 75,
+        // never two competing writes against the same TS plan.
+        TargetReport[] units = [Unit("Sh2-174 - Valentine", 23.0, 80.0,
+            Cell("H", FilterPurpose.Light, 28, bin: 1, seconds: 120.0),
+            Cell("H", FilterPurpose.Light, 47, bin: 1, seconds: 300.0))];
+        TsPlanData ts = new(
+            [Proj(10, "Proj", mosaic: false)],
+            [TsT(1, "Sh2-174", 23.001, 80.0, project: 10)],
+            [Tpl(1000, "Ha", "H", bin: 1)],
+            [TsP(500, target: 1, template: 1000)]);
+
+        WriteBackPlan plan = SingleTargetPlanner.Plan(units, isMosaic: false, "Sh2-174 - Valentine", ts);
+
+        PlannedWrite w = Assert.Single(plan.Writes);
+        Assert.Equal(500, w.TsExposurePlanId);
+        Assert.Equal(75, w.DiskCount);
+        Assert.Empty(plan.Manual);
+        Assert.Empty(plan.NeedsReconciliation);
+    }
+
+    [Fact]
     public void Mosaic_PanelsWriteTheirOwnPanelPlans()
     {
         TargetReport[] units =
@@ -172,11 +196,11 @@ public sealed class SingleTargetPlannerTests
         return new TargetReport(label, cat, common, cat, raHours, dec, cells);
     }
 
-    private static FilterAggregate Cell(string filter, FilterPurpose purpose, int count, int bin)
+    private static FilterAggregate Cell(string filter, FilterPurpose purpose, int count, int bin, double seconds = 300.0)
     {
         DateTime first = new(2024, 1, 1, 22, 0, 0, DateTimeKind.Utc);
-        return new FilterAggregate(filter, filter, purpose, count, TimeSpan.FromSeconds(count * 300.0),
-            first, first.AddHours(1), new TypicalSettings(100, 50, -10.0, (bin, bin), 300.0), ["Z533"]);
+        return new FilterAggregate(filter, filter, purpose, count, TimeSpan.FromSeconds(count * seconds),
+            first, first.AddHours(1), new TypicalSettings(100, 50, -10.0, (bin, bin), seconds), ["Z533"]);
     }
 
     private static TsProject Proj(long id, string name, bool mosaic) =>

@@ -99,17 +99,27 @@ public static class SingleTargetPlanner
             TsTarget matched = near[0].Ts;
             List<TsExposurePlan> targetPlans = [.. plansByTarget[matched.Id]];
 
-            foreach (FilterAggregate cell in unit.Filters)
-                RouteCell(cell, matched, targetPlans, templateById, writes, manual);
+            // The scanner splits aggregates per exposure time, but the write-back key stays
+            // (filter, purpose, binning) — fold the split cells back together (summing counts) so one
+            // TS plan receives one write covering all sub lengths, exactly as before the split.
+            foreach (IGrouping<(string, FilterPurpose, int), FilterAggregate> g in unit.Filters
+                .GroupBy(c => (c.FilterName.ToUpperInvariant(), c.Purpose, c.Typical.Binning.X)))
+            {
+                FilterAggregate cell = g.OrderByDescending(c => c.ExposureCount).First();
+                RouteCell(cell, g.Sum(c => c.ExposureCount), matched, targetPlans, templateById, writes, manual);
+            }
         }
 
         return new WriteBackPlan(writes, manual, needs, IgnoredMissing: 0);
     }
 
     // Matches one disk cell (filter, purpose, binning) to its TS plan on the anchored target. Exactly one match →
-    // an auto-write; none or several → a manual group (nothing forced).
+    // an auto-write; none or several → a manual group (nothing forced). <paramref name="diskCount"/> is the
+    // count summed across the cell's exposure-time splits; <paramref name="cell"/> is the largest split
+    // (representative for filter/purpose/binning, which are uniform across the group).
     private static void RouteCell(
         FilterAggregate cell,
+        int diskCount,
         TsTarget matched,
         List<TsExposurePlan> targetPlans,
         Dictionary<long, TsExposureTemplate> templateById,
@@ -129,7 +139,7 @@ public static class SingleTargetPlanner
         if (matches.Count == 1)
         {
             writes.Add(new PlannedWrite(
-                matches[0].Id, Guid.Empty, matched.Name, cell.FilterName, cell.Purpose, cell.ExposureCount));
+                matches[0].Id, Guid.Empty, matched.Name, cell.FilterName, cell.Purpose, diskCount));
             return;
         }
 
@@ -141,6 +151,6 @@ public static class SingleTargetPlanner
         List<ManualPlan> plans = [.. shown.Select(p => new ManualPlan(p.Id, p.Acquired, p.Accepted, p.Desired))];
 
         manual.Add(new ManualGroup(
-            Guid.Empty, matched.Name, cell.FilterName, cell.Purpose, cell.ExposureCount, reason, plans));
+            Guid.Empty, matched.Name, cell.FilterName, cell.Purpose, diskCount, reason, plans));
     }
 }

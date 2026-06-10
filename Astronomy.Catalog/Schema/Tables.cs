@@ -84,7 +84,9 @@ public sealed record ExposurePlan(
 // A target's identity + coordinates live on the canonical Target (source Actual/Both); only the per-filter
 // actuals remain a separate table, keyed to that target.
 
-/// <summary>Per-(target, filter, purpose) imaging totals/history (from <c>FilterAggregate</c> + <c>TypicalSettings</c>).</summary>
+/// <summary>Per-(target, filter, purpose, exposure) imaging totals/history (from <c>FilterAggregate</c> +
+/// <c>TypicalSettings</c>). <see cref="ExposureSeconds"/> is part of the row identity: the same filter shot
+/// at different sub lengths yields separate rows; consumers wanting per-filter totals sum across them.</summary>
 public sealed record InventoryFilter(
     Guid TargetId,
     string FilterCode,
@@ -99,5 +101,5 @@ public sealed record InventoryFilter(
     double TypicalSetTempC,
     int TypicalBinningX,
     int TypicalBinningY,
-    double TypicalExposureSeconds,
+    double ExposureSeconds,
     string Cameras);

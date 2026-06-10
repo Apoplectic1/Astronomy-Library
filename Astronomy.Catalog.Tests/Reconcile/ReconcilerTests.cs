@@ -110,6 +110,22 @@ public sealed class ReconcilerTests
         Assert.Equal(59, r.TotalRemaining);                      // 0 (H met) + 59 (S short)
     }
 
+    [Fact]
+    public void ExposureSplitInventoryRows_SumIntoOneFilterActual()
+    {
+        Guid target = Guid.NewGuid(), tH = Guid.NewGuid();
+        // The scanner emits one inventory row per (filter, purpose, exposure); the reconciler must sum
+        // them — 28×120s + 47×300s reads as 75 H frames against the goal.
+        TargetReconciliation r = Assert.Single(Reconciler.Reconcile(
+            [T(target, "Split", TargetSource.Both)],
+            [Plan(target, tH, 80)], [Tpl(tH, "H")],
+            [Inv(target, "H", FilterPurpose.Light, 28, seconds: 120.0),
+             Inv(target, "H", FilterPurpose.Light, 47, seconds: 300.0)]));
+        FilterReconciliation f = Assert.Single(r.Filters);
+        Assert.Equal(75, f.AcquiredCount);
+        Assert.Equal(5, r.TotalRemaining);
+    }
+
     // ---- builders -----------------------------------------------------------
 
     private static Target T(Guid id, string name, TargetSource source) => new(
@@ -125,8 +141,9 @@ public sealed class ReconcilerTests
         new(Guid.NewGuid(), target, template, ExposureSeconds: null, desired, AcquiredCount: 0, AcceptedCount: 0,
             Enabled: true, ImportedFromTsGuid: null);
 
-    private static InventoryFilter Inv(Guid target, string filter, FilterPurpose purpose, int count) =>
-        new(target, filter, purpose, filter, count, count * 300.0, FirstImagedAt: 0, LastImagedAt: 0,
+    private static InventoryFilter Inv(
+        Guid target, string filter, FilterPurpose purpose, int count, double seconds = 300.0) =>
+        new(target, filter, purpose, filter, count, count * seconds, FirstImagedAt: 0, LastImagedAt: 0,
             TypicalGain: 100, TypicalOffset: 50, TypicalSetTempC: -10.0, TypicalBinningX: 1, TypicalBinningY: 1,
-            TypicalExposureSeconds: 300.0, Cameras: "Z533");
+            ExposureSeconds: seconds, Cameras: "Z533");
 }
