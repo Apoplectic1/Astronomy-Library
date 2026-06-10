@@ -97,22 +97,26 @@ public static class TargetResolver
         // ---- Disk working set (one canonical id per directory). A mosaic contributes its parent unit plus one
         //      ordinary unit per panel (composite key "<mosaic dir>/<panel label>"), appended right after the
         //      parent so the graph keeps FK order. Panels are normal units from here on — same anchoring, same
-        //      validation, same classification; only the key construction differs.
+        //      validation, same classification; only the key construction differs. Every unit carries a SCOPE
+        //      key: top-level units share the default scope, a panel is in its mosaic's scope, and a mosaic
+        //      parent is in no coordinate scope at all (matching by name IS its scope mechanism).
         List<WorkingTarget> diskWorking = [];
         foreach (TargetReport d in diskTargets)
         {
+            bool isMosaicDir = MosaicConvention.IsMosaicDirectory(d.DirectoryName);
             WorkingTarget top = new(
-                DeterministicGuid($"disk:{d.DirectoryName}"), d, canonicalDir: d.DirectoryName);
+                DeterministicGuid($"disk:{d.DirectoryName}"), d, canonicalDir: d.DirectoryName,
+                scopeKey: isMosaicDir ? null : DefaultScope);
             diskWorking.Add(top);
 
-            if (!MosaicConvention.IsMosaicDirectory(d.DirectoryName)) continue;
-            string mosaicKey = Normalize(d.DirectoryName);
+            if (!isMosaicDir) continue;
+            string mosaicScope = Normalize(d.DirectoryName);
             foreach (TargetReport panel in d.Panels)
             {
                 string childDir = MosaicConvention.PanelDirectoryName(d.DirectoryName, panel.DirectoryName);
                 diskWorking.Add(new WorkingTarget(
                     DeterministicGuid($"disk:{childDir}"), panel, canonicalDir: childDir,
-                    parentId: top.Id, mosaicKey: mosaicKey, panelToken: PanelToken(panel.DirectoryName)));
+                    scopeKey: mosaicScope, parentId: top.Id, panelToken: PanelToken(panel.DirectoryName)));
             }
         }
 
@@ -155,11 +159,13 @@ public static class TargetResolver
             if (tst.ProjectId is not long projectId || !projectIds.ContainsKey(projectId))
                 continue; // orphan TS target (no project) — skip
 
-            // Candidate scoping is the only mosaic-specific rule in the loop: a target of an isMosaic
-            // project anchors among that mosaic's panel units only (never a standalone dir, however close
-            // on the sky); a standalone target never anchors to a panel or a mosaic parent.
+            // Units anchor within their key-space: the TS side's scope comes from its own grouping (an
+            // isMosaic project = that mosaic's scope; anything else = the default scope), the disk side's
+            // from its path shape. One equality — no mosaic conditional in the matching itself, and a
+            // cross-scope match (e.g. a panel's goals landing on a sky-overlapping standalone dir) is
+            // impossible by construction.
             bool isPanelTarget = mosaicProjectById.TryGetValue(projectId, out TsProject? mosaicProj);
-            string? scopeKey = isPanelTarget ? Normalize(mosaicProj!.Name) : null;
+            string tsScope = isPanelTarget ? Normalize(mosaicProj!.Name) : DefaultScope;
             Guid? plannedParent = isPanelTarget && mosaicParentByProject.TryGetValue(projectId, out Guid pp)
                 ? pp : null;
 
@@ -172,9 +178,7 @@ public static class TargetResolver
             }
 
             List<(WorkingTarget Work, double Sep)> candidates = [.. diskWorking
-                .Where(w => isPanelTarget
-                    ? w.MosaicKey == scopeKey
-                    : !w.IsPanel && !MosaicConvention.IsMosaicDirectory(w.Disk.DirectoryName))
+                .Where(w => w.ScopeKey == tsScope)
                 .Select(w => (Work: w, Sep: SeparationDegrees(raHours, decDegrees, w.Disk.RaHours, w.Disk.DecDegrees)))
                 .Where(x => x.Sep <= tolerance)
                 .OrderBy(x => x.Sep)];
@@ -230,8 +234,10 @@ public static class TargetResolver
 
         foreach (WorkingTarget w in diskWorking)
         {
-            if (!w.IsPanel && MosaicConvention.IsMosaicDirectory(w.Disk.DirectoryName))
+            if (w.ScopeKey is null)
             {
+                // The name-matched grouping node (a mosaic parent): classified by its project match,
+                // carrying inventory only when the report had no per-panel detail (degradation).
                 if (w.MosaicProject is TsProject mosaic)
                 {
                     targets.Add(BuildBothMosaic(w.Disk, mosaic, w.Id, projectIds, createdAtUnix));
@@ -498,12 +504,15 @@ public static class TargetResolver
             sink.Add(new InvalidTsTarget(t.TsGuid, t.Name, string.Join("; ", issues)));
     }
 
+    /// <summary>The coordinate scope shared by all top-level units (and TS targets outside isMosaic projects).</summary>
+    private const string DefaultScope = "";
+
     // A disk unit accumulating the TS targets that resolved onto it (usually 0 or 1; >1 = a TS duplicate).
     // A unit is a top-level directory OR one panel of a mosaic — panels are ordinary units whose key is
     // composite and which carry their parent link plus the scoping/validation facets.
     private sealed class WorkingTarget(
-        Guid id, TargetReport disk, string canonicalDir,
-        Guid? parentId = null, string? mosaicKey = null, string? panelToken = null)
+        Guid id, TargetReport disk, string canonicalDir, string? scopeKey,
+        Guid? parentId = null, string? panelToken = null)
     {
         public Guid Id { get; } = id;
         public TargetReport Disk { get; } = disk;
@@ -511,11 +520,15 @@ public static class TargetResolver
         /// <summary>The catalog directory name: the dir itself, or <c>"&lt;mosaic dir&gt;/&lt;panel label&gt;"</c> for a panel.</summary>
         public string CanonicalDir { get; } = canonicalDir;
 
+        /// <summary>
+        /// The unit's coordinate key-space: <see cref="DefaultScope"/> for a top-level unit, the mosaic's
+        /// normalized name for a panel, and null for a mosaic parent (which matches by name, never by
+        /// coordinates). Anchoring only ever happens scope-equal.
+        /// </summary>
+        public string? ScopeKey { get; } = scopeKey;
+
         /// <summary>The mosaic parent's canonical id when this unit is a panel.</summary>
         public Guid? ParentId { get; } = parentId;
-
-        /// <summary>Normalized mosaic directory name a panel belongs to — the anchoring scope key.</summary>
-        public string? MosaicKey { get; } = mosaicKey;
 
         /// <summary>The panel's identity token (e.g. <c>"P1"</c>) for name validation.</summary>
         public string? PanelToken { get; } = panelToken;
