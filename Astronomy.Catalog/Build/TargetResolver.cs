@@ -2,6 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.RegularExpressions;
 using Astronomy.Catalog.Scan;
 using Astronomy.Catalog.Schema;
 using Astronomy.Catalog.TargetScheduler;
@@ -93,9 +94,27 @@ public static class TargetResolver
                 ImportedFromTsGuid: t.Id.ToString(CultureInfo.InvariantCulture)));
         }
 
-        // ---- Disk working set (one canonical id per directory). ---------------------------------------------
-        List<WorkingTarget> diskWorking = [.. diskTargets.Select(d =>
-            new WorkingTarget(DeterministicGuid($"disk:{d.DirectoryName}"), d))];
+        // ---- Disk working set (one canonical id per directory). A mosaic contributes its parent unit plus one
+        //      ordinary unit per panel (composite key "<mosaic dir>/<panel label>"), appended right after the
+        //      parent so the graph keeps FK order. Panels are normal units from here on — same anchoring, same
+        //      validation, same classification; only the key construction differs.
+        List<WorkingTarget> diskWorking = [];
+        foreach (TargetReport d in diskTargets)
+        {
+            WorkingTarget top = new(
+                DeterministicGuid($"disk:{d.DirectoryName}"), d, canonicalDir: d.DirectoryName);
+            diskWorking.Add(top);
+
+            if (!MosaicConvention.IsMosaicDirectory(d.DirectoryName)) continue;
+            string mosaicKey = Normalize(d.DirectoryName);
+            foreach (TargetReport panel in d.Panels)
+            {
+                string childDir = MosaicConvention.PanelDirectoryName(d.DirectoryName, panel.DirectoryName);
+                diskWorking.Add(new WorkingTarget(
+                    DeterministicGuid($"disk:{childDir}"), panel, canonicalDir: childDir,
+                    parentId: top.Id, mosaicKey: mosaicKey, panelToken: PanelToken(panel.DirectoryName)));
+            }
+        }
 
         // ---- Resolve each TS target spatially onto the disk set. --------------------------------------------
         Dictionary<long, Guid> tsTargetToCanonical = [];
@@ -105,57 +124,64 @@ public static class TargetResolver
         List<UnanchoredTsTarget> unanchored = [];
         List<InvalidTsTarget> invalidTsTargets = [];
 
-        // ---- Mosaic pre-pass: name-match each disk "Mosaic - X" to the same-named isMosaic project (panels
-        //      spread too far for the mosaic itself to coordinate-match). The project's panel targets are
-        //      reserved here — skipped by the standalone loop below so they can't mis-anchor onto a
-        //      spatially-overlapping standalone dir — and resolved per panel in BuildMosaicFamily.
+        // ---- Mosaic pre-pass: name-match each disk "Mosaic - X" to the same-named isMosaic project (the
+        //      mosaic itself never coordinate-matches — its panels spread too far). The match drives the
+        //      parent's classification and gives the project's unshot panel targets their parentage; the
+        //      panels themselves anchor through the standard loop below, scoped to the mosaic's panel units.
         Dictionary<string, TsProject> mosaicProjectsByName = new(StringComparer.Ordinal);
+        Dictionary<long, TsProject> mosaicProjectById = [];
         foreach (TsProject mp in ts.Projects.Where(p => p.IsMosaic != 0))
+        {
             mosaicProjectsByName[Normalize(mp.Name)] = mp;
+            mosaicProjectById[mp.Id] = mp;
+        }
 
-        ILookup<long?, TsTarget> tsTargetsByProject = ts.Targets.ToLookup(t => t.ProjectId);
-        HashSet<long> foldedPanelIds = [];
+        Dictionary<long, Guid> mosaicParentByProject = [];
         int mosaicsResolved = 0;
         foreach (WorkingTarget mw in diskWorking)
         {
-            if (!MosaicConvention.IsMosaicDirectory(mw.Disk.DirectoryName)) continue;
+            if (mw.IsPanel || !MosaicConvention.IsMosaicDirectory(mw.Disk.DirectoryName)) continue;
             if (!mosaicProjectsByName.TryGetValue(Normalize(mw.Disk.DirectoryName), out TsProject? proj)) continue;
 
             mw.MosaicProject = proj;
+            mosaicParentByProject[proj.Id] = mw.Id;
             mosaicsResolved++;
-            foreach (TsTarget panel in tsTargetsByProject[proj.Id])
-                foldedPanelIds.Add(panel.Id);
         }
+
+        int panelsPlannedOnly = 0;
 
         foreach (TsTarget tst in ts.Targets)
         {
-            if (foldedPanelIds.Contains(tst.Id)) continue; // a folded mosaic panel — handled above
             if (tst.ProjectId is not long projectId || !projectIds.ContainsKey(projectId))
                 continue; // orphan TS target (no project) — skip
+
+            // Candidate scoping is the only mosaic-specific rule in the loop: a target of an isMosaic
+            // project anchors among that mosaic's panel units only (never a standalone dir, however close
+            // on the sky); a standalone target never anchors to a panel or a mosaic parent.
+            bool isPanelTarget = mosaicProjectById.TryGetValue(projectId, out TsProject? mosaicProj);
+            string? scopeKey = isPanelTarget ? Normalize(mosaicProj!.Name) : null;
+            Guid? plannedParent = isPanelTarget && mosaicParentByProject.TryGetValue(projectId, out Guid pp)
+                ? pp : null;
 
             if (tst.Ra is not double raHours || tst.Dec is not double decDegrees)
             {
                 // No coordinates — cannot anchor to disk; keep as planned-only and flag.
-                Guid id = ParseOrDerive(tst.TsGuid, $"target:{tst.Id}");
-                tsTargetToCanonical[tst.Id] = id;
-                plannedTargets.Add(BuildPlanned(tst, id, projectIds[projectId], createdAtUnix));
+                AddPlanned(tst, projectId, plannedParent);
                 unanchored.Add(new UnanchoredTsTarget(tst.TsGuid, tst.Name));
-                FlagIfSuspect(tst, invalidTsTargets);
                 continue;
             }
 
             List<(WorkingTarget Work, double Sep)> candidates = [.. diskWorking
-                .Where(w => !MosaicConvention.IsMosaicDirectory(w.Disk.DirectoryName))  // mosaics match by name, never coords
+                .Where(w => isPanelTarget
+                    ? w.MosaicKey == scopeKey
+                    : !w.IsPanel && !MosaicConvention.IsMosaicDirectory(w.Disk.DirectoryName))
                 .Select(w => (Work: w, Sep: SeparationDegrees(raHours, decDegrees, w.Disk.RaHours, w.Disk.DecDegrees)))
                 .Where(x => x.Sep <= tolerance)
                 .OrderBy(x => x.Sep)];
 
             if (candidates.Count == 0)
             {
-                Guid id = ParseOrDerive(tst.TsGuid, $"target:{tst.Id}");
-                tsTargetToCanonical[tst.Id] = id;
-                plannedTargets.Add(BuildPlanned(tst, id, projectIds[projectId], createdAtUnix));
-                FlagIfSuspect(tst, invalidTsTargets);
+                AddPlanned(tst, projectId, plannedParent);
                 continue;
             }
 
@@ -166,53 +192,86 @@ public static class TargetResolver
             if (candidates.Count > 1)
             {
                 ambiguousMatches.Add(new AmbiguousMatch(
-                    tst.TsGuid, tst.Name, [.. candidates.Select(c => c.Work.Disk.DirectoryName)], nearestSep));
+                    tst.TsGuid, tst.Name, [.. candidates.Select(c => c.Work.CanonicalDir)], nearestSep));
             }
 
-            if (!NameAligned(tst.Name, nearest.Disk))
+            // A panel's directory label ("Panel 01of16") never textually matches its TS name, but its
+            // derived token does ("P1" suffixes "CygnusLoop P1") — same validation, panel-shaped facet.
+            bool aligned = NameAligned(tst.Name, nearest.Disk)
+                || (nearest.PanelToken is string token && TokenAligned(tst.Name, token));
+            if (!aligned)
             {
                 nameMismatches.Add(new NameMismatch(
-                    tst.TsGuid, tst.Name, nearest.Disk.DirectoryName, nearest.Disk.ObjectName, nearestSep));
+                    tst.TsGuid, tst.Name, nearest.CanonicalDir, nearest.Disk.ObjectName, nearestSep));
             }
         }
 
-        // ---- Build canonical disk targets (Actual or Both) + their inventory. -------------------------------
+        void AddPlanned(TsTarget tst, long projectId, Guid? parentId)
+        {
+            Guid id = ParseOrDerive(tst.TsGuid, $"target:{tst.Id}");
+            tsTargetToCanonical[tst.Id] = id;
+            plannedTargets.Add(BuildPlanned(tst, id, projectIds[projectId], createdAtUnix, parentId));
+            if (parentId is not null) panelsPlannedOnly++;
+            FlagIfSuspect(tst, invalidTsTargets);
+        }
+
+        // ---- Build canonical disk targets (Actual or Both) + their inventory. Panels flow the SAME branches
+        //      as normal targets (their builders just carry the composite key and parent link); the mosaic
+        //      parent is a grouping node — classified by its project name-match, no plans, and no inventory
+        //      unless the report carried no per-panel detail (degradation keeps the aggregate on the parent).
         List<Target> targets = new(diskWorking.Count + plannedTargets.Count);
         List<InventoryFilter> inventory = [];
         List<DuplicateTsTarget> duplicates = [];
         List<AliasTsTarget> aliases = [];
-        List<AmbiguousPanel> ambiguousPanels = [];
         int bothCount = 0;
         int actualOnly = 0;
         int panelsMatched = 0;
-        int panelsPlannedOnly = 0;
         int panelsActualOnly = 0;
 
         foreach (WorkingTarget w in diskWorking)
         {
-            if (MosaicConvention.IsMosaicDirectory(w.Disk.DirectoryName))
+            if (!w.IsPanel && MosaicConvention.IsMosaicDirectory(w.Disk.DirectoryName))
             {
-                BuildMosaicFamily(w);
+                if (w.MosaicProject is TsProject mosaic)
+                {
+                    targets.Add(BuildBothMosaic(w.Disk, mosaic, w.Id, projectIds, createdAtUnix));
+                    bothCount++;
+                }
+                else
+                {
+                    targets.Add(BuildActual(w.Disk, w.Id, createdAtUnix));
+                    actualOnly++;
+                }
+
+                if (w.Disk.Panels.Count == 0)
+                {
+                    foreach (FilterAggregate f in w.Disk.Filters)
+                        inventory.Add(ToInventoryFilter(w.Id, f));
+                }
                 continue;
             }
 
             if (w.AssignedTs.Count == 0)
             {
-                targets.Add(BuildActual(w.Disk, w.Id, createdAtUnix));
-                actualOnly++;
+                targets.Add(w.IsPanel
+                    ? BuildActualPanel(w.Disk, w.CanonicalDir, w.Id, w.ParentId!.Value, createdAtUnix)
+                    : BuildActual(w.Disk, w.Id, createdAtUnix));
+                if (w.IsPanel) panelsActualOnly++; else actualOnly++;
             }
             else
             {
                 TsTarget primary = w.AssignedTs.OrderBy(a => a.Sep).First().Ts;
-                targets.Add(BuildBoth(w.Disk, primary, w.Id, projectIds, createdAtUnix));
-                bothCount++;
+                targets.Add(w.IsPanel
+                    ? BuildBothPanel(w.Disk, w.CanonicalDir, primary, w.Id, w.ParentId!.Value, projectIds, createdAtUnix)
+                    : BuildBoth(w.Disk, primary, w.Id, projectIds, createdAtUnix));
+                if (w.IsPanel) panelsMatched++; else bothCount++;
                 if (w.AssignedTs.Count > 1)
                 {
                     string[] names = [.. w.AssignedTs.Select(a => a.Ts.Name)];
                     if (w.AssignedTs.All(a => IsAliasName(a.Ts.Name, w.Disk)))
-                        aliases.Add(new AliasTsTarget(w.Disk.DirectoryName, names));
+                        aliases.Add(new AliasTsTarget(w.CanonicalDir, names));
                     else
-                        duplicates.Add(new DuplicateTsTarget(w.Disk.DirectoryName, names));
+                        duplicates.Add(new DuplicateTsTarget(w.CanonicalDir, names));
                 }
             }
 
@@ -221,118 +280,6 @@ public static class TargetResolver
         }
 
         targets.AddRange(plannedTargets);
-
-        // One mosaic = one parent target (no plans, no inventory) + one child target per panel, appended
-        // immediately after the parent (the self-referencing FK requires parents-before-children). Disk
-        // panels coordinate-match the project's TS panel targets 1:1 (greedy nearest within tolerance);
-        // unmatched sides become Actual / Planned children. Plans rewire to the children via
-        // tsTargetToCanonical exactly like normal targets.
-        void BuildMosaicFamily(WorkingTarget w)
-        {
-            string parentDir = w.Disk.DirectoryName;
-            TsProject? proj = w.MosaicProject;
-
-            if (proj is TsProject mosaic)
-            {
-                targets.Add(BuildBothMosaic(w.Disk, mosaic, w.Id, projectIds, createdAtUnix));
-                bothCount++;
-            }
-            else
-            {
-                targets.Add(BuildActual(w.Disk, w.Id, createdAtUnix));
-                actualOnly++;
-            }
-
-            IReadOnlyList<TargetReport> diskPanels = w.Disk.Panels;
-            List<TsTarget> tsPanels = proj is null ? [] : [.. tsTargetsByProject[proj.Id]];
-
-            // Degradation (no per-panel detail in the report): keep the aggregate inventory on the parent
-            // and represent the project's TS panels as planned children.
-            if (diskPanels.Count == 0)
-            {
-                foreach (FilterAggregate f in w.Disk.Filters)
-                    inventory.Add(ToInventoryFilter(w.Id, f));
-                foreach (TsTarget ts in tsPanels.OrderBy(t => t.Name, StringComparer.OrdinalIgnoreCase))
-                    AddPlannedPanel(ts);
-                return;
-            }
-
-            // Greedy nearest 1:1: every in-tolerance (disk panel, TS panel) pair sorted by separation; each
-            // side is claimed once. A disk panel that saw 2+ candidates anchors to the nearest but is
-            // reported as ambiguous (write-back holds it for manual resolution).
-            List<TsTarget> coordful = [.. tsPanels.Where(t => t.Ra is double && t.Dec is double)];
-            List<(TargetReport Panel, TsTarget Ts, double Sep)> pairs = [];
-            Dictionary<string, int> candidateCounts = new(StringComparer.OrdinalIgnoreCase);
-            foreach (TargetReport p in diskPanels)
-            {
-                int count = 0;
-                foreach (TsTarget t in coordful)
-                {
-                    double sep = SeparationDegrees(p.RaHours, p.DecDegrees, t.Ra!.Value, t.Dec!.Value);
-                    if (sep > tolerance) continue;
-                    pairs.Add((p, t, sep));
-                    count++;
-                }
-                candidateCounts[p.DirectoryName] = count;
-            }
-
-            Dictionary<string, TsTarget> matchedTs = new(StringComparer.OrdinalIgnoreCase);
-            HashSet<long> claimedTs = [];
-            foreach ((TargetReport p, TsTarget t, double _) in pairs
-                .OrderBy(x => x.Sep)
-                .ThenBy(x => x.Panel.DirectoryName, StringComparer.OrdinalIgnoreCase)
-                .ThenBy(x => x.Ts.Id))
-            {
-                if (matchedTs.ContainsKey(p.DirectoryName) || claimedTs.Contains(t.Id)) continue;
-                matchedTs[p.DirectoryName] = t;
-                claimedTs.Add(t.Id);
-            }
-
-            foreach (TargetReport p in diskPanels.OrderBy(p => p.DirectoryName, StringComparer.OrdinalIgnoreCase))
-            {
-                string childDir = MosaicConvention.PanelDirectoryName(parentDir, p.DirectoryName);
-                Guid childId = DeterministicGuid($"disk:{childDir}");
-                if (matchedTs.TryGetValue(p.DirectoryName, out TsTarget? ts))
-                {
-                    targets.Add(BuildBothPanel(p, parentDir, ts, childId, w.Id, projectIds, createdAtUnix));
-                    tsTargetToCanonical[ts.Id] = childId;
-                    panelsMatched++;
-                    if (candidateCounts[p.DirectoryName] > 1)
-                    {
-                        List<(TargetReport Panel, TsTarget Ts, double Sep)> mine =
-                            [.. pairs.Where(x => ReferenceEquals(x.Panel, p)).OrderBy(x => x.Sep)];
-                        ambiguousPanels.Add(new AmbiguousPanel(
-                            parentDir, childDir, [.. mine.Select(x => x.Ts.Name)], mine[0].Sep));
-                    }
-                }
-                else
-                {
-                    targets.Add(BuildActualPanel(p, parentDir, childId, w.Id, createdAtUnix));
-                    panelsActualOnly++;
-                }
-
-                foreach (FilterAggregate f in p.Filters)
-                    inventory.Add(ToInventoryFilter(childId, f));
-            }
-
-            foreach (TsTarget ts in tsPanels
-                .Where(t => !claimedTs.Contains(t.Id))
-                .OrderBy(t => t.Name, StringComparer.OrdinalIgnoreCase))
-            {
-                AddPlannedPanel(ts);
-            }
-
-            void AddPlannedPanel(TsTarget ts)
-            {
-                Guid id = ParseOrDerive(ts.TsGuid, $"target:{ts.Id}");
-                targets.Add(BuildPlanned(ts, id, projectIds[ts.ProjectId!.Value], createdAtUnix, w.Id));
-                tsTargetToCanonical[ts.Id] = id;
-                panelsPlannedOnly++;
-                if (ts.Ra is not double || ts.Dec is not double)
-                    unanchored.Add(new UnanchoredTsTarget(ts.TsGuid, ts.Name));
-                FlagIfSuspect(ts, invalidTsTargets);
-            }
-        }
 
         // ---- Exposure plans, rewired to the canonical target id. --------------------------------------------
         List<ExposurePlan> plans = new(ts.Plans.Count);
@@ -355,8 +302,7 @@ public static class TargetResolver
             DuplicateTsTargets: duplicates, AliasTsTargets: aliases,
             UnanchoredTsTargets: unanchored, InvalidTsTargets: invalidTsTargets,
             MosaicsResolved: mosaicsResolved, PanelsMatched: panelsMatched,
-            PanelsPlannedOnly: panelsPlannedOnly, PanelsActualOnly: panelsActualOnly,
-            AmbiguousPanels: ambiguousPanels);
+            PanelsPlannedOnly: panelsPlannedOnly, PanelsActualOnly: panelsActualOnly);
         return (graph, report);
     }
 
@@ -389,21 +335,21 @@ public static class TargetResolver
     // A panel anchored to its TS panel target: an ordinary Both target one level down. Disk coordinates win
     // and provenance is the TS panel target, so write-back addresses it like any other Both target.
     private static Target BuildBothPanel(
-        TargetReport panel, string parentDir, TsTarget ts, Guid id, Guid parentId,
+        TargetReport panel, string canonicalDir, TsTarget ts, Guid id, Guid parentId,
         Dictionary<long, Guid> projectIds, long now) => new(
         id, TargetSource.Both, projectIds[ts.ProjectId!.Value], ts.Name, Enabled: ts.Active != 0,
         RaHours: panel.RaHours, DecDegreesSigned: panel.DecDegrees, Epoch.J2000,
         RotationDeg: ts.Rotation, RoiPercent: ts.Roi, Priority: SafeTargetPriority(ts.Priority),
-        DirectoryName: MosaicConvention.PanelDirectoryName(parentDir, panel.DirectoryName),
+        DirectoryName: canonicalDir,
         Catalog: panel.Catalog, CommonName: panel.CommonName, ObjectName: panel.ObjectName,
         ScannedAt: now, CreatedAt: now, ImportedFromTsGuid: Provenance(ts.TsGuid, ts.Id),
         ParentTargetId: parentId);
 
-    // A disk panel with no TS panel target at its position: shot but unplanned, one level down.
-    private static Target BuildActualPanel(TargetReport panel, string parentDir, Guid id, Guid parentId, long now) => new(
+    // A disk panel with no TS panel target: shot but unplanned, one level down.
+    private static Target BuildActualPanel(TargetReport panel, string canonicalDir, Guid id, Guid parentId, long now) => new(
         id, TargetSource.Actual, ProjectId: null, panel.DirectoryName, Enabled: true,
         RaHours: panel.RaHours, DecDegreesSigned: panel.DecDegrees, Epoch.J2000, RotationDeg: null, RoiPercent: null,
-        Priority: null, DirectoryName: MosaicConvention.PanelDirectoryName(parentDir, panel.DirectoryName),
+        Priority: null, DirectoryName: canonicalDir,
         Catalog: panel.Catalog, CommonName: panel.CommonName, ObjectName: panel.ObjectName,
         ScannedAt: now, CreatedAt: now, ImportedFromTsGuid: null, ParentTargetId: parentId);
 
@@ -483,6 +429,28 @@ public static class TargetResolver
     internal static string Normalize(string? value) =>
         value is null ? string.Empty : new string([.. value.Where(char.IsLetterOrDigit)]).ToUpperInvariant();
 
+    /// <summary>
+    /// The compact identity token of a panel directory label, mirroring the established filing convention:
+    /// <c>"Panel 01of16"</c> → <c>"P1"</c> (the number, zeros stripped); <c>"Panel Foo"</c> → <c>"Foo"</c>;
+    /// anything else passes through unchanged.
+    /// </summary>
+    internal static string PanelToken(string panelLabel)
+    {
+        Match numbered = Regex.Match(panelLabel, @"^Panel\s*0*(\d+)of\d+$", RegexOptions.IgnoreCase);
+        if (numbered.Success) return "P" + numbered.Groups[1].Value;
+        Match named = Regex.Match(panelLabel, @"^Panel\s+(.+)$", RegexOptions.IgnoreCase);
+        return named.Success ? named.Groups[1].Value : panelLabel;
+    }
+
+    /// <summary>True when the TS name ends with the panel's identity token (normalized) — the panel-shaped
+    /// counterpart of <see cref="NameAligned"/>: <c>"CygnusLoop P1"</c> aligns with token <c>"P1"</c>.</summary>
+    internal static bool TokenAligned(string tsName, string token)
+    {
+        string a = Normalize(tsName);
+        string b = Normalize(token);
+        return b.Length > 0 && a.EndsWith(b, StringComparison.Ordinal);
+    }
+
     // ---- Stable id helpers ----------------------------------------------------------------------------------
 
     private static string Provenance(string? tsGuid, long tsId) =>
@@ -530,14 +498,33 @@ public static class TargetResolver
             sink.Add(new InvalidTsTarget(t.TsGuid, t.Name, string.Join("; ", issues)));
     }
 
-    // A disk target accumulating the TS targets that resolved onto it (usually 0 or 1; >1 = a TS duplicate).
-    private sealed class WorkingTarget(Guid id, TargetReport disk)
+    // A disk unit accumulating the TS targets that resolved onto it (usually 0 or 1; >1 = a TS duplicate).
+    // A unit is a top-level directory OR one panel of a mosaic — panels are ordinary units whose key is
+    // composite and which carry their parent link plus the scoping/validation facets.
+    private sealed class WorkingTarget(
+        Guid id, TargetReport disk, string canonicalDir,
+        Guid? parentId = null, string? mosaicKey = null, string? panelToken = null)
     {
         public Guid Id { get; } = id;
         public TargetReport Disk { get; } = disk;
+
+        /// <summary>The catalog directory name: the dir itself, or <c>"&lt;mosaic dir&gt;/&lt;panel label&gt;"</c> for a panel.</summary>
+        public string CanonicalDir { get; } = canonicalDir;
+
+        /// <summary>The mosaic parent's canonical id when this unit is a panel.</summary>
+        public Guid? ParentId { get; } = parentId;
+
+        /// <summary>Normalized mosaic directory name a panel belongs to — the anchoring scope key.</summary>
+        public string? MosaicKey { get; } = mosaicKey;
+
+        /// <summary>The panel's identity token (e.g. <c>"P1"</c>) for name validation.</summary>
+        public string? PanelToken { get; } = panelToken;
+
+        public bool IsPanel => ParentId is not null;
+
         public List<(TsTarget Ts, double Sep)> AssignedTs { get; } = [];
 
-        /// <summary>Set when this disk dir is a <c>"Mosaic - X"</c> target name-matched to a TS isMosaic project (its panels fold here).</summary>
+        /// <summary>Set when this dir is a <c>"Mosaic - X"</c> parent name-matched to a TS isMosaic project.</summary>
         public TsProject? MosaicProject { get; set; }
     }
 }

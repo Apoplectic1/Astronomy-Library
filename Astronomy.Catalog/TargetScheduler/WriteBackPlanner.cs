@@ -44,14 +44,14 @@ public static class WriteBackPlanner
             aliasDirs[a.DiskDirectory] = a.TsTargetNames.Count;
 
         // Disk directories whose target identity is in question — a name mismatch (coords matched, names
-        // disagree), an ambiguous match (>1 disk target in tolerance), or an ambiguously anchored mosaic
-        // panel. These are held for manual resolution, never auto-written: a false-positive match would
-        // otherwise overwrite a real TS target's counts.
+        // disagree) or an ambiguous match (>1 disk unit in tolerance). Panels participate through the same
+        // two reports (their composite directory names land here like any other unit's). These are held for
+        // manual resolution, never auto-written: a false-positive match would otherwise overwrite a real TS
+        // target's counts.
         HashSet<string> flaggedDirs = new(StringComparer.OrdinalIgnoreCase);
         foreach (NameMismatch m in report.NameMismatches) flaggedDirs.Add(m.DiskDirectory);
         foreach (AmbiguousMatch a in report.AmbiguousMatches)
             foreach (string d in a.CandidateDirectories) flaggedDirs.Add(d);
-        foreach (AmbiguousPanel p in report.AmbiguousPanels) flaggedDirs.Add(p.PanelDirectoryName);
 
         // Disk actuals summed per (target, filter, purpose, seconds). Filter compared case-insensitively
         // (matches Reconciler); the scanner's whole-second exposure bucket is part of the key.

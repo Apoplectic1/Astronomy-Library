@@ -210,12 +210,12 @@ public sealed class TargetResolverTests
         Assert.True(ordered.IndexOf(parent) < children.Min(c => ordered.IndexOf(c)));  // FK order
 
         Assert.Empty(r.DuplicateTsTargets);                  // a mosaic is NOT a duplicate
+        Assert.Empty(r.NameMismatches);                      // "CygnusLoop P1" aligns with token P1
         Assert.Equal(1, r.MosaicsResolved);
         Assert.Equal(3, r.PanelsMatched);
         Assert.Equal(0, r.PanelsPlannedOnly);
         Assert.Equal(1, r.BothCount);                        // top-level counts: the parent only
         Assert.Equal(0, r.PlannedOnlyCount);
-        Assert.Empty(r.AmbiguousPanels);
     }
 
     [Fact]
@@ -300,26 +300,57 @@ public sealed class TargetResolverTests
     }
 
     [Fact]
-    public void Resolve_Mosaic_AmbiguousPanel_NearestWins_AndReported()
+    public void Resolve_Mosaic_TwoTsPanelsOnOneDiskPanel_IsDuplicateFold()
     {
+        // Two TS panels inside tolerance of one disk panel: the standard machinery applies — both anchor to
+        // the unit (it is each one's only candidate), the nearest becomes primary, and the collision is
+        // reported as a duplicate fold (write-back holds it, exactly like a standalone duplicate).
         TargetReport[] disk = [DiskMosaic("Mosaic - Tight", ("Panel 1of1", 20.5, 30.5))];
         TsPlanData ts = new(
             [new TsProject(40, "profile-1", "Mosaic - Tight", 1, 1, null, 1, "g-t")],
-            [TsT(1, "Tight P1", 20.5, 30.5, project: 40, guid: "g-t1"),          // sep 0 — nearest
-             TsT(2, "Tight P2", 20.52, 30.5, project: 40, guid: "g-t2")],        // ~0.26° — also in tolerance
+            [TsT(1, "Tight P1", 20.5, 30.5, project: 40, guid: "g-t1"),          // sep 0 — primary
+             TsT(2, "Tight P2", 20.52, 30.5, project: 40, guid: "g-t2")],        // ~0.26° — also anchors
             [new TsExposureTemplate(1000, "profile-1", "Ha", "H", 100, 50, 1, 300.0)],
             [TsP(100, target: 1, template: 1000), TsP(101, target: 2, template: 1000)]);
 
         (CatalogGraph g, CatalogBuildReport r) = TargetResolver.Resolve(disk, ts, Now);
 
         Target both = Assert.Single(g.Targets, t => t.Source == TargetSource.Both && t.ParentTargetId is not null);
-        Assert.Equal("Tight P1", both.Name);                                     // nearest anchored
-        Assert.Single(g.Targets, t => t.Name == "Tight P2" && t.Source == TargetSource.Planned);
-        AmbiguousPanel a = Assert.Single(r.AmbiguousPanels);
-        Assert.Equal("Mosaic - Tight/Panel 1of1", a.PanelDirectoryName);
-        Assert.Equal(2, a.TsPanelNames.Count);
-        Assert.Equal(0.0, a.NearestSeparationDegrees, precision: 6);
+        Assert.Equal("Tight P1", both.Name);                                     // nearest is primary
+        Assert.All(g.Plans, p => Assert.Equal(both.Id, p.TargetId));             // both plans on the one child
+        DuplicateTsTarget dup = Assert.Single(r.DuplicateTsTargets);
+        Assert.Equal("Mosaic - Tight/Panel 1of1", dup.DiskDirectory);
+        Assert.Equal(2, dup.TsTargetNames.Count);
     }
+
+    [Fact]
+    public void Resolve_Mosaic_WrongNumberedPanel_FlagsNameMismatch()
+    {
+        // A misfiled panel directory (wrong number) still anchors by coordinates, but the token validation
+        // ("P2" vs "...P1") flags it — the same name≠ report a standalone mismatch gets, which write-back
+        // already holds for manual resolution.
+        TargetReport[] disk = [DiskMosaic("Mosaic - Tight", ("Panel 2of2", 20.5, 30.5))];
+        TsPlanData ts = new(
+            [new TsProject(40, "profile-1", "Mosaic - Tight", 1, 1, null, 1, "g-t")],
+            [TsT(1, "Tight P1", 20.5, 30.5, project: 40, guid: "g-t1")],
+            [new TsExposureTemplate(1000, "profile-1", "Ha", "H", 100, 50, 1, 300.0)],
+            [TsP(100, target: 1, template: 1000)]);
+
+        (CatalogGraph g, CatalogBuildReport r) = TargetResolver.Resolve(disk, ts, Now);
+
+        NameMismatch m = Assert.Single(r.NameMismatches);
+        Assert.Equal("Tight P1", m.TsName);
+        Assert.Equal("Mosaic - Tight/Panel 2of2", m.DiskDirectory);
+    }
+
+    [Theory]
+    [InlineData("Panel 01of16", "P1")]
+    [InlineData("Panel 16of16", "P16")]
+    [InlineData("Panel 1of4", "P1")]
+    [InlineData("Panel North", "North")]
+    [InlineData("Oddball", "Oddball")]
+    public void PanelToken_FollowsTheFilingConvention(string label, string expected) =>
+        Assert.Equal(expected, TargetResolver.PanelToken(label));
 
     [Fact]
     public void Resolve_Mosaic_EmptyPanels_DegradesToParentInventory()

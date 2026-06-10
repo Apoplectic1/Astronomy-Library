@@ -21,23 +21,7 @@ public sealed record CatalogBuildReport(
     int MosaicsResolved = 0,
     int PanelsMatched = 0,
     int PanelsPlannedOnly = 0,
-    int PanelsActualOnly = 0,
-    IReadOnlyList<AmbiguousPanel>? AmbiguousPanels = null)
-{
-    /// <summary>Disk panels with 2+ same-project TS panel candidates in tolerance (nearest anchored; flagged).</summary>
-    public IReadOnlyList<AmbiguousPanel> AmbiguousPanels { get; init; } = AmbiguousPanels ?? [];
-}
-
-/// <summary>
-/// One disk panel of a mosaic with two or more same-project TS panel targets inside the match tolerance.
-/// The nearest was anchored, but the choice is flagged: write-back holds the panel for manual resolution.
-/// <see cref="PanelDirectoryName"/> is the panel's composite catalog directory name.
-/// </summary>
-public sealed record AmbiguousPanel(
-    string MosaicDirectory,
-    string PanelDirectoryName,
-    IReadOnlyList<string> TsPanelNames,
-    double NearestSeparationDegrees);
+    int PanelsActualOnly = 0);
 
 /// <summary>A TS target whose coordinates matched a disk target but whose name disagrees (coords win; flagged).</summary>
 public sealed record NameMismatch(

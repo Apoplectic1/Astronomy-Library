@@ -281,19 +281,20 @@ public sealed class WriteBackPlannerTests
     }
 
     [Fact]
-    public void AmbiguousPanel_HeldManual_IdentityConflict()
+    public void PanelWithNameMismatchFlag_HeldManual_IdentityConflict()
     {
         Guid parent = Guid.NewGuid(), child = Guid.NewGuid(), tpl = Guid.NewGuid();
 
-        Target panel = Both(child, "Tight P1", dir: "Mosaic - Tight/Panel 1of1") with { ParentTargetId = parent };
+        // A misfiled panel surfaces through the STANDARD name-mismatch report (composite dir) and is held
+        // exactly like a standalone mismatch — no panel-specific routing exists.
+        Target panel = Both(child, "Tight P1", dir: "Mosaic - Tight/Panel 2of2") with { ParentTargetId = parent };
 
         WriteBackPlan plan = WriteBackPlanner.Plan(
             [Both(parent, "Mosaic - Tight"), panel],
             [Plan(child, tpl, tsId: 9, desired: 33)],
             [Tpl(tpl, "H", "H")],
             [Inv(child, "H", FilterPurpose.Light, 26)],
-            Report(ambiguousPanels: [new AmbiguousPanel(
-                "Mosaic - Tight", "Mosaic - Tight/Panel 1of1", ["Tight P1", "Tight P2"], 0.2)]));
+            Report(mismatches: [new NameMismatch("g-t1", "Tight P1", "Mosaic - Tight/Panel 2of2", "Panel 2of2", 0.0)]));
 
         Assert.Empty(plan.Writes);
         ManualGroup g = Assert.Single(plan.Manual);
@@ -463,10 +464,8 @@ public sealed class WriteBackPlannerTests
         IReadOnlyList<AliasTsTarget>? aliases = null,
         IReadOnlyList<NameMismatch>? mismatches = null,
         IReadOnlyList<AmbiguousMatch>? ambiguous = null,
-        IReadOnlyList<UnanchoredTsTarget>? unanchored = null,
-        IReadOnlyList<AmbiguousPanel>? ambiguousPanels = null) => new(
+        IReadOnlyList<UnanchoredTsTarget>? unanchored = null) => new(
         DiskTargetCount: 0, TsTargetCount: 0, BothCount: 0, PlannedOnlyCount: plannedOnly, ActualOnlyCount: actualOnly,
         NameMismatches: mismatches ?? [], AmbiguousMatches: ambiguous ?? [], DuplicateTsTargets: dups ?? [],
-        AliasTsTargets: aliases ?? [], UnanchoredTsTargets: unanchored ?? [], InvalidTsTargets: [],
-        AmbiguousPanels: ambiguousPanels);
+        AliasTsTargets: aliases ?? [], UnanchoredTsTargets: unanchored ?? [], InvalidTsTargets: []);
 }
