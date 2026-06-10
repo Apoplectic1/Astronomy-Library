@@ -84,6 +84,31 @@ public static class Reconciler
         return inner;
     }
 
+    /// <summary>
+    /// Merges several targets' reconciliations into one aggregate under <paramref name="name"/>: per-filter
+    /// goals and actuals sum across the inputs (the caller chooses the grouping — e.g. a hierarchical
+    /// target's children under their parent). Per-filter remaining still can't be masked by another filter's
+    /// overshoot; statuses are recomputed from the merged sums.
+    /// </summary>
+    public static TargetReconciliation Merge(
+        Guid targetId, string name, TargetSource source, IEnumerable<TargetReconciliation> parts)
+    {
+        ArgumentNullException.ThrowIfNull(parts);
+        List<FilterReconciliation> merged = [.. parts
+            .SelectMany(r => r.Filters)
+            .GroupBy(f => f.Filter, StringComparer.OrdinalIgnoreCase)
+            .OrderBy(g => g.Key, StringComparer.OrdinalIgnoreCase)
+            .Select(g =>
+            {
+                int desired = g.Sum(f => f.DesiredCount);
+                int acquired = g.Sum(f => f.AcquiredCount);
+                return new FilterReconciliation(g.Key, desired, acquired,
+                    g.Sum(f => f.LightCount), g.Sum(f => f.StarsCount), g.Sum(f => f.IntegrationHours),
+                    FilterStatus(desired, acquired));
+            })];
+        return new TargetReconciliation(targetId, name, source, RollUp(merged), merged);
+    }
+
     private static ReconcileStatus FilterStatus(int desired, int acquired) =>
         desired <= 0 ? (acquired > 0 ? ReconcileStatus.Unplanned : ReconcileStatus.NotStarted)
         : acquired <= 0 ? ReconcileStatus.NotStarted

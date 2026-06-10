@@ -126,6 +126,25 @@ public sealed class ReconcilerTests
         Assert.Equal(5, r.TotalRemaining);
     }
 
+    [Fact]
+    public void Merge_SumsPerFilterAcrossParts_AndRecomputesStatus()
+    {
+        Guid t1 = Guid.NewGuid(), t2 = Guid.NewGuid(), tpl = Guid.NewGuid(), parent = Guid.NewGuid();
+        List<TargetReconciliation> parts = [.. Reconciler.Reconcile(
+            [T(t1, "P1", TargetSource.Both), T(t2, "P2", TargetSource.Both)],
+            [Plan(t1, tpl, 33), Plan(t2, tpl, 33)], [Tpl(tpl, "H")],
+            [Inv(t1, "H", FilterPurpose.Light, 33), Inv(t2, "H", FilterPurpose.Light, 10)])];
+
+        TargetReconciliation merged = Reconciler.Merge(parent, "Mosaic - Demo", TargetSource.Both, parts);
+
+        FilterReconciliation h = Assert.Single(merged.Filters);
+        Assert.Equal(66, h.DesiredCount);
+        Assert.Equal(43, h.AcquiredCount);
+        Assert.Equal(23, merged.TotalRemaining);
+        Assert.Equal(ReconcileStatus.InProgress, merged.Status);
+        Assert.Equal("Mosaic - Demo", merged.Name);
+    }
+
     // ---- builders -----------------------------------------------------------
 
     private static Target T(Guid id, string name, TargetSource source) => new(
