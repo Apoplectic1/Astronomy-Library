@@ -300,27 +300,51 @@ public sealed class TargetResolverTests
     }
 
     [Fact]
-    public void Resolve_Mosaic_TwoTsPanelsOnOneDiskPanel_IsDuplicateFold()
+    public void Resolve_AlignedClaim_OutranksUnaligned_ReleasedClaimStaysPlanned()
     {
-        // Two TS panels inside tolerance of one disk panel: the standard machinery applies — both anchor to
-        // the unit (it is each one's only candidate), the nearest becomes primary, and the collision is
-        // reported as a duplicate fold (write-back holds it, exactly like a standalone duplicate).
-        TargetReport[] disk = [DiskMosaic("Mosaic - Tight", ("Panel 1of1", 20.5, 30.5))];
+        // The real Witch Head shape: panels overlap so heavily that the UNSHOT P2 sits inside tolerance of
+        // the shot panel. P1 corresponds to the directory by token and keeps it; P2 is merely close — it
+        // releases back to planned instead of piling onto P1's panel as a false duplicate.
+        TargetReport[] disk = [DiskMosaic("Mosaic - Tight", ("Panel 1of2", 20.5, 30.5))];
         TsPlanData ts = new(
             [new TsProject(40, "profile-1", "Mosaic - Tight", 1, 1, null, 1, "g-t")],
-            [TsT(1, "Tight P1", 20.5, 30.5, project: 40, guid: "g-t1"),          // sep 0 — primary
-             TsT(2, "Tight P2", 20.52, 30.5, project: 40, guid: "g-t2")],        // ~0.26° — also anchors
+            [TsT(1, "Tight P1", 20.5, 30.5, project: 40, guid: "g-t1"),          // aligned (token P1), sep 0
+             TsT(2, "Tight P2", 20.52, 30.5, project: 40, guid: "g-t2")],        // ~0.26° — close, unaligned
             [new TsExposureTemplate(1000, "profile-1", "Ha", "H", 100, 50, 1, 300.0)],
             [TsP(100, target: 1, template: 1000), TsP(101, target: 2, template: 1000)]);
 
         (CatalogGraph g, CatalogBuildReport r) = TargetResolver.Resolve(disk, ts, Now);
 
         Target both = Assert.Single(g.Targets, t => t.Source == TargetSource.Both && t.ParentTargetId is not null);
-        Assert.Equal("Tight P1", both.Name);                                     // nearest is primary
-        Assert.All(g.Plans, p => Assert.Equal(both.Id, p.TargetId));             // both plans on the one child
-        DuplicateTsTarget dup = Assert.Single(r.DuplicateTsTargets);
-        Assert.Equal("Mosaic - Tight/Panel 1of1", dup.DiskDirectory);
-        Assert.Equal(2, dup.TsTargetNames.Count);
+        Assert.Equal("Tight P1", both.Name);
+        Target planned = Assert.Single(g.Targets, t => t.Source == TargetSource.Planned);
+        Assert.Equal("Tight P2", planned.Name);
+        Assert.NotNull(planned.ParentTargetId);                                  // still a panel of the mosaic
+        Assert.Equal(planned.Id, Assert.Single(g.Plans, p => p.ImportedFromTsGuid == "101").TargetId);
+        Assert.Empty(r.DuplicateTsTargets);                                      // not a false duplicate
+        Assert.Empty(r.NameMismatches);                                          // the released claim doesn't flag
+        Assert.Equal(1, r.PanelsMatched);
+        Assert.Equal(1, r.PanelsPlannedOnly);
+    }
+
+    [Fact]
+    public void Resolve_AllClaimsUnaligned_NearestStands_NothingReleases()
+    {
+        // With no aligned claim at all, the rule never demotes: the nearest unaligned match stands and is
+        // flagged (the Rosette "Panel Center" shape — coordinates succeed where the naming broke).
+        TargetReport[] disk = [DiskMosaic("Mosaic - Rose", ("Panel Center", 6.5, 5.0))];
+        TsPlanData ts = new(
+            [new TsProject(50, "profile-1", "Mosaic - Rose", 1, 1, null, 1, "g-r")],
+            [TsT(1, "Rose P4", 6.51, 5.0, project: 50, guid: "g-r4")],
+            [new TsExposureTemplate(1000, "profile-1", "Ha", "H", 100, 50, 1, 300.0)],
+            [TsP(100, target: 1, template: 1000)]);
+
+        (CatalogGraph g, CatalogBuildReport r) = TargetResolver.Resolve(disk, ts, Now);
+
+        Target both = Assert.Single(g.Targets, t => t.Source == TargetSource.Both && t.ParentTargetId is not null);
+        Assert.Equal("Rose P4", both.Name);
+        Assert.Single(r.NameMismatches);
+        Assert.Empty(r.DuplicateTsTargets);
     }
 
     [Fact]

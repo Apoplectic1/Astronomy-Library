@@ -190,7 +190,11 @@ public static class TargetResolver
             }
 
             (WorkingTarget nearest, double nearestSep) = candidates[0];
-            nearest.AssignedTs.Add((tst, nearestSep));
+            // A panel's directory label ("Panel 01of16") never textually matches its TS name, but its
+            // derived token does ("P1" suffixes "CygnusLoop P1") — same validation, panel-shaped facet.
+            bool aligned = NameAligned(tst.Name, nearest.Disk)
+                || (nearest.PanelToken is string token && TokenAligned(tst.Name, token));
+            nearest.AssignedTs.Add((tst, nearestSep, aligned));
             tsTargetToCanonical[tst.Id] = nearest.Id;
 
             if (candidates.Count > 1)
@@ -198,17 +202,40 @@ public static class TargetResolver
                 ambiguousMatches.Add(new AmbiguousMatch(
                     tst.TsGuid, tst.Name, [.. candidates.Select(c => c.Work.CanonicalDir)], nearestSep));
             }
+        }
 
-            // A panel's directory label ("Panel 01of16") never textually matches its TS name, but its
-            // derived token does ("P1" suffixes "CygnusLoop P1") — same validation, panel-shaped facet.
-            bool aligned = NameAligned(tst.Name, nearest.Disk)
-                || (nearest.PanelToken is string token && TokenAligned(tst.Name, token));
-            if (!aligned)
+        // An aligned claim outranks an unaligned one: when a unit accumulates several TS assignments and
+        // only SOME correspond to it by name (or panel token), the others release back to planned — a
+        // nearby-but-differently-named target never piles onto a directory a correctly-named target owns
+        // (e.g. an unshot panel inside tolerance of its shot neighbour). With no aligned claim at all, the
+        // nearest unaligned match stands and is flagged below; the rule only ever demotes, never invents.
+        foreach (WorkingTarget w in diskWorking)
+        {
+            if (w.AssignedTs.Count < 2) continue;
+            int alignedCount = w.AssignedTs.Count(a => a.Aligned);
+            if (alignedCount == 0 || alignedCount == w.AssignedTs.Count) continue;
+
+            foreach ((TsTarget released, _, _) in w.AssignedTs.Where(a => !a.Aligned).ToList())
+                AddPlanned(released, released.ProjectId!.Value, PlannedParentOf(released));
+            w.AssignedTs.RemoveAll(a => !a.Aligned);
+        }
+
+        // Name validation reporting happens after the outranking pass so released claims don't flag.
+        foreach (WorkingTarget w in diskWorking)
+        {
+            foreach ((TsTarget tst, double sep, bool aligned) in w.AssignedTs)
             {
-                nameMismatches.Add(new NameMismatch(
-                    tst.TsGuid, tst.Name, nearest.CanonicalDir, nearest.Disk.ObjectName, nearestSep));
+                if (!aligned)
+                {
+                    nameMismatches.Add(new NameMismatch(
+                        tst.TsGuid, tst.Name, w.CanonicalDir, w.Disk.ObjectName, sep));
+                }
             }
         }
+
+        Guid? PlannedParentOf(TsTarget tst) =>
+            tst.ProjectId is long pid && mosaicParentByProject.TryGetValue(pid, out Guid parent)
+                ? parent : null;
 
         void AddPlanned(TsTarget tst, long projectId, Guid? parentId)
         {
@@ -535,7 +562,7 @@ public static class TargetResolver
 
         public bool IsPanel => ParentId is not null;
 
-        public List<(TsTarget Ts, double Sep)> AssignedTs { get; } = [];
+        public List<(TsTarget Ts, double Sep, bool Aligned)> AssignedTs { get; } = [];
 
         /// <summary>Set when this dir is a <c>"Mosaic - X"</c> parent name-matched to a TS isMosaic project.</summary>
         public TsProject? MosaicProject { get; set; }
