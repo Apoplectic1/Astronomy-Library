@@ -21,7 +21,79 @@ public sealed record CatalogBuildReport(
     int MosaicsResolved = 0,
     int PanelsMatched = 0,
     int PanelsPlannedOnly = 0,
-    int PanelsActualOnly = 0);
+    int PanelsActualOnly = 0)
+{
+    private Dictionary<string, TargetMatchFlags>? _flagsByDirectory;
+    private Dictionary<string, int>? _aliasMembersByDirectory;
+    private HashSet<string>? _unanchoredNames;
+
+    /// <summary>
+    /// Match-state flags for one disk directory (composite panel names included) — THE definition every
+    /// consumer derives from, whether routing write-back's manual bucket or badging a display row.
+    /// </summary>
+    public TargetMatchFlags FlagsFor(string? directoryName)
+    {
+        if (directoryName is null) return TargetMatchFlags.None;
+        _flagsByDirectory ??= BuildFlagIndex();
+        return _flagsByDirectory.GetValueOrDefault(directoryName, TargetMatchFlags.None);
+    }
+
+    /// <summary>True when the directory's target identity is in question (name mismatch or ambiguous
+    /// coordinate match) — write-back holds these for manual resolution, never auto-writes.</summary>
+    public bool IsIdentityFlagged(string? directoryName) =>
+        (FlagsFor(directoryName) & (TargetMatchFlags.NameMismatch | TargetMatchFlags.AmbiguousMatch)) != 0;
+
+    /// <summary>Number of TS names folded onto this directory as aliases (0 when not an alias fold).</summary>
+    public int AliasMemberCount(string? directoryName)
+    {
+        if (directoryName is null) return 0;
+        _aliasMembersByDirectory ??= AliasTsTargets.ToDictionary(
+            a => a.DiskDirectory, a => a.TsTargetNames.Count, StringComparer.OrdinalIgnoreCase);
+        return _aliasMembersByDirectory.GetValueOrDefault(directoryName);
+    }
+
+    /// <summary>True when the named TS target could not be anchored (no usable coordinates).</summary>
+    public bool IsUnanchoredName(string tsName)
+    {
+        _unanchoredNames ??= new HashSet<string>(
+            UnanchoredTsTargets.Select(u => u.TsName), StringComparer.OrdinalIgnoreCase);
+        return _unanchoredNames.Contains(tsName);
+    }
+
+    private Dictionary<string, TargetMatchFlags> BuildFlagIndex()
+    {
+        Dictionary<string, TargetMatchFlags> flags = new(StringComparer.OrdinalIgnoreCase);
+        void Add(string dir, TargetMatchFlags f) => flags[dir] = flags.GetValueOrDefault(dir) | f;
+
+        foreach (AliasTsTarget a in AliasTsTargets) Add(a.DiskDirectory, TargetMatchFlags.Alias);
+        foreach (DuplicateTsTarget d in DuplicateTsTargets) Add(d.DiskDirectory, TargetMatchFlags.Duplicate);
+        foreach (NameMismatch m in NameMismatches) Add(m.DiskDirectory, TargetMatchFlags.NameMismatch);
+        foreach (AmbiguousMatch a in AmbiguousMatches)
+            foreach (string d in a.CandidateDirectories)
+                Add(d, TargetMatchFlags.AmbiguousMatch);
+        return flags;
+    }
+}
+
+/// <summary>Match-state classification of one disk directory, derived from the build report's issue lists.</summary>
+[Flags]
+public enum TargetMatchFlags
+{
+    /// <summary>Clean match (or unknown directory).</summary>
+    None = 0,
+
+    /// <summary>Member of an alias fold — multiple TS names for the same object; counts write to all.</summary>
+    Alias = 1,
+
+    /// <summary>Two or more TS targets resolved here — a duplicate to clean up in TS.</summary>
+    Duplicate = 2,
+
+    /// <summary>Anchored by coordinates but the names disagree.</summary>
+    NameMismatch = 4,
+
+    /// <summary>A candidate in an ambiguous coordinate match (nearest was chosen).</summary>
+    AmbiguousMatch = 8,
+}
 
 /// <summary>A TS target whose coordinates matched a disk target but whose name disagrees (coords win; flagged).</summary>
 public sealed record NameMismatch(

@@ -1,0 +1,77 @@
+using Astronomy.Catalog.Build;
+using Xunit;
+
+namespace Astronomy.Catalog.Tests.Build;
+
+public class CatalogBuildReportTests
+{
+    [Fact]
+    public void FlagsFor_CombinesIssueLists_PerDirectory()
+    {
+        CatalogBuildReport report = Report(
+            mismatches: [new NameMismatch(null, "Sh2 132", "Sh2-132 - Lion", "Sh2-132", 0.1)],
+            ambiguous: [new AmbiguousMatch(null, "Twins", ["Sh2-132 - Lion", "NGC 7000"], 0.2)],
+            duplicates: [new DuplicateTsTarget("M 31", ["M31", "Andromeda"])],
+            aliases: [new AliasTsTarget("NGC 6888", ["NGC 6888", "Crescent"])]);
+
+        Assert.Equal(TargetMatchFlags.NameMismatch | TargetMatchFlags.AmbiguousMatch, report.FlagsFor("Sh2-132 - Lion"));
+        Assert.Equal(TargetMatchFlags.AmbiguousMatch, report.FlagsFor("NGC 7000"));
+        Assert.Equal(TargetMatchFlags.Duplicate, report.FlagsFor("M 31"));
+        Assert.Equal(TargetMatchFlags.Alias, report.FlagsFor("NGC 6888"));
+        Assert.Equal(TargetMatchFlags.None, report.FlagsFor("Unflagged Dir"));
+        Assert.Equal(TargetMatchFlags.None, report.FlagsFor(null));
+    }
+
+    [Fact]
+    public void IsIdentityFlagged_TrueOnlyForMismatchOrAmbiguous()
+    {
+        CatalogBuildReport report = Report(
+            mismatches: [new NameMismatch(null, "Sh2 132", "Sh2-132 - Lion", "Sh2-132", 0.1)],
+            duplicates: [new DuplicateTsTarget("M 31", ["M31", "Andromeda"])],
+            aliases: [new AliasTsTarget("NGC 6888", ["NGC 6888", "Crescent"])]);
+
+        Assert.True(report.IsIdentityFlagged("Sh2-132 - Lion"));
+        Assert.False(report.IsIdentityFlagged("M 31"));        // duplicate fold: routed, not identity-suspect
+        Assert.False(report.IsIdentityFlagged("NGC 6888"));    // alias fold: same object by definition
+        Assert.False(report.IsIdentityFlagged(null));
+    }
+
+    [Fact]
+    public void DirectoryLookups_AreCaseInsensitive()
+    {
+        CatalogBuildReport report = Report(
+            mismatches: [new NameMismatch(null, "X", "Mosaic - Cygnus Loop/Panel 01of16", null, 0.1)],
+            aliases: [new AliasTsTarget("NGC 6888", ["NGC 6888", "Crescent", "Sh2-105"])]);
+
+        Assert.True(report.IsIdentityFlagged("mosaic - cygnus loop/panel 01OF16"));
+        Assert.Equal(3, report.AliasMemberCount("ngc 6888"));
+    }
+
+    [Fact]
+    public void AliasMemberCount_ZeroWhenNotAnAliasFold()
+    {
+        CatalogBuildReport report = Report(aliases: [new AliasTsTarget("NGC 6888", ["NGC 6888", "Crescent"])]);
+
+        Assert.Equal(2, report.AliasMemberCount("NGC 6888"));
+        Assert.Equal(0, report.AliasMemberCount("M 31"));
+        Assert.Equal(0, report.AliasMemberCount(null));
+    }
+
+    [Fact]
+    public void IsUnanchoredName_MatchesCaseInsensitively()
+    {
+        CatalogBuildReport report = Report(unanchored: [new UnanchoredTsTarget(null, "LBN 437")]);
+
+        Assert.True(report.IsUnanchoredName("lbn 437"));
+        Assert.False(report.IsUnanchoredName("LBN 438"));
+    }
+
+    private static CatalogBuildReport Report(
+        IReadOnlyList<NameMismatch>? mismatches = null,
+        IReadOnlyList<AmbiguousMatch>? ambiguous = null,
+        IReadOnlyList<DuplicateTsTarget>? duplicates = null,
+        IReadOnlyList<AliasTsTarget>? aliases = null,
+        IReadOnlyList<UnanchoredTsTarget>? unanchored = null) => new(
+        DiskTargetCount: 0, TsTargetCount: 0, BothCount: 0, PlannedOnlyCount: 0, ActualOnlyCount: 0,
+        mismatches ?? [], ambiguous ?? [], duplicates ?? [], aliases ?? [], unanchored ?? [], []);
+}

@@ -109,6 +109,48 @@ public static class Reconciler
         return new TargetReconciliation(targetId, name, source, RollUp(merged), merged);
     }
 
+    /// <summary>
+    /// Folds hierarchical reconciliations onto their family roots: every reconciliation whose target has a
+    /// <see cref="Target.ParentTargetId"/> merges (via <see cref="Merge"/>) with its siblings — and with the
+    /// parent's own, typically empty, reconciliation — under the parent's identity, so a hierarchical target
+    /// reads as one line. Standalone targets pass through unchanged; result order follows the first appearance
+    /// of each family root in <paramref name="reconciliations"/>.
+    /// </summary>
+    public static IReadOnlyList<TargetReconciliation> MergeFamilies(
+        IReadOnlyList<Target> targets, IReadOnlyList<TargetReconciliation> reconciliations)
+    {
+        ArgumentNullException.ThrowIfNull(targets);
+        ArgumentNullException.ThrowIfNull(reconciliations);
+
+        Dictionary<Guid, Target> byId = targets.ToDictionary(t => t.Id);
+        Dictionary<Guid, List<TargetReconciliation>> families = [];
+        List<Guid> rootOrder = [];
+        foreach (TargetReconciliation r in reconciliations)
+        {
+            Guid root = byId.TryGetValue(r.TargetId, out Target? t) && t.ParentTargetId is Guid p ? p : r.TargetId;
+            if (!families.TryGetValue(root, out List<TargetReconciliation>? members))
+            {
+                families[root] = members = [];
+                rootOrder.Add(root);
+            }
+            members.Add(r);
+        }
+
+        List<TargetReconciliation> result = new(rootOrder.Count);
+        foreach (Guid root in rootOrder)
+        {
+            List<TargetReconciliation> members = families[root];
+            if (members.Count == 1 && members[0].TargetId == root)
+            {
+                result.Add(members[0]);
+                continue;
+            }
+            Target parent = byId[root];   // self-FK guarantees the root exists when any child does
+            result.Add(Merge(parent.Id, parent.Name, parent.Source, members));
+        }
+        return result;
+    }
+
     private static ReconcileStatus FilterStatus(int desired, int acquired) =>
         desired <= 0 ? (acquired > 0 ? ReconcileStatus.Unplanned : ReconcileStatus.NotStarted)
         : acquired <= 0 ? ReconcileStatus.NotStarted

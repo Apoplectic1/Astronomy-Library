@@ -145,6 +145,43 @@ public sealed class ReconcilerTests
         Assert.Equal("Mosaic - Demo", merged.Name);
     }
 
+    [Fact]
+    public void MergeFamilies_FoldsChildrenOntoParent_StandalonePassesThrough()
+    {
+        Guid parent = Guid.NewGuid(), c1 = Guid.NewGuid(), c2 = Guid.NewGuid(), solo = Guid.NewGuid();
+        Guid tpl = Guid.NewGuid();
+        List<Target> targets =
+        [
+            T(parent, "Mosaic - Demo", TargetSource.Both),
+            T(c1, "Demo P1", TargetSource.Both) with { ParentTargetId = parent },
+            T(c2, "Demo P2", TargetSource.Both) with { ParentTargetId = parent },
+            T(solo, "Standalone", TargetSource.Both),
+        ];
+        IReadOnlyList<TargetReconciliation> recs = Reconciler.Reconcile(
+            targets,
+            [Plan(c1, tpl, 33), Plan(c2, tpl, 33), Plan(solo, tpl, 10)], [Tpl(tpl, "H")],
+            [Inv(c1, "H", FilterPurpose.Light, 33), Inv(c2, "H", FilterPurpose.Light, 10),
+             Inv(solo, "H", FilterPurpose.Light, 10)]);
+
+        IReadOnlyList<TargetReconciliation> display = Reconciler.MergeFamilies(targets, recs);
+
+        Assert.Equal(2, display.Count);
+
+        // Family folds onto the parent identity (its own empty reconciliation absorbed), at the parent's position.
+        TargetReconciliation family = display[0];
+        Assert.Equal(parent, family.TargetId);
+        Assert.Equal("Mosaic - Demo", family.Name);
+        FilterReconciliation h = Assert.Single(family.Filters);
+        Assert.Equal(66, h.DesiredCount);
+        Assert.Equal(43, h.AcquiredCount);
+        Assert.Equal(ReconcileStatus.InProgress, family.Status);
+
+        // Standalone target passes through untouched.
+        TargetReconciliation standalone = display[1];
+        Assert.Equal(solo, standalone.TargetId);
+        Assert.Equal(ReconcileStatus.Complete, standalone.Status);
+    }
+
     // ---- builders -----------------------------------------------------------
 
     private static Target T(Guid id, string name, TargetSource source) => new(

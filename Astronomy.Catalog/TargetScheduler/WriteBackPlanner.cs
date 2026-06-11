@@ -34,24 +34,6 @@ public static class WriteBackPlanner
 
         Dictionary<Guid, Target> targetById = targets.ToDictionary(t => t.Id);
         Dictionary<Guid, ExposureTemplate> templateById = templates.ToDictionary(t => t.Id);
-        HashSet<string> dupDirs = new(
-            report.DuplicateTsTargets.Select(d => d.DiskDirectory), StringComparer.OrdinalIgnoreCase);
-
-        // Alias folds (every TS name exactly matches a disk identity facet — same object): a cell carrying exactly
-        // one plan per alias member is auto-written to every member, so they all reflect disk truth.
-        Dictionary<string, int> aliasDirs = new(StringComparer.OrdinalIgnoreCase);
-        foreach (AliasTsTarget a in report.AliasTsTargets)
-            aliasDirs[a.DiskDirectory] = a.TsTargetNames.Count;
-
-        // Disk directories whose target identity is in question — a name mismatch (coords matched, names
-        // disagree) or an ambiguous match (>1 disk unit in tolerance). Panels participate through the same
-        // two reports (their composite directory names land here like any other unit's). These are held for
-        // manual resolution, never auto-written: a false-positive match would otherwise overwrite a real TS
-        // target's counts.
-        HashSet<string> flaggedDirs = new(StringComparer.OrdinalIgnoreCase);
-        foreach (NameMismatch m in report.NameMismatches) flaggedDirs.Add(m.DiskDirectory);
-        foreach (AmbiguousMatch a in report.AmbiguousMatches)
-            foreach (string d in a.CandidateDirectories) flaggedDirs.Add(d);
 
         // Disk actuals summed per (target, filter, purpose, seconds). Filter compared case-insensitively
         // (matches Reconciler); the scanner's whole-second exposure bucket is part of the key.
@@ -72,7 +54,7 @@ public static class WriteBackPlanner
             if (!templateById.TryGetValue(p.ExposureTemplateId, out ExposureTemplate? tpl)) continue;
 
             FilterPurpose purpose = FilterPurposeClassifier.Classify(tpl.Name);
-            (Guid, string, FilterPurpose, int) key = (p.TargetId, tpl.FilterName, purpose, PlanSecondsOf(p, tpl));
+            (Guid, string, FilterPurpose, int) key = (p.TargetId, tpl.FilterName, purpose, EffectiveExposure.Seconds(p, tpl));
             if (!groups.TryGetValue(key, out List<ExposurePlan>? list))
                 groups[key] = list = [];
             list.Add(p);
@@ -86,7 +68,11 @@ public static class WriteBackPlanner
             List<ExposurePlan> gplans = g.Value;
             Target t = targetById[targetId];
             int disk = diskCount.GetValueOrDefault(g.Key);   // 0 when no frames at this duration: spec unmet
-            bool flagged = t.DirectoryName is not null && flaggedDirs.Contains(t.DirectoryName);
+
+            // Identity-flagged directories (name mismatch / ambiguous match — panels' composite names land in
+            // those reports like any other unit's) are held for manual resolution, never auto-written: a
+            // false-positive match would otherwise overwrite a real TS target's counts.
+            bool flagged = report.IsIdentityFlagged(t.DirectoryName);
 
             // Mosaic panels are ordinary Both targets here (own TS provenance, own inventory); the mosaic
             // PARENT carries no plans and no inventory, so it never forms a group — inert by construction.
@@ -95,7 +81,7 @@ public static class WriteBackPlanner
                 writes.Add(new PlannedWrite(id, targetId, t.Name, filter, purpose, seconds, disk));
             }
             else if (!flagged
-                && t.DirectoryName is not null && aliasDirs.TryGetValue(t.DirectoryName, out int members)
+                && report.AliasMemberCount(t.DirectoryName) is int members && members > 0
                 && gplans.Count == members && TryParseTsIds(gplans, out List<long> ids))
             {
                 // One plan per alias member on this cell — the fold explains the multiplicity exactly, so the
@@ -107,13 +93,14 @@ public static class WriteBackPlanner
             {
                 ManualReason reason =
                     flagged ? ManualReason.IdentityConflict
-                    : t.DirectoryName is not null && dupDirs.Contains(t.DirectoryName) ? ManualReason.DuplicateFold
+                    : report.FlagsFor(t.DirectoryName).HasFlag(TargetMatchFlags.Duplicate) ? ManualReason.DuplicateFold
                     : ManualReason.MultiPlan;
                 List<ManualPlan> mplans =
                 [
                     .. gplans.Select(p => new ManualPlan(
                         TryParseTsId(p.ImportedFromTsGuid, out long pid) ? pid : -1,
-                        templateById.TryGetValue(p.ExposureTemplateId, out ExposureTemplate? ptpl) ? PlanSecondsOf(p, ptpl) : seconds,
+                        templateById.TryGetValue(p.ExposureTemplateId, out ExposureTemplate? ptpl)
+                            ? EffectiveExposure.Seconds(p, ptpl) : seconds,
                         p.AcquiredCount, p.AcceptedCount, p.DesiredCount)),
                 ];
                 manual.Add(new ManualGroup(targetId, t.Name, filter, purpose, seconds, disk, reason, mplans));
@@ -151,11 +138,6 @@ public static class WriteBackPlanner
         return new WriteBackPlan(writes, manual, needs, ignoredMissing);
     }
 
-    // A plan's effective whole-second sub length: its own value, else its template default (the resolver
-    // already normalized TS's -1 sentinel to null). Both null only for synthetic data; the 0 fallback can
-    // never match a scanner bucket (those are >= 1), so such a plan deterministically writes 0.
-    private static int PlanSecondsOf(ExposurePlan p, ExposureTemplate tpl) =>
-        (int)Math.Round(p.ExposureSeconds ?? tpl.DefaultExposureSeconds ?? 0.0);
 
     // exposure_plan.imported_from_ts_guid always holds the TS exposureplan.Id as an invariant integer string
     // (TargetResolver), but parse defensively: a (never-expected) non-integer routes the cell to manual rather

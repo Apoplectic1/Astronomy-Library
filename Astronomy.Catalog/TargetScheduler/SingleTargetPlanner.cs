@@ -128,9 +128,7 @@ public static class SingleTargetPlanner
     {
         int cellSeconds = (int)Math.Round(cell.Typical.ExposureSec);
 
-        // Raw TS rows here: exposure < 0 is TS's "use the template default" sentinel.
-        int PlanSeconds(TsExposurePlan p) =>
-            (int)Math.Round(p.Exposure < 0 ? templateById[p.ExposureTemplateId].DefaultExposure : p.Exposure);
+        int PlanSeconds(TsExposurePlan p) => EffectiveExposure.Seconds(p, templateById[p.ExposureTemplateId]);
 
         bool MatchesFilterPurpose(TsExposurePlan p) =>
             templateById.TryGetValue(p.ExposureTemplateId, out TsExposureTemplate? tpl)
