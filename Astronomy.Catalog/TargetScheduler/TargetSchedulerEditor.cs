@@ -27,11 +27,20 @@ public sealed record FieldEditResult(bool RowFound, string? OldValue, bool Verif
 /// (<see cref="HasRequiredColumns"/> / <see cref="HasOpenSidecar"/> / <see cref="IsReadOnly"/>) so the caller can
 /// refuse an incompatible or apparently-open db — validated by column presence, not an exact schema version
 /// (TS bumps that every nightly migration). Each write is read-back verified. Transitional, retires at the IS/ISP
-/// cutover. The surface is intentionally minimal — currently <c>target.active</c> — and grows as the editor does.
+/// cutover.
+/// <para>
+/// The editable surface is the declarative <see cref="TsEditableSchema"/>: <see cref="SetField"/> writes (and
+/// <see cref="ReadField"/> reads) any column in that reference, validated against it — the reference doubles as
+/// the SQL-injection whitelist. At open the editor reflects each table's columns (<c>PRAGMA table_info</c>) so
+/// <see cref="IsFieldAvailable"/> can tell the caller whether a referenced field actually exists on this db
+/// version. Cadence-breaking fields are flagged in the reference and are <em>not</em> specially handled here — a
+/// plain UPDATE — so the caller must warn or defer for those.
+/// </para>
 /// </summary>
 public sealed class TargetSchedulerEditor : IDisposable
 {
     private readonly SqliteConnection _connection;
+    private readonly Dictionary<TsTable, HashSet<string>> _presentColumns;
 
     /// <summary>Opens <paramref name="schedulerDbPath"/> read-write with a busy-timeout.</summary>
     public TargetSchedulerEditor(string schedulerDbPath)
@@ -63,7 +72,14 @@ public sealed class TargetSchedulerEditor : IDisposable
             pragma.ExecuteNonQuery();
         }
 
-        HasRequiredColumns = TargetHasColumns("Id", "guid", "active");
+        _presentColumns = new()
+        {
+            [TsTable.Project] = ReadColumns("project"),
+            [TsTable.Target] = ReadColumns("target"),
+            [TsTable.ExposurePlan] = ReadColumns("exposureplan"),
+            [TsTable.ExposureTemplate] = ReadColumns("exposuretemplate"),
+        };
+        HasRequiredColumns = _presentColumns[TsTable.Target].IsSupersetOf(["Id", "guid", "active"]);
     }
 
     /// <summary>True when a <c>-wal</c>/<c>-shm</c>/<c>-journal</c> sidecar existed at open time (db may be open elsewhere).</summary>
@@ -105,32 +121,56 @@ public sealed class TargetSchedulerEditor : IDisposable
         return new TargetEditResult(RowFound: true, OldActive: old, Verified: ReadActive(where, key) == wanted);
     }
 
-    // Editable columns per table. A write to anything outside these is rejected — the column name is interpolated
-    // into the SQL, so this whitelist is also the injection guard. Cadence-SAFE set only for now; the
-    // cadence-breaking knobs (exposureplan.enabled, project.filterswitchfrequency) come later with their clear.
-    private static readonly HashSet<string> TargetColumns =
-        new(StringComparer.OrdinalIgnoreCase) { "active", "priority", "rotation", "roi" };
-    private static readonly HashSet<string> PlanColumns =
-        new(StringComparer.OrdinalIgnoreCase) { "desired" };
-    private static readonly HashSet<string> ProjectColumns = new(StringComparer.OrdinalIgnoreCase)
-        { "state", "priority", "minimumaltitude", "maximumaltitude", "horizonoffset", "meridianwindow", "ditherevery", "enablegrader" };
+    /// <summary>
+    /// Sets one editable field (per <see cref="TsEditableSchema"/>) on the row of <paramref name="table"/> keyed
+    /// by <paramref name="tsKey"/> — the catalog's <c>imported_from_ts_guid</c> (the TS <c>guid</c>, or the integer
+    /// <c>Id</c> as a string when it has none — a guid never parses as a long, so the key form is self-describing).
+    /// Reads the prior value, updates the one whitelisted column, and read-back verifies. Throws
+    /// <see cref="ArgumentException"/> if <paramref name="column"/> is not an editable field. The reference's column
+    /// spelling (not the caller's casing) is what reaches the SQL.
+    /// </summary>
+    public FieldEditResult SetField(TsTable table, string tsKey, string column, object? value)
+    {
+        TsField field = TsEditableSchema.Find(table, column)
+            ?? throw new ArgumentException($"column '{column}' is not an editable {table} field", nameof(column));
+        return UpdateField(TsEditableSchema.TableName(table), field.Column, tsKey, value);
+    }
 
-    /// <summary>Sets one editable <c>target</c> column (see <see cref="TargetColumns"/>) on the row keyed by guid-or-Id.</summary>
+    /// <summary>
+    /// Reads the current value of one editable field (per <see cref="TsEditableSchema"/>) for surfacing — e.g. to
+    /// seed an edit control — keyed like <see cref="SetField"/>. <c>Found</c> is false for an unknown key; the value
+    /// is the raw SQLite value (a boxed <c>long</c>/<c>double</c>/<c>string</c>) or <c>null</c> for SQL NULL.
+    /// </summary>
+    public (bool Found, object? Value) ReadField(TsTable table, string tsKey, string column)
+    {
+        TsField field = TsEditableSchema.Find(table, column)
+            ?? throw new ArgumentException($"column '{column}' is not an editable {table} field", nameof(column));
+        ArgumentException.ThrowIfNullOrWhiteSpace(tsKey);
+        bool byId = long.TryParse(tsKey, out long id);
+        string where = byId ? "Id = $key" : "guid = $key";
+        object keyObj = byId ? id : tsKey;
+        return ReadRaw(TsEditableSchema.TableName(table), field.Column, where, keyObj);
+    }
+
+    /// <summary>Sets one editable <c>target</c> column on the row keyed by guid-or-Id (thin wrapper over <see cref="SetField"/>).</summary>
     public FieldEditResult SetTargetField(string tsTargetKey, string column, object? value) =>
-        UpdateField("target", Whitelisted(column, TargetColumns), tsTargetKey, value);
+        SetField(TsTable.Target, tsTargetKey, column, value);
 
-    /// <summary>Sets one editable <c>exposureplan</c> column (currently <c>desired</c>) on the plan keyed by guid-or-Id.</summary>
+    /// <summary>Sets one editable <c>exposureplan</c> column on the plan keyed by guid-or-Id (wrapper over <see cref="SetField"/>).</summary>
     public FieldEditResult SetPlanField(string tsPlanKey, string column, object? value) =>
-        UpdateField("exposureplan", Whitelisted(column, PlanColumns), tsPlanKey, value);
+        SetField(TsTable.ExposurePlan, tsPlanKey, column, value);
 
-    /// <summary>Sets one editable <c>project</c> column (see <see cref="ProjectColumns"/>) on the project keyed by guid-or-Id.</summary>
+    /// <summary>Sets one editable <c>project</c> column on the project keyed by guid-or-Id (wrapper over <see cref="SetField"/>).</summary>
     public FieldEditResult SetProjectField(string tsProjectKey, string column, object? value) =>
-        UpdateField("project", Whitelisted(column, ProjectColumns), tsProjectKey, value);
+        SetField(TsTable.Project, tsProjectKey, column, value);
 
-    private static string Whitelisted(string column, HashSet<string> allowed) =>
-        allowed.Contains(column)
-            ? column
-            : throw new ArgumentException($"column '{column}' is not an editable field", nameof(column));
+    /// <summary>True when <paramref name="column"/> for <paramref name="table"/> is both an editable field (in
+    /// <see cref="TsEditableSchema"/>) and physically present in this db — a schema-drift guard, since TS adds
+    /// columns across migrations and an older db may lack one. False for an unknown/non-editable or missing column.</summary>
+    public bool IsFieldAvailable(TsTable table, string column) =>
+        TsEditableSchema.Find(table, column) is { } field
+        && _presentColumns.TryGetValue(table, out HashSet<string>? cols)
+        && cols.Contains(field.Column);
 
     // Resolve the row by guid-or-Id (a guid never parses as long), read the old value, UPDATE the one column, and
     // read-back verify. Table + column are whitelisted literals; key + value are parameterised.
@@ -184,16 +224,17 @@ public sealed class TargetSchedulerEditor : IDisposable
         return r.IsDBNull(0) ? 0 : r.GetInt32(0);
     }
 
-    private bool TargetHasColumns(params string[] required)
+    // The column names present on one table (case-insensitive), or an empty set if the table is absent — PRAGMA
+    // on a missing table simply yields no rows. The table name is one of the four reference literals, not input.
+    private HashSet<string> ReadColumns(string table)
     {
         HashSet<string> columns = new(StringComparer.OrdinalIgnoreCase);
         using SqliteCommand cmd = _connection.CreateCommand();
-        cmd.CommandText = "PRAGMA table_info(target);";
+        cmd.CommandText = $"PRAGMA table_info({table});";
         using SqliteDataReader reader = cmd.ExecuteReader();
         while (reader.Read())
             columns.Add(reader.GetString(1));   // PRAGMA table_info column 1 = name
-
-        return required.All(columns.Contains);
+        return columns;
     }
 
     /// <inheritdoc/>

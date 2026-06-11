@@ -11,6 +11,12 @@ namespace Astronomy.Catalog.Reconcile;
 /// plans) to the disk side (<see cref="Disk"/> frames). The filter casing is the first spelling seen for the
 /// bucket. UI-agnostic by design: pairing cells into planes, rolling up mixed sub lengths, and pricing frames
 /// into hours are all the consumer's presentation — the projection stops at the counts.
+/// <para>
+/// <see cref="PlanTsKey"/> / <see cref="TemplateTsKey"/> are the write-back addresses for a <b>single-plan</b>
+/// cell (<see cref="PlanCount"/> == 1): the lone plan's and its template's <c>imported_from_ts_guid</c>, so a
+/// consumer can edit that plan's <c>desired</c>/<c>exposure</c> or the template's gain/offset/exposure. Both are
+/// <c>null</c> when the cell aggregates several plans (no unambiguous single row to write) or has no plan side.
+/// </para>
 /// </summary>
 public sealed record ReconciliationCell(
     string Filter,
@@ -20,7 +26,9 @@ public sealed record ReconciliationCell(
     int Acquired,
     int Accepted,
     int Disk,
-    int PlanCount);
+    int PlanCount,
+    string? PlanTsKey = null,
+    string? TemplateTsKey = null);
 
 /// <summary>
 /// One canonical target's reconciliation: its identity + match-state plus its <see cref="Cells"/>, which are
@@ -31,6 +39,9 @@ public sealed record ReconciliationCell(
 /// grouping (panels follow their parent in graph order). <see cref="Enabled"/> and <see cref="TsTargetKey"/>
 /// carry the target's TS-enable state and write-back provenance; a <see cref="TsTargetKey"/> of <c>null</c> means
 /// there is no TS target behind this row (a disk-only target or a mosaic parent grouping node).
+/// <see cref="ProjectTsKey"/> is the write-back address for the target's TS project (its
+/// <c>imported_from_ts_guid</c>), so a consumer can edit project-scope knobs (state/priority/altitudes/…);
+/// <c>null</c> when the target has no TS project.
 /// </summary>
 public sealed record TargetCells(
     Guid TargetId,
@@ -44,6 +55,7 @@ public sealed record TargetCells(
     bool IsUnanchored,
     bool Enabled,
     string? TsTargetKey,
+    string? ProjectTsKey,
     IReadOnlyList<ReconciliationCell> Cells);
 
 /// <summary>
@@ -70,8 +82,13 @@ public static class ReconciliationProjection
         List<TargetCells> result = new(graph.Targets.Count);
         foreach (Target t in graph.Targets)
         {
-            string project = t.ProjectId is Guid pid && projects.TryGetValue(pid, out Project? proj)
-                ? proj.Name : "—";
+            string project = "—";
+            string? projectTsKey = null;
+            if (t.ProjectId is Guid pid && projects.TryGetValue(pid, out Project? proj))
+            {
+                project = proj.Name;
+                projectTsKey = proj.ImportedFromTsGuid;
+            }
             string? dir = t.DirectoryName;
             bool isMosaic = dir is not null && MosaicConvention.IsMosaicDirectory(dir);
             bool isUnanchored = t.Source == TargetSource.Planned && report.IsUnanchoredName(t.Name);
@@ -84,10 +101,7 @@ public static class ReconciliationProjection
                 if (!templates.TryGetValue(p.ExposureTemplateId, out ExposureTemplate? tpl)) continue;
                 int seconds = EffectiveExposure.Seconds(p, tpl);
                 CellAccumulator c = Cell(cells, tpl.FilterName, FilterPurposeClassifier.Classify(tpl.Name), seconds);
-                c.Desired += p.DesiredCount;
-                c.Acquired += p.AcquiredCount;
-                c.Accepted += p.AcceptedCount;
-                c.PlanCount++;
+                c.AddPlan(p, tpl);
             }
             foreach (InventoryFilter f in invByTarget[t.Id])
             {
@@ -98,7 +112,7 @@ public static class ReconciliationProjection
 
             result.Add(new TargetCells(
                 t.Id, t.ParentTargetId, t.Name, t.Source, project, dir, isMosaic,
-                report.IssuesFor(dir), isUnanchored, t.Enabled, t.ImportedFromTsGuid,
+                report.IssuesFor(dir), isUnanchored, t.Enabled, t.ImportedFromTsGuid, projectTsKey,
                 [.. cells.Values.Select(c => c.ToCell())]));
         }
         return result;
@@ -122,8 +136,24 @@ public static class ReconciliationProjection
         public int Accepted;
         public int Disk;
         public int PlanCount;
+        private string? _planTsKey;
+        private string? _templateTsKey;
+
+        // Fold one plan (and its resolved template) into the bucket; remember the TS keys, which only become a
+        // usable write-back address when the bucket ends up with exactly one plan.
+        public void AddPlan(ExposurePlan p, ExposureTemplate tpl)
+        {
+            Desired += p.DesiredCount;
+            Acquired += p.AcquiredCount;
+            Accepted += p.AcceptedCount;
+            PlanCount++;
+            _planTsKey = p.ImportedFromTsGuid;
+            _templateTsKey = tpl.ImportedFromTsGuid;
+        }
 
         public ReconciliationCell ToCell() =>
-            new(filter, purpose, seconds, Desired, Acquired, Accepted, Disk, PlanCount);
+            new(filter, purpose, seconds, Desired, Acquired, Accepted, Disk, PlanCount,
+                PlanCount == 1 ? _planTsKey : null,
+                PlanCount == 1 ? _templateTsKey : null);
     }
 }
