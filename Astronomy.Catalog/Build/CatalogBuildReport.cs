@@ -23,25 +23,25 @@ public sealed record CatalogBuildReport(
     int PanelsPlannedOnly = 0,
     int PanelsActualOnly = 0)
 {
-    private Dictionary<string, TargetMatchFlags>? _flagsByDirectory;
+    private Dictionary<string, TargetMatchIssues>? _issuesByDirectory;
     private Dictionary<string, int>? _aliasMembersByDirectory;
     private HashSet<string>? _unanchoredNames;
 
     /// <summary>
-    /// Match-state flags for one disk directory (composite panel names included) — THE definition every
+    /// Match-state issues for one disk directory (composite panel names included) — THE definition every
     /// consumer derives from, whether routing write-back's manual bucket or badging a display row.
     /// </summary>
-    public TargetMatchFlags FlagsFor(string? directoryName)
+    public TargetMatchIssues IssuesFor(string? directoryName)
     {
-        if (directoryName is null) return TargetMatchFlags.None;
-        _flagsByDirectory ??= BuildFlagIndex();
-        return _flagsByDirectory.GetValueOrDefault(directoryName, TargetMatchFlags.None);
+        if (directoryName is null) return TargetMatchIssues.None;
+        _issuesByDirectory ??= BuildIssueIndex();
+        return _issuesByDirectory.GetValueOrDefault(directoryName, TargetMatchIssues.None);
     }
 
     /// <summary>True when the directory's target identity is in question (name mismatch or ambiguous
     /// coordinate match) — write-back holds these for manual resolution, never auto-writes.</summary>
     public bool IsIdentityFlagged(string? directoryName) =>
-        (FlagsFor(directoryName) & (TargetMatchFlags.NameMismatch | TargetMatchFlags.AmbiguousMatch)) != 0;
+        (IssuesFor(directoryName) & (TargetMatchIssues.NameMismatch | TargetMatchIssues.AmbiguousMatch)) != 0;
 
     /// <summary>Number of TS names folded onto this directory as aliases (0 when not an alias fold).</summary>
     public int AliasMemberCount(string? directoryName)
@@ -60,24 +60,24 @@ public sealed record CatalogBuildReport(
         return _unanchoredNames.Contains(tsName);
     }
 
-    private Dictionary<string, TargetMatchFlags> BuildFlagIndex()
+    private Dictionary<string, TargetMatchIssues> BuildIssueIndex()
     {
-        Dictionary<string, TargetMatchFlags> flags = new(StringComparer.OrdinalIgnoreCase);
-        void Add(string dir, TargetMatchFlags f) => flags[dir] = flags.GetValueOrDefault(dir) | f;
+        Dictionary<string, TargetMatchIssues> flags = new(StringComparer.OrdinalIgnoreCase);
+        void Add(string dir, TargetMatchIssues f) => flags[dir] = flags.GetValueOrDefault(dir) | f;
 
-        foreach (AliasTsTarget a in AliasTsTargets) Add(a.DiskDirectory, TargetMatchFlags.Alias);
-        foreach (DuplicateTsTarget d in DuplicateTsTargets) Add(d.DiskDirectory, TargetMatchFlags.Duplicate);
-        foreach (NameMismatch m in NameMismatches) Add(m.DiskDirectory, TargetMatchFlags.NameMismatch);
+        foreach (AliasTsTarget a in AliasTsTargets) Add(a.DiskDirectory, TargetMatchIssues.Alias);
+        foreach (DuplicateTsTarget d in DuplicateTsTargets) Add(d.DiskDirectory, TargetMatchIssues.Duplicate);
+        foreach (NameMismatch m in NameMismatches) Add(m.DiskDirectory, TargetMatchIssues.NameMismatch);
         foreach (AmbiguousMatch a in AmbiguousMatches)
             foreach (string d in a.CandidateDirectories)
-                Add(d, TargetMatchFlags.AmbiguousMatch);
+                Add(d, TargetMatchIssues.AmbiguousMatch);
         return flags;
     }
 }
 
 /// <summary>Match-state classification of one disk directory, derived from the build report's issue lists.</summary>
 [Flags]
-public enum TargetMatchFlags
+public enum TargetMatchIssues
 {
     /// <summary>Clean match (or unknown directory).</summary>
     None = 0,

@@ -93,7 +93,7 @@ public static class WriteBackPlanner
             {
                 ManualReason reason =
                     flagged ? ManualReason.IdentityConflict
-                    : report.FlagsFor(t.DirectoryName).HasFlag(TargetMatchFlags.Duplicate) ? ManualReason.DuplicateFold
+                    : report.IssuesFor(t.DirectoryName).HasFlag(TargetMatchIssues.Duplicate) ? ManualReason.DuplicateFold
                     : ManualReason.MultiPlan;
                 List<ManualPlan> mplans =
                 [

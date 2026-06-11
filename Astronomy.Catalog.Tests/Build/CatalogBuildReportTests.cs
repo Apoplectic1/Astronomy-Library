@@ -6,7 +6,7 @@ namespace Astronomy.Catalog.Tests.Build;
 public class CatalogBuildReportTests
 {
     [Fact]
-    public void FlagsFor_CombinesIssueLists_PerDirectory()
+    public void IssuesFor_CombinesIssueLists_PerDirectory()
     {
         CatalogBuildReport report = Report(
             mismatches: [new NameMismatch(null, "Sh2 132", "Sh2-132 - Lion", "Sh2-132", 0.1)],
@@ -14,12 +14,12 @@ public class CatalogBuildReportTests
             duplicates: [new DuplicateTsTarget("M 31", ["M31", "Andromeda"])],
             aliases: [new AliasTsTarget("NGC 6888", ["NGC 6888", "Crescent"])]);
 
-        Assert.Equal(TargetMatchFlags.NameMismatch | TargetMatchFlags.AmbiguousMatch, report.FlagsFor("Sh2-132 - Lion"));
-        Assert.Equal(TargetMatchFlags.AmbiguousMatch, report.FlagsFor("NGC 7000"));
-        Assert.Equal(TargetMatchFlags.Duplicate, report.FlagsFor("M 31"));
-        Assert.Equal(TargetMatchFlags.Alias, report.FlagsFor("NGC 6888"));
-        Assert.Equal(TargetMatchFlags.None, report.FlagsFor("Unflagged Dir"));
-        Assert.Equal(TargetMatchFlags.None, report.FlagsFor(null));
+        Assert.Equal(TargetMatchIssues.NameMismatch | TargetMatchIssues.AmbiguousMatch, report.IssuesFor("Sh2-132 - Lion"));
+        Assert.Equal(TargetMatchIssues.AmbiguousMatch, report.IssuesFor("NGC 7000"));
+        Assert.Equal(TargetMatchIssues.Duplicate, report.IssuesFor("M 31"));
+        Assert.Equal(TargetMatchIssues.Alias, report.IssuesFor("NGC 6888"));
+        Assert.Equal(TargetMatchIssues.None, report.IssuesFor("Unflagged Dir"));
+        Assert.Equal(TargetMatchIssues.None, report.IssuesFor(null));
     }
 
     [Fact]
