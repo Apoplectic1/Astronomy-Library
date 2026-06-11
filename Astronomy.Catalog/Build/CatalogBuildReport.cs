@@ -23,6 +23,9 @@ public sealed record CatalogBuildReport(
     int PanelsPlannedOnly = 0,
     int PanelsActualOnly = 0)
 {
+    // Lazy lookup indexes over the issue lists. NOT thread-safe (plain ??=) — the report is built and
+    // consumed on one thread; a consumer sharing one instance across threads must index it first. They
+    // also sit outside record equality (value semantics cover the positional lists only).
     private Dictionary<string, TargetMatchIssues>? _issuesByDirectory;
     private Dictionary<string, int>? _aliasMembersByDirectory;
     private HashSet<string>? _unanchoredNames;
