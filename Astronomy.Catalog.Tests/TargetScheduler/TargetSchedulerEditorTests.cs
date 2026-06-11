@@ -96,7 +96,91 @@ public sealed class TargetSchedulerEditorTests
         }
     }
 
+    [Fact]
+    public void SetTargetField_Priority_UpdatesAndVerifies()
+    {
+        string db = NewFullDb();
+        try
+        {
+            using TargetSchedulerEditor editor = new(db);
+            FieldEditResult r = editor.SetTargetField("tg-1", "priority", 2);
+            Assert.True(r.Succeeded);
+            Assert.Equal("-1", r.OldValue);
+            Assert.Equal(2L, ReadScalar(db, "SELECT priority FROM target WHERE guid='tg-1'"));
+        }
+        finally { TestSupport.Cleanup(db); }
+    }
+
+    [Fact]
+    public void SetPlanField_Desired_UpdatesAndVerifies()
+    {
+        string db = NewFullDb();
+        try
+        {
+            using TargetSchedulerEditor editor = new(db);
+            Assert.True(editor.SetPlanField("ep-1", "desired", 140).Succeeded);
+            Assert.Equal(140L, ReadScalar(db, "SELECT desired FROM exposureplan WHERE guid='ep-1'"));
+        }
+        finally { TestSupport.Cleanup(db); }
+    }
+
+    [Fact]
+    public void SetProjectField_NullableDouble_RoundTrips()
+    {
+        string db = NewFullDb();
+        try
+        {
+            using TargetSchedulerEditor editor = new(db);
+            Assert.True(editor.SetProjectField("pr-1", "minimumaltitude", 45.5).Succeeded);
+            Assert.Equal(45.5, Convert.ToDouble(ReadScalar(db, "SELECT minimumaltitude FROM project WHERE guid='pr-1'")));
+        }
+        finally { TestSupport.Cleanup(db); }
+    }
+
+    [Fact]
+    public void SetField_RejectsNonWhitelistedColumn()
+    {
+        string db = NewFullDb();
+        try
+        {
+            using TargetSchedulerEditor editor = new(db);
+            Assert.Throws<ArgumentException>(() => editor.SetTargetField("tg-1", "name", "hax"));
+        }
+        finally { TestSupport.Cleanup(db); }
+    }
+
     // ---- helpers ------------------------------------------------------------
+
+    // A db with target/exposureplan/project rows carrying the editable columns the field setters touch.
+    private static string NewFullDb()
+    {
+        string db = TestSupport.NewDbPath();
+        using (SqliteConnection setup = new(new SqliteConnectionStringBuilder { DataSource = db }.ToString()))
+        {
+            setup.Open();
+            using SqliteCommand cmd = setup.CreateCommand();
+            cmd.CommandText =
+                "CREATE TABLE target (Id INTEGER PRIMARY KEY, guid TEXT, active INTEGER NOT NULL, priority INTEGER, rotation REAL, roi REAL, name TEXT);" +
+                "INSERT INTO target (guid, active, priority, name) VALUES ('tg-1', 1, -1, 'Alpha');" +
+                "CREATE TABLE exposureplan (Id INTEGER PRIMARY KEY, guid TEXT, desired INTEGER, acquired INTEGER, accepted INTEGER);" +
+                "INSERT INTO exposureplan (guid, desired, acquired, accepted) VALUES ('ep-1', 10, 0, 0);" +
+                "CREATE TABLE project (Id INTEGER PRIMARY KEY, guid TEXT, state INTEGER, minimumaltitude REAL, ditherevery INTEGER);" +
+                "INSERT INTO project (guid, state, minimumaltitude, ditherevery) VALUES ('pr-1', 1, 30.0, 0);";
+            cmd.ExecuteNonQuery();
+        }
+        SqliteConnection.ClearAllPools();
+        return db;
+    }
+
+    private static object ReadScalar(string db, string sql)
+    {
+        using SqliteConnection conn = new(new SqliteConnectionStringBuilder
+        { DataSource = db, Mode = SqliteOpenMode.ReadOnly }.ToString());
+        conn.Open();
+        using SqliteCommand cmd = conn.CreateCommand();
+        cmd.CommandText = sql;
+        return cmd.ExecuteScalar()!;
+    }
 
     private static string NewTargetDb(params (string? Guid, int Active, string Name)[] rows)
     {

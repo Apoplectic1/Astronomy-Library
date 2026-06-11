@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.Data.Sqlite;
 
 namespace Astronomy.Catalog.TargetScheduler;
@@ -5,6 +6,14 @@ namespace Astronomy.Catalog.TargetScheduler;
 /// <summary>The outcome of one <c>target</c> field edit: whether the row was found, its prior value, and whether
 /// the read-back matched the requested value.</summary>
 public sealed record TargetEditResult(bool RowFound, int? OldActive, bool Verified)
+{
+    /// <summary>True when the row was found and the read-back confirmed the new value.</summary>
+    public bool Succeeded => RowFound && Verified;
+}
+
+/// <summary>Outcome of one generic field edit: whether the row was found, its prior value (as text, for the
+/// audit trail), and whether the read-back matched the requested value.</summary>
+public sealed record FieldEditResult(bool RowFound, string? OldValue, bool Verified)
 {
     /// <summary>True when the row was found and the read-back confirmed the new value.</summary>
     public bool Succeeded => RowFound && Verified;
@@ -95,6 +104,74 @@ public sealed class TargetSchedulerEditor : IDisposable
 
         return new TargetEditResult(RowFound: true, OldActive: old, Verified: ReadActive(where, key) == wanted);
     }
+
+    // Editable columns per table. A write to anything outside these is rejected — the column name is interpolated
+    // into the SQL, so this whitelist is also the injection guard. Cadence-SAFE set only for now; the
+    // cadence-breaking knobs (exposureplan.enabled, project.filterswitchfrequency) come later with their clear.
+    private static readonly HashSet<string> TargetColumns =
+        new(StringComparer.OrdinalIgnoreCase) { "active", "priority", "rotation", "roi" };
+    private static readonly HashSet<string> PlanColumns =
+        new(StringComparer.OrdinalIgnoreCase) { "desired" };
+    private static readonly HashSet<string> ProjectColumns = new(StringComparer.OrdinalIgnoreCase)
+        { "state", "priority", "minimumaltitude", "maximumaltitude", "horizonoffset", "meridianwindow", "ditherevery", "enablegrader" };
+
+    /// <summary>Sets one editable <c>target</c> column (see <see cref="TargetColumns"/>) on the row keyed by guid-or-Id.</summary>
+    public FieldEditResult SetTargetField(string tsTargetKey, string column, object? value) =>
+        UpdateField("target", Whitelisted(column, TargetColumns), tsTargetKey, value);
+
+    /// <summary>Sets one editable <c>exposureplan</c> column (currently <c>desired</c>) on the plan keyed by guid-or-Id.</summary>
+    public FieldEditResult SetPlanField(string tsPlanKey, string column, object? value) =>
+        UpdateField("exposureplan", Whitelisted(column, PlanColumns), tsPlanKey, value);
+
+    /// <summary>Sets one editable <c>project</c> column (see <see cref="ProjectColumns"/>) on the project keyed by guid-or-Id.</summary>
+    public FieldEditResult SetProjectField(string tsProjectKey, string column, object? value) =>
+        UpdateField("project", Whitelisted(column, ProjectColumns), tsProjectKey, value);
+
+    private static string Whitelisted(string column, HashSet<string> allowed) =>
+        allowed.Contains(column)
+            ? column
+            : throw new ArgumentException($"column '{column}' is not an editable field", nameof(column));
+
+    // Resolve the row by guid-or-Id (a guid never parses as long), read the old value, UPDATE the one column, and
+    // read-back verify. Table + column are whitelisted literals; key + value are parameterised.
+    private FieldEditResult UpdateField(string table, string column, string key, object? value)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(key);
+        bool byId = long.TryParse(key, out long id);
+        string where = byId ? "Id = $key" : "guid = $key";
+        object keyObj = byId ? id : key;
+
+        (bool found, object? old) = ReadRaw(table, column, where, keyObj);
+        if (!found)
+            return new FieldEditResult(RowFound: false, OldValue: null, Verified: false);
+
+        using (SqliteCommand cmd = _connection.CreateCommand())
+        {
+            cmd.CommandText = $"UPDATE {table} SET {column} = $v WHERE {where};";
+            cmd.Parameters.AddWithValue("$v", value ?? (object)DBNull.Value);
+            cmd.Parameters.AddWithValue("$key", keyObj);
+            cmd.ExecuteNonQuery();
+        }
+
+        (_, object? readBack) = ReadRaw(table, column, where, keyObj);
+        return new FieldEditResult(RowFound: true, OldValue: ToText(old), Verified: NormalizedEquals(readBack, value));
+    }
+
+    private (bool Found, object? Value) ReadRaw(string table, string column, string where, object key)
+    {
+        using SqliteCommand cmd = _connection.CreateCommand();
+        cmd.CommandText = $"SELECT {column} FROM {table} WHERE {where};";
+        cmd.Parameters.AddWithValue("$key", key);
+        using SqliteDataReader r = cmd.ExecuteReader();
+        return r.Read() ? (true, r.IsDBNull(0) ? null : r.GetValue(0)) : (false, null);
+    }
+
+    // SQLite hands INTEGER back as long while the caller passes int, so compare via invariant text (1 == 1L,
+    // doubles round-trip, null == null).
+    private static bool NormalizedEquals(object? a, object? b) =>
+        (a is null && b is null) || (a is not null && b is not null && ToText(a) == ToText(b));
+
+    private static string? ToText(object? v) => v is null ? null : Convert.ToString(v, CultureInfo.InvariantCulture);
 
     private int? ReadActive(string where, object key)
     {
