@@ -157,6 +157,27 @@ public sealed class ReconciliationProjectionTests
         Assert.Equal(600, Assert.Single(tc.Cells).Seconds);
     }
 
+    [Fact]
+    public void EnableState_AndProvenance_FlowFromTarget()
+    {
+        Guid both = Guid.NewGuid(), disk = Guid.NewGuid();
+        IReadOnlyList<TargetCells> projected = ReconciliationProjection.Project(
+            Graph(
+                [
+                    T(both, "M 81", TargetSource.Both, dir: "M 81", enabled: false, tsKey: "ts-guid-81"),
+                    T(disk, "Stray", TargetSource.Actual, dir: "Stray"),   // disk-only: no TS target
+                ], [], [], []),
+            Report());
+
+        TargetCells m81 = projected.Single(p => p.Name == "M 81");
+        Assert.False(m81.Enabled);                 // TS active=0 flows through
+        Assert.Equal("ts-guid-81", m81.TsTargetKey);
+
+        TargetCells stray = projected.Single(p => p.Name == "Stray");
+        Assert.True(stray.Enabled);                // disk-only defaults enabled
+        Assert.Null(stray.TsTargetKey);            // no TS target behind it → no enable checkbox downstream
+    }
+
     // ---- builders (mirroring the App's BuildRowsTests / ReconcilerTests) -----
 
     private static CatalogGraph Graph(
@@ -173,10 +194,11 @@ public sealed class ReconciliationProjectionTests
         new(0, 0, 0, 0, 0, nameMismatches ?? [], [], [], [], unanchored ?? [], []);
 
     private static Target T(
-        Guid id, string name, TargetSource source, string? dir = null, Guid? parent = null, Guid? projectId = null) =>
-        new(id, source, projectId, name, Enabled: true, RaHours: null, DecDegreesSigned: null, Epoch.J2000,
+        Guid id, string name, TargetSource source, string? dir = null, Guid? parent = null, Guid? projectId = null,
+        bool enabled = true, string? tsKey = null) =>
+        new(id, source, projectId, name, Enabled: enabled, RaHours: null, DecDegreesSigned: null, Epoch.J2000,
             RotationDeg: null, RoiPercent: null, Priority: null, DirectoryName: dir, Catalog: null,
-            CommonName: null, ObjectName: null, ScannedAt: null, CreatedAt: 0, ImportedFromTsGuid: null,
+            CommonName: null, ObjectName: null, ScannedAt: null, CreatedAt: 0, ImportedFromTsGuid: tsKey,
             ParentTargetId: parent);
 
     private static Project Proj(Guid id, string name) =>

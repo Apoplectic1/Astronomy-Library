@@ -28,7 +28,9 @@ public sealed record ReconciliationCell(
 /// scanned frames. Finer than the per-filter <see cref="TargetReconciliation"/>: this is the
 /// (filter, purpose, seconds) projection a grid-style consumer shapes. A mosaic panel is emitted as its own
 /// <see cref="TargetCells"/> with <see cref="ParentTargetId"/> set; the consumer reconstructs the parent/child
-/// grouping (panels follow their parent in graph order).
+/// grouping (panels follow their parent in graph order). <see cref="Enabled"/> and <see cref="TsTargetKey"/>
+/// carry the target's TS-enable state and write-back provenance; a <see cref="TsTargetKey"/> of <c>null</c> means
+/// there is no TS target behind this row (a disk-only target or a mosaic parent grouping node).
 /// </summary>
 public sealed record TargetCells(
     Guid TargetId,
@@ -40,6 +42,8 @@ public sealed record TargetCells(
     bool IsMosaicDirectory,
     TargetMatchIssues Issues,
     bool IsUnanchored,
+    bool Enabled,
+    string? TsTargetKey,
     IReadOnlyList<ReconciliationCell> Cells);
 
 /// <summary>
@@ -94,7 +98,7 @@ public static class ReconciliationProjection
 
             result.Add(new TargetCells(
                 t.Id, t.ParentTargetId, t.Name, t.Source, project, dir, isMosaic,
-                report.IssuesFor(dir), isUnanchored,
+                report.IssuesFor(dir), isUnanchored, t.Enabled, t.ImportedFromTsGuid,
                 [.. cells.Values.Select(c => c.ToCell())]));
         }
         return result;
