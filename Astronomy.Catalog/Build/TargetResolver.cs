@@ -330,7 +330,10 @@ public static class TargetResolver
         CatalogGraph graph = new(profiles, projects, templates, targets, plans, inventory);
         CatalogBuildReport report = new(
             DiskTargetCount: diskTargets.Count, TsTargetCount: ts.Targets.Count,
-            BothCount: bothCount, PlannedOnlyCount: plannedTargets.Count, ActualOnlyCount: actualOnly,
+            BothCount: bothCount,
+            // Top-level only — planned panel children are counted via PanelsPlannedOnly instead.
+            PlannedOnlyCount: plannedTargets.Count(t => t.ParentTargetId is null),
+            ActualOnlyCount: actualOnly,
             NameMismatches: nameMismatches, AmbiguousMatches: ambiguousMatches,
             DuplicateTsTargets: duplicates, AliasTsTargets: aliases,
             UnanchoredTsTargets: unanchored, InvalidTsTargets: invalidTsTargets,

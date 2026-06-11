@@ -294,6 +294,7 @@ public sealed class TargetResolverTests
         Assert.All(planned, p => Assert.Equal(parent.Id, p.ParentTargetId));
         Assert.Equal(1, r.PanelsMatched);
         Assert.Equal(3, r.PanelsPlannedOnly);
+        Assert.Equal(0, r.PlannedOnlyCount);   // top-level counts exclude planned panel children
         // Every plan targets its own panel child — none on the parent.
         Assert.All(g.Plans, p => Assert.NotEqual(parent.Id, p.TargetId));
         Assert.Equal(4, g.Plans.Select(p => p.TargetId).Distinct().Count());
