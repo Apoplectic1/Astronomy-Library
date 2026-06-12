@@ -32,8 +32,7 @@
     <EmbeddedResource Include="Schema\schema.sql" />
   </ItemGroup>
 
-  <!-- Phase 1 scope: schema + migrations + SchemaManager + read-only TS adapter. Pure managed
-       (Microsoft.Data.Sqlite only); no native deps; no Astronomy.* deps. The Processing-tree scanner
-       and TCM UI are later phases. -->
+  <!-- Pure managed (Microsoft.Data.Sqlite + Astronomy.XISF for the scanner); no native deps.
+       Consumer UIs live in their own repos — this library is the schema/build contract only. -->
 
 </Project>

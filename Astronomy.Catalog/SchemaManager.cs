@@ -4,8 +4,8 @@ using Microsoft.Data.Sqlite;
 namespace Astronomy.Catalog;
 
 /// <summary>
-/// Opens <c>Catalog.db</c> connections and applies the embedded schema. TCM (the writer) calls <see cref="Open"/>;
-/// read-only consumers (XFM / TP / IS / ISP) call <see cref="OpenReadOnly"/>. There is no migration framework —
+/// Opens <c>Catalog.db</c> connections and applies the embedded schema. The catalog builder (the single writer)
+/// calls <see cref="Open"/>; read-only consumers call <see cref="OpenReadOnly"/>. There is no migration framework —
 /// the catalog is fully derived (disk scan + TS import; goals live in the scheduler DB), so the schema is applied
 /// idempotently (CREATE TABLE IF NOT EXISTS + INSERT OR IGNORE) and a schema change is handled by deleting the
 /// regenerable database file.

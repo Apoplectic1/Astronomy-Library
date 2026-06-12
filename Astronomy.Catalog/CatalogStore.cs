@@ -7,7 +7,7 @@ using Microsoft.Data.Sqlite;
 namespace Astronomy.Catalog;
 
 /// <summary>
-/// Read/write access to a <c>Catalog.db</c> file. TCM (the writer) opens via <see cref="Open"/>; read-only
+/// Read/write access to a <c>Catalog.db</c> file. The catalog builder (the single writer) opens via <see cref="Open"/>; read-only
 /// consumers via <see cref="OpenReadOnly"/>. Owns a single open connection; dispose to close. The catalog is fully
 /// derived, so writing is one atomic full-rebuild — <see cref="WriteCatalog"/> replaces the entire graph from a
 /// resolved <see cref="CatalogGraph"/> (see <see cref="CatalogBuilder"/>). The individual <c>Insert*</c> methods
@@ -22,7 +22,7 @@ public sealed class CatalogStore : IDisposable
     /// <summary>Opens (creating + ensuring the schema) a read-write catalog at <paramref name="databasePath"/>.</summary>
     public static CatalogStore Open(string databasePath) => new(SchemaManager.Open(databasePath));
 
-    /// <summary>Opens an existing catalog read-only (safe for consumers reading while TCM writes).</summary>
+    /// <summary>Opens an existing catalog read-only (safe for consumers reading while the writer rebuilds).</summary>
     public static CatalogStore OpenReadOnly(string databasePath) => new(SchemaManager.OpenReadOnly(databasePath));
 
     /// <summary>The underlying open connection (for advanced/ad-hoc queries).</summary>

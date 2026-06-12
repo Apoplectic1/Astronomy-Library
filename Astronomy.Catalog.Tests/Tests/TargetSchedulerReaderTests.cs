@@ -6,7 +6,7 @@ namespace Astronomy.Catalog.Tests;
 public sealed class TargetSchedulerReaderTests
 {
     // Shared TS working db at Processing\Catalog\TS Database\ (re-copyable BIRDWATCHER snapshot, NINA-nightly schema;
-    // read by both TCM and IS). It is a LIVING db (re-copied as imaging progresses + schema bumps each nightly), so
+    // read by TS-consuming apps). It is a LIVING db (re-copied as imaging progresses + schema bumps each nightly), so
     // assertions are structural invariants, not exact counts or an exact user_version.
     private const string TsDbPath =
         @"E:\Photography\Astro Photography\Processing\Catalog\TS Database\schedulerdb.sqlite";

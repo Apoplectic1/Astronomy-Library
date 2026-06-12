@@ -63,7 +63,7 @@ public sealed record TargetCells(
 /// reconciliation cells: for each canonical target, the plan commitments and disk actuals aggregated per
 /// (filter, purpose, whole-second exposure), tagged with the target's match-state. This is the reusable
 /// "goal vs actual at cell granularity" join; pairing the cells into planes, rollups, and hours is the
-/// consumer's concern. (Lifted out of TCM's grid loader so the join is library-tested and reusable.)
+/// consumer's concern. (Lifted out of a consumer's grid loader so the join is library-tested and reusable.)
 /// </summary>
 public static class ReconciliationProjection
 {

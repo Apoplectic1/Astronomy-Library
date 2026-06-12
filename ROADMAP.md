@@ -8,7 +8,8 @@ back into a **local copy** of TS's `schedulerdb.sqlite`, mapping catalog → exa
 `imported_from_ts_guid` provenance (TS's own `acquired_count` was badly stale vs disk — e.g. 0 H frames vs 140 on
 disk). A surgical single-target path (`SingleTargetPlanner` + `ImageLibraryScanner.ScanUnitsAsync`, driven by `tcm
 writeback --target`) updates one target — **per panel for a mosaic** — without a catalog rebuild. Driven from TCM
-(`E:\Projects\VisualStudio\Astronomy\TargetCatalogManager`, ROADMAP Phase 4); operates on a local copy (the live TS
+(since renamed TSM — `E:\Projects\VisualStudio\Astronomy\TargetSchedulerManager`, ROADMAP Phase 4; the CLI verbs
+retired 2026-06-11, engine resurfaces as an app action); operates on a local copy (the live TS
 DB lives on the imaging PC — cross-machine WAL caveat). Open: alias-vs-duplicate handling for `M27`/`Dumbell`.
 
 ## Recently shipped (2026-06): Astronomy.Catalog — goal-vs-actual reconciliation

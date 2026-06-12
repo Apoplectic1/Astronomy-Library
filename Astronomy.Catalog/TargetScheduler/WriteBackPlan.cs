@@ -3,8 +3,8 @@ using Astronomy.Catalog.Scan;
 namespace Astronomy.Catalog.TargetScheduler;
 
 // Result models for write-back planning (Phase 4). Pure data — produced by WriteBackPlanner, consumed by
-// TargetSchedulerWriter (to apply) and the TCM host (to print). Transitional: TS interop retires at the IS/ISP
-// cutover, so this surface is intentionally small.
+// TargetSchedulerWriter (to apply) and the driving consumer (to present). Transitional: TS interop retires at
+// the IS/ISP cutover, so this surface is intentionally small.
 
 /// <summary>
 /// The plan for one write-back run: the auto-resolvable counts to push, the groups that need manual

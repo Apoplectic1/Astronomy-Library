@@ -7,9 +7,9 @@ using Xunit;
 namespace Astronomy.Catalog.Tests;
 
 /// <summary>
-/// The cell join lifted out of TCM's grid loader (R1): plan commitments + disk actuals aggregated per
-/// (target, filter, purpose, seconds), tagged with match-state. These pin the domain core; the App keeps its
-/// own tests for the grid shaping (planes/rollups/hours) over these cells.
+/// The cell join lifted out of a consumer's grid loader (R1): plan commitments + disk actuals aggregated per
+/// (target, filter, purpose, seconds), tagged with match-state. These pin the domain core; the consuming app
+/// keeps its own tests for the grid shaping (planes/rollups/hours) over these cells.
 /// </summary>
 public sealed class ReconciliationProjectionTests
 {

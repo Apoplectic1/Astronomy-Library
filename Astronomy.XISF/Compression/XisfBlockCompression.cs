@@ -16,7 +16,7 @@ public readonly struct BlockCompressionResult
 /// <summary>
 /// XISF image-block codec: byte-shuffle + zlib + SHA-1, matching the PixInsight/NINA on-disk format.
 /// Pure and UI-free. Operates on opaque byte blocks, so it is reusable for any XISF data block by any
-/// consumer (XFM, TCM, ISP). <see cref="Compress"/> and <see cref="Decompress"/> are symmetric —
+/// consumer. <see cref="Compress"/> and <see cref="Decompress"/> are symmetric —
 /// round-tripping any block returns the original bytes.
 /// </summary>
 public static class XisfBlockCompression
