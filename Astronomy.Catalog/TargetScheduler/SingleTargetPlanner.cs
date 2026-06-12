@@ -4,7 +4,7 @@ using Astronomy.Catalog.Scan;
 namespace Astronomy.Catalog.TargetScheduler;
 
 /// <summary>
-/// Pure planner (no database I/O) for the surgical <c>tcm writeback --target</c> path: turns a single target's
+/// Pure planner (no database I/O) for the surgical single-target write-back path: turns a single target's
 /// freshly-scanned <i>units</i> into a <see cref="WriteBackPlan"/> the shared <see cref="TargetSchedulerWriter"/>
 /// applies. Unlike <see cref="WriteBackPlanner"/> (which rebuilds the whole catalog and works off the resolved
 /// graph), this matches one disk target directly against the TS plan plane:

@@ -5,7 +5,7 @@ using Xunit;
 
 namespace Astronomy.Catalog.Tests;
 
-// The surgical `tcm writeback --target` planner: anchor each scanned unit to a TS target by coordinates, then route
+// The surgical single-target write-back planner: anchor each scanned unit to a TS target by coordinates, then route
 // each (filter, purpose, binning) cell to its TS plan. Hermetic — synthetic TargetReport units + TsPlanData.
 public sealed class SingleTargetPlannerTests
 {

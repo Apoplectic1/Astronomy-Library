@@ -9,7 +9,7 @@ namespace Astronomy.Catalog.Tests;
 // Integration: build a real catalog (disk library + a COPY of the local TS working db), then exercise the writer
 // against the copy. Gated on BOTH the TS db and the disk library being present (without the library every target
 // is Planned-only and there is nothing to write) — silent no-op otherwise, matching the suite convention. Always
-// writes a temp COPY, never the source, so a manual `tcm writeback --apply` on the working db can't affect it.
+// writes a temp COPY, never the source, so a real write-back apply against the working db can't affect it.
 public sealed class TargetSchedulerWriterTests
 {
     private const string TsDbPath =
