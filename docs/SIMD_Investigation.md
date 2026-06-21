@@ -16,7 +16,7 @@ measured, what to try next."
   call dominates.
 - **No `.csproj` settings are needed.** RyuJIT detects FMA3 at runtime and
   lowers `Math.FusedMultiplyAdd` to `vfmadd*sd` automatically.
-- The microbench file (`Astronomy.Core.Tests/Benchmarks/FmaBenchmarks.cs`)
+- The microbench file (`Astronomy.Core.Benchmarks/FmaBenchmarks.cs`)
   is the on-ramp for the deeper SIMD work: shows 23–44% wins on isolated
   FMA chains and documents how to design microbenches that the JIT can't
   defeat via constant-folding / hoisting.
@@ -155,7 +155,7 @@ runtime doesn't yet vectorize `Math.Sin` / `Math.Cos` calls.)
 
 ## Microbench design — v1 vs v2 lessons
 
-The benchmark file is `Astronomy.Core.Tests/Benchmarks/FmaBenchmarks.cs`.
+The benchmark file is `Astronomy.Core.Benchmarks/FmaBenchmarks.cs`.
 What's there now is v2; v1 was discarded after teaching what NOT to do.
 
 ### v1: what went wrong
@@ -450,9 +450,9 @@ Effort: per kernel, ~1 session including precision validation.
 
 - **Library commit `b83a0d8`** — the FMA hygiene pass. Touches
   MeeusUtility, MoonPosition, SunEphemeris, TargetGeometry, SkyBrightness.
-- **`Astronomy.Core.Tests/Benchmarks/FmaBenchmarks.cs`** — v2 microbench
+- **`Astronomy.Core.Benchmarks/FmaBenchmarks.cs`** — v2 microbench
   with Horner4 / Horner8 / SphericalAlt twins.
-- **`Astronomy.Core.Tests/Benchmarks/HotPathBenchmarks.cs`** — the
+- **`Astronomy.Core.Benchmarks/HotPathBenchmarks.cs`** — the
   realistic workload suite, where the per-call costs above were measured.
 - AMD Software Optimization Guide for Zen 4 (PDF, search "vfmadd
   latency") — definitive numbers for the per-uop costs on this dev

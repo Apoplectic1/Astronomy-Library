@@ -123,7 +123,7 @@ per-sample `AltAzCalculator.At`); the only delta is the output struct.
 - Modified: `Astronomy.Core/Session/AltitudeCurve.cs`.
 - Tests: `Astronomy.Core.Tests/Tests/MoonEphemerisTests.cs` (new),
   `Tests/AltitudeCurveTests.cs` (updated to consume `AltAzSample`).
-- Benchmark: `Astronomy.Core.Tests/Benchmarks/AltitudeCurveBenchmark.cs`
+- Benchmark: `Astronomy.Core.Benchmarks/AltitudeCurveBenchmark.cs`
   (updated to call new shape).
 
 468 Core tests + 26 XISF + 67 NINA tests pass. TP rekeys its
@@ -329,7 +329,7 @@ here so it doesn't drift out of memory.
 ### Three scope options
 
 - **Option A — Core only, public** *(recommended)*. Spin out `Astronomy.Core`
-  + `Astronomy.Core.Tests` (the xUnit half) into its own public repo. Leave
+  + `Astronomy.Core.Tests` + `Astronomy.Core.Benchmarks` into its own public repo. Leave
   `Astronomy.PCL` / `Astronomy.PCL.Native` in the existing private layout (or
   a separate private sibling). Smallest scope, no PCL-license entanglement,
   gets the pure-Meeus astronomy code into the open. Estimated 1–2 sessions.

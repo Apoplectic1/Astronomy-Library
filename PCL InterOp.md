@@ -33,7 +33,7 @@ Three architectures were considered. Only the chosen one is described in detail 
 E:\Projects\VisualStudio\Astronomy\Library\        (the Astronomy library family)
 ├── Astronomy.sln                                  (x64-only; AnyCPU/x86 dropped)
 ├── Astronomy.Core\                                (C#, net10.0)
-├── Astronomy.Core.Tests\                          (xUnit + BenchmarkDotNet, net10.0 x64)
+├── Astronomy.Core.Tests\                          (xUnit v3, net10.0 x64)
 ├── Astronomy.PCL.Native\                          (C++ DLL — vcxproj, x64)
 │   ├── include\Astronomy\PCL\                     (public headers for C++ apps)
 │   └── src\                                       (impl + extern "C" exports for C#)
