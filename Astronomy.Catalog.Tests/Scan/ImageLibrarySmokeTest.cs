@@ -2,7 +2,6 @@
 using System.Globalization;
 using Astronomy.Catalog.Scan;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace Astronomy.Catalog.Tests.Scan;
 
