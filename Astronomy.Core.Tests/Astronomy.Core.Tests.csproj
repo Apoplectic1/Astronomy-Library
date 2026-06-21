@@ -10,22 +10,12 @@
          verify runtime contract, not compile-time. -->
     <Nullable>disable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <!-- Microsoft.NET.Test.Sdk auto-generates a Program.cs with its own Main when
-         OutputType=Exe. We need our own Main to host BenchmarkSwitcher, so suppress
-         the generated one. xUnit test discovery still works through dotnet test. -->
-    <GenerateProgramFile>false</GenerateProgramFile>
-    <!-- Suppress BenchmarkDotNet's insistence that optimizations be on even under
-         `dotnet test` / Debug. xUnit runs fine in Debug; benchmarks must be invoked
-         via `dotnet run -c Release` to produce meaningful numbers, and the runtime
-         check there is enough. -->
-    <NoWarn>$(NoWarn);BDN0001</NoWarn>
     <Platforms>x64</Platforms>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="BenchmarkDotNet" Version="0.15.8" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.5.1" />
-    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.6.0" />
+    <PackageReference Include="xunit.v3" Version="3.2.2" />
     <PackageReference Include="xunit.runner.visualstudio" Version="4.0.0-pre.4">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>

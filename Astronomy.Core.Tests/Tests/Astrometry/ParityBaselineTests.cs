@@ -4,7 +4,6 @@ using Astronomy.Core.Moon;
 using Astronomy.Core.Night;
 using Astronomy.Core.Targets;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace Astronomy.Core.Tests.Tests.Astrometry
 {

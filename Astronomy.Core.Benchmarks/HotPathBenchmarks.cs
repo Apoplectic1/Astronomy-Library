@@ -16,7 +16,7 @@ using BenchmarkDotNet.Configs;
 using BenchmarkDotNet.Jobs;
 using BenchmarkDotNet.Toolchains.InProcess.Emit;
 
-namespace Astronomy.Core.Tests.Benchmarks
+namespace Astronomy.Core.Benchmarks
 {
     // Per-call cost of the library primitives that dominate the chart cache prepare loop
     // (44 targets x ~150 moon-clear samples per night x 365 nights ~= 2.4M moon-position
@@ -25,9 +25,11 @@ namespace Astronomy.Core.Tests.Benchmarks
     // FusedMultiplyAdd, etc. Pin all measurements with [MemoryDiagnoser] so the allocation
     // column shows where the GC pressure originates.
     //
-    // Uses InProcessEmit toolchain because the test project transitively references
-    // Astronomy.PCL.Native (vcxproj), which dotnet CLI can't build. InProcessEmit skips
-    // BDN's separate-process generation and runs benchmarks in this assembly directly.
+    // Uses the InProcessEmit toolchain (runs benchmarks in this assembly directly rather than
+    // BDN's default separate-process generation). Retained from when these lived in
+    // Astronomy.Core.Tests, which references Astronomy.PCL.Native (vcxproj) that the dotnet CLI
+    // can't build; this standalone project is pure-managed so the default toolchain would work
+    // too, but InProcessEmit is kept for run-to-run comparability with prior results.
     [MemoryDiagnoser]
     [Config(typeof(InProcessConfig))]
     public class HotPathBenchmarks
@@ -179,10 +181,10 @@ namespace Astronomy.Core.Tests.Benchmarks
         }
     }
 
-    // BDN's default csproj-based toolchain spawns a regenerated project that
-    // ProjectReferences this test project; that pulls Astronomy.PCL.Native (vcxproj)
-    // through the dependency graph, which `dotnet build` can't handle. InProcessEmit
-    // toolchain runs benchmarks in this same process, sidestepping the build step.
+    // InProcessEmit runs benchmarks in this same process instead of spawning BDN's default
+    // regenerated csproj. Originally required because the host (Astronomy.Core.Tests) pulled
+    // Astronomy.PCL.Native (vcxproj) through its graph, which `dotnet build` can't handle;
+    // kept here for comparability even though this project no longer references the native PCL.
     internal sealed class InProcessConfig : ManualConfig
     {
         public InProcessConfig()

@@ -2,7 +2,6 @@ using System;
 using System.Reflection;
 using Astronomy.Core.Sun;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace Astronomy.Core.Tests.Tests.Astrometry
 {

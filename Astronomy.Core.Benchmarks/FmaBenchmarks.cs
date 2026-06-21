@@ -3,7 +3,7 @@ using System.Runtime.Intrinsics.X86;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Configs;
 
-namespace Astronomy.Core.Tests.Benchmarks
+namespace Astronomy.Core.Benchmarks
 {
     // v2 design — written after v1 results showed the JIT was hoisting / constant-folding
     // every case. To expose the real per-call cost of FMA vs separate mul+add, two

@@ -6,7 +6,7 @@ using Astronomy.Core.Session;
 using Astronomy.Core.Targets;
 using BenchmarkDotNet.Attributes;
 
-namespace Astronomy.Core.Tests.Benchmarks
+namespace Astronomy.Core.Benchmarks
 {
     // Two side-by-side implementations of "sample a stellar target's altitude at a uniform
     // time grid" to settle the keep-or-revert question on AltitudeCurve.cs (the Core helper

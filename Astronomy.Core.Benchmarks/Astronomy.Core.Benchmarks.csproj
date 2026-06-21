@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <!-- Benchmarks were written under the test project's nullable-disable convention. -->
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!-- BenchmarkDotNet (BDN0001) warns when built in Debug; benchmarks must run via
+         `dotnet run -c Release` to produce meaningful numbers. Suppress the Debug-build warning. -->
+    <NoWarn>$(NoWarn);BDN0001</NoWarn>
+    <Platforms>x64</Platforms>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BenchmarkDotNet" Version="0.15.8" />
+  </ItemGroup>
+
+  <!-- Benchmarks measure Astronomy.Core's public hot-path surface only. Unlike their former
+       home (Astronomy.Core.Tests, which references Astronomy.PCL.Native.vcxproj), this project
+       is pure-managed, so `dotnet build`/`run` works without the VS C++ toolchain. -->
+  <ItemGroup>
+    <ProjectReference Include="..\Astronomy.Core\Astronomy.Core.csproj" />
+  </ItemGroup>
+
+</Project>
