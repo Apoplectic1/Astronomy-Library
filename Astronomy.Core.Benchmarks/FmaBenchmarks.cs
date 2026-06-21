@@ -1,7 +1,6 @@
 using System;
 using System.Runtime.Intrinsics.X86;
 using BenchmarkDotNet.Attributes;
-using BenchmarkDotNet.Configs;
 
 namespace Astronomy.Core.Benchmarks
 {
@@ -31,7 +30,6 @@ namespace Astronomy.Core.Benchmarks
     //     Predicted ratio: 0.67. Real measurements will be lower because ILP across
     //     iterations overlaps multiple polynomials; the relative gap should remain.
     [MemoryDiagnoser]
-    [Config(typeof(InProcessConfig))]
     public class FmaBenchmarks
     {
         // Starting `x` value. Field, not const, so the JIT must read it.

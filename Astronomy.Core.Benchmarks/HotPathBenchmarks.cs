@@ -12,9 +12,6 @@ using Astronomy.Core.Sun;
 using Astronomy.Core.Targets;
 using Astronomy.Core.Time;
 using BenchmarkDotNet.Attributes;
-using BenchmarkDotNet.Configs;
-using BenchmarkDotNet.Jobs;
-using BenchmarkDotNet.Toolchains.InProcess.Emit;
 
 namespace Astronomy.Core.Benchmarks
 {
@@ -24,14 +21,7 @@ namespace Astronomy.Core.Benchmarks
     // targeted optimizations: AggressiveInlining, int[,] -> flat array in MoonPosition,
     // FusedMultiplyAdd, etc. Pin all measurements with [MemoryDiagnoser] so the allocation
     // column shows where the GC pressure originates.
-    //
-    // Uses the InProcessEmit toolchain (runs benchmarks in this assembly directly rather than
-    // BDN's default separate-process generation). Retained from when these lived in
-    // Astronomy.Core.Tests, which references Astronomy.PCL.Native (vcxproj) that the dotnet CLI
-    // can't build; this standalone project is pure-managed so the default toolchain would work
-    // too, but InProcessEmit is kept for run-to-run comparability with prior results.
     [MemoryDiagnoser]
-    [Config(typeof(InProcessConfig))]
     public class HotPathBenchmarks
     {
         private static readonly Func<double, double> SinAltQuality =
@@ -178,18 +168,6 @@ namespace Astronomy.Core.Benchmarks
                 _target, _location, _night, _horizon,
                 TimeSpan.FromHours(2), TimeSpan.FromHours(4),
                 SinAltQuality, profile: MoonAvoidanceProfile.Narrowband);
-        }
-    }
-
-    // InProcessEmit runs benchmarks in this same process instead of spawning BDN's default
-    // regenerated csproj. Originally required because the host (Astronomy.Core.Tests) pulled
-    // Astronomy.PCL.Native (vcxproj) through its graph, which `dotnet build` can't handle;
-    // kept here for comparability even though this project no longer references the native PCL.
-    internal sealed class InProcessConfig : ManualConfig
-    {
-        public InProcessConfig()
-        {
-            AddJob(Job.Default.WithToolchain(InProcessEmitToolchain.Instance));
         }
     }
 }
