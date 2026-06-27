@@ -19,6 +19,10 @@ public sealed record FieldEditResult(bool RowFound, string? OldValue, bool Verif
     public bool Succeeded => RowFound && Verified;
 }
 
+/// <summary>Why a guarded field write was refused — a structured reason the consumer maps to its own wording
+/// (this library names no consumer). <see cref="None"/> means the write proceeded.</summary>
+public enum RefusalReason { None, SchemaIncompatible, ReadOnly, OpenSidecar, ColumnAbsent }
+
 /// <summary>
 /// Edits individual fields of a <b>local</b> N.I.N.A. Target Scheduler <c>schedulerdb.sqlite</c> copy (never the
 /// live imaging-PC db). Sibling to <see cref="TargetSchedulerReader"/> / <see cref="TargetSchedulerWriter"/>:
@@ -134,6 +138,22 @@ public sealed class TargetSchedulerEditor : IDisposable
         TsField field = TsEditableSchema.Find(table, column)
             ?? throw new ArgumentException($"column '{column}' is not an editable {table} field", nameof(column));
         return UpdateField(TsEditableSchema.TableName(table), field.Column, tsKey, value);
+    }
+
+    /// <summary>
+    /// The guarded entry point: checks the open db's safety predicates in order — required columns present, file
+    /// writable, no open <c>-wal</c>/<c>-shm</c>/<c>-journal</c> sidecar, and the target column actually present on
+    /// this db version — and, only if all pass, performs the read-back-verified <see cref="SetField"/>. Returns the
+    /// edit result with <see cref="RefusalReason.None"/>, or a null result with the structured reason it refused. The
+    /// caller owns the user-facing wording; this collapses the four predicates a consumer would otherwise re-assemble.
+    /// </summary>
+    public (FieldEditResult? Result, RefusalReason Refusal) TrySetField(TsTable table, string tsKey, string column, object? value)
+    {
+        if (!HasRequiredColumns) return (null, RefusalReason.SchemaIncompatible);
+        if (IsReadOnly) return (null, RefusalReason.ReadOnly);
+        if (HasOpenSidecar) return (null, RefusalReason.OpenSidecar);
+        if (!IsFieldAvailable(table, column)) return (null, RefusalReason.ColumnAbsent);
+        return (SetField(table, tsKey, column, value), RefusalReason.None);
     }
 
     /// <summary>

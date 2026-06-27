@@ -191,6 +191,88 @@ public sealed class TargetSchedulerEditorTests
         finally { TestSupport.Cleanup(db); }
     }
 
+    [Fact]
+    public void TrySetField_CleanDb_AppliesAndReturnsNone()
+    {
+        string db = NewFullDb();
+        try
+        {
+            using TargetSchedulerEditor editor = new(db);
+            (FieldEditResult? result, RefusalReason refusal) = editor.TrySetField(TsTable.ExposurePlan, "ep-1", "desired", 140);
+            Assert.Equal(RefusalReason.None, refusal);
+            Assert.True(result!.Succeeded);
+            Assert.Equal(140L, ReadScalar(db, "SELECT desired FROM exposureplan WHERE guid='ep-1'"));
+        }
+        finally { TestSupport.Cleanup(db); }
+    }
+
+    [Fact]
+    public void TrySetField_OpenSidecar_RefusesAndWritesNothing()
+    {
+        string db = NewFullDb();
+        File.WriteAllText(db + "-wal", "");   // a stray WAL sidecar ⇒ db may be open elsewhere (TS mid-transaction)
+        try
+        {
+            using TargetSchedulerEditor editor = new(db);
+            (FieldEditResult? result, RefusalReason refusal) = editor.TrySetField(TsTable.ExposurePlan, "ep-1", "desired", 140);
+            Assert.Equal(RefusalReason.OpenSidecar, refusal);
+            Assert.Null(result);
+            Assert.Equal(10L, ReadScalar(db, "SELECT desired FROM exposureplan WHERE guid='ep-1'"));   // untouched
+        }
+        finally { File.Delete(db + "-wal"); TestSupport.Cleanup(db); }
+    }
+
+    [Fact]
+    public void TrySetField_ReadOnlyFile_Refuses()
+    {
+        string db = NewFullDb();
+        File.SetAttributes(db, FileAttributes.ReadOnly);
+        try
+        {
+            using TargetSchedulerEditor editor = new(db);
+            (FieldEditResult? result, RefusalReason refusal) = editor.TrySetField(TsTable.ExposurePlan, "ep-1", "desired", 140);
+            Assert.Equal(RefusalReason.ReadOnly, refusal);
+            Assert.Null(result);
+        }
+        finally { File.SetAttributes(db, FileAttributes.Normal); TestSupport.Cleanup(db); }
+    }
+
+    [Fact]
+    public void TrySetField_MissingColumn_RefusesColumnAbsent()
+    {
+        string db = NewFullDb();   // project has no `filterswitchfrequency` column (see IsFieldAvailable_* test)
+        try
+        {
+            using TargetSchedulerEditor editor = new(db);
+            (FieldEditResult? result, RefusalReason refusal) = editor.TrySetField(TsTable.Project, "pr-1", "filterswitchfrequency", 2);
+            Assert.Equal(RefusalReason.ColumnAbsent, refusal);
+            Assert.Null(result);
+        }
+        finally { TestSupport.Cleanup(db); }
+    }
+
+    [Fact]
+    public void TrySetField_TargetLacksActive_RefusesSchemaIncompatible()
+    {
+        string db = TestSupport.NewDbPath();
+        using (SqliteConnection setup = new(new SqliteConnectionStringBuilder { DataSource = db }.ToString()))
+        {
+            setup.Open();
+            using SqliteCommand cmd = setup.CreateCommand();
+            cmd.CommandText = "CREATE TABLE target (Id INTEGER PRIMARY KEY, guid TEXT, name TEXT);";   // no `active`
+            cmd.ExecuteNonQuery();
+        }
+        SqliteConnection.ClearAllPools();
+        try
+        {
+            using TargetSchedulerEditor editor = new(db);
+            (FieldEditResult? result, RefusalReason refusal) = editor.TrySetField(TsTable.Target, "g-1", "priority", 1);
+            Assert.Equal(RefusalReason.SchemaIncompatible, refusal);
+            Assert.Null(result);
+        }
+        finally { TestSupport.Cleanup(db); }
+    }
+
     // ---- helpers ------------------------------------------------------------
 
     // A db with target/exposureplan/project rows carrying the editable columns the field setters touch.
