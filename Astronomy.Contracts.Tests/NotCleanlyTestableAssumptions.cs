@@ -1,0 +1,86 @@
+using Xunit;
+
+namespace Astronomy.Contracts.Tests;
+
+/// <summary>
+/// Register of CONSUMERS.md "Semantic assumptions" that are NOT cleanly unit-testable
+/// in this bench, with the reason each resists a deterministic, self-contained assertion.
+/// These are documentation, not coverage gaps to fix: each is verified (if at all) by a
+/// consumer integration path, a benchmark, or code review — see the per-item note.
+///
+/// Covered elsewhere in the bench (for orientation):
+///   #1  RaDegrees = degrees ............ XisfUnitsContractTests
+///   #3  ObserveAt geometric alt ........ MoonContractTests
+///   #4  KsAt 10-param order ............. SkyBrightnessContractTests
+///   #5  CatalogGraph FK/mosaic order ... CatalogGraphOrderingContractTests
+///   #7  NightCache pure statics ........ NightCacheContractTests
+///   #8  Reader/Editor open-in-ctor ..... TargetSchedulerContractTests
+///   #9  HasRequiredColumns gates writes  TargetSchedulerContractTests
+///   #13 MoonEphemeris.Sample exact count MoonContractTests
+///   #14 ScanAsync missing-root throws .. ImageLibraryScannerContractTests
+///   #16 LunarAge non-UTC throws ........ MoonContractTests
+///
+/// NOT cleanly unit-testable (placeholders below mirror this list):
+///
+///   #2  PlanningPreferencesDto.MinDurationMinutes is MINUTES.
+///       — A NAMING CONVENTION on a DTO field, not a behavior. The "minutes" meaning lives
+///         only in the field name + its serialization into NamedSite; nothing in the Library
+///         computes with it. A unit test could only re-assert the name (tautology). Verified
+///         by the TP consumer that reads/writes it and by the `…Minutes` naming discipline.
+///
+///   #11 BestSession.PlaceBest(..., altitudeQuality: null) takes the sin(alt) closed-form
+///       fast path (~25× faster) that TP relies on via the null default.
+///       — A PERFORMANCE characteristic. Functionally null and a supplied quality fn agree
+///         (that part *is* assertable), but "~25× faster" is a benchmark claim, not a unit
+///         assertion — timing is machine/JIT/load dependent and flaky as a pass/fail gate.
+///         Belongs in a BenchmarkDotNet harness, not here.
+///
+///   #12 AltitudeCurve.Sample / MoonEphemeris.Sample (Meeus core) are thread-safe / lock-free
+///       (TP parallelizes per-target).
+///       — THREAD-SAFETY / absence of a data race. A passing concurrent test proves nothing
+///         (races are nondeterministic; a green run is not absence of the bug), and a failing
+///         one is flaky. Real assurance is by inspection (no shared mutable state in the Meeus
+///         path) — a stress test could only raise suspicion, never establish the contract.
+///
+///   #15 PolylineHorizonProfile(az[], alt[]) — parallel arrays; length / monotonic / dedup
+///       preconditions are the CALLER's to honor.
+///       — A statement that the type does NOT validate (preconditions pushed to the caller).
+///         There is no defined library behavior to assert: malformed input is documented as
+///         caller error, not a guarded throw. Asserting "garbage in → some result" would pin
+///         an accident, not a contract. (If we instead decided it SHOULD throw, that's a
+///         design change to the type, not a contract test of current behavior.)
+///
+///   #17 ObservationMoment.Zone must stay in lockstep with Location.TimeZoneInfo.
+///       — A CROSS-OBJECT INVARIANT maintained by construction across two types over the
+///         lifetime of a consumer's object graph; it is the consumer's assembly responsibility
+///         (how TP builds an ObservationMoment from a Location), not a single Library call with
+///         an observable in/out. No isolated unit boundary expresses "they were kept in sync".
+///
+///   #18 TsEditGate / editor calls SqliteConnection.ClearAllPools() after every verified write —
+///       required against stale SMB reads, but AppDomain-GLOBAL (disturbs any other in-process
+///       SQLite connection).
+///       — A PROCESS-GLOBAL SIDE EFFECT. ClearAllPools() has no return value and no per-instance
+///         observable; "it was called" is only detectable by disrupting an unrelated pooled
+///         connection — an inherently racy, environment-coupled probe (and the disruption is the
+///         documented hazard, not a behavior to lock). Verified by code review of the gate.
+/// </summary>
+public sealed class NotCleanlyTestableAssumptions
+{
+    [Fact(Skip = "#2 MinDurationMinutes is a DTO naming convention (minutes), not a Library behavior — nothing computes with it; a test would only re-assert the field name.")]
+    public void Assumption02_MinDurationMinutes_NamingConventionOnly() { }
+
+    [Fact(Skip = "#11 PlaceBest null-altitudeQuality fast path is a ~25× PERFORMANCE claim — belongs in a BenchmarkDotNet harness, not a pass/fail unit assertion.")]
+    public void Assumption11_PlaceBest_FastPath_IsPerformance() { }
+
+    [Fact(Skip = "#12 Meeus Sample thread-safety is absence-of-a-race — a green concurrent run proves nothing and a red one is flaky; assured by inspection (no shared mutable state).")]
+    public void Assumption12_Sample_ThreadSafety_NotDeterministicallyTestable() { }
+
+    [Fact(Skip = "#15 PolylineHorizonProfile preconditions are the CALLER's to honor — the type does not validate them, so there is no defined behavior to assert.")]
+    public void Assumption15_PolylineHorizon_CallerPreconditions() { }
+
+    [Fact(Skip = "#17 ObservationMoment.Zone ↔ Location.TimeZoneInfo lockstep is a cross-object invariant maintained by the CONSUMER's construction, not a single Library in/out.")]
+    public void Assumption17_ObservationMoment_ZoneLockstep_IsConsumerInvariant() { }
+
+    [Fact(Skip = "#18 ClearAllPools() is a process-global, return-less side effect; 'it was called' is only observable by disrupting an unrelated connection — the documented hazard itself.")]
+    public void Assumption18_ClearAllPools_AppDomainGlobalSideEffect() { }
+}
