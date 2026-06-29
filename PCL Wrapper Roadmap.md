@@ -1,8 +1,10 @@
 # PCL Wrapper Roadmap — Extending Astronomy.PCL beyond the first XISF surface
 
+**Charter / sub-roadmap.** Forward scope for the **PCL managed wrapper specifically** — *what additional PCL surface (`Astronomy.PCL` / `Astronomy.PCL.Native`) to wrap next*, the proposed API shape, and the open design questions that blocked landing code. A focused companion to the top-level `ROADMAP.md` (whole-library direction) and to `PCL-InterOp.md` (the architectural decision record).
+
 *Discussion-stage document, captured 2026-04-28. Pick up cold from this file when ready to resume.*
 
-This is a companion to `PCL InterOp.md` (the architectural decision doc) and `CLAUDE.md` (operating notes). InterOp settled the macro-level question — how PCL is wrapped for managed consumers (Option 3 / Hybrid). This file scopes **what additional PCL surface to wrap next**, captures the design pivot mid-discussion, and lists the open decisions that blocked landing code.
+This is a companion to `PCL-InterOp.md` (the architectural decision doc) and `CLAUDE.md` (operating notes). InterOp settled the macro-level question — how PCL is wrapped for managed consumers (Option 3 / Hybrid). This file scopes **what additional PCL surface to wrap next**, captures the design pivot mid-discussion, and lists the open decisions that blocked landing code.
 
 ## Status today
 
@@ -143,7 +145,7 @@ Each phase ships its own commit on `dev`. Tests against `Library\PCL\src\utils\x
 
 ## References
 
-- `Library\PCL InterOp.md` — architectural decision doc (Option 3 / Hybrid, P/Invoke not C++/CLI).
+- `Library\PCL-InterOp.md` — architectural decision doc (Option 3 / Hybrid, P/Invoke not C++/CLI).
 - `Library\CLAUDE.md` — operating notes (Solution layout, build/test/benchmark commands, PCL local build, PCL interop). Already documents the wrap-on-demand strategy and the pattern for adding a new export (`extern "C"` declaration in `XisfCApi.h` + `Astronomy.PCL.Native.def` + implementation in `XisfCApi.cpp` + `[DllImport]` in `NativeMethods.cs` + public surface in `XisfFile.cs` + test in `Astronomy.Core.Tests/Tests/PCL/`).
 - `Library\PCL\src\utils\xisf\xisf.cpp` — read-side patterns. Lines cited in the table above.
 - `Library\PCL\include\pcl\XISF.h` — `XISFReader` at 937, `XISFLogHandler` at 833, `XISFWriter` at 1326.

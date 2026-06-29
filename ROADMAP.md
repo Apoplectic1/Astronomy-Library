@@ -1,5 +1,7 @@
 # Astronomy Library — Roadmap
 
+**Charter.** Forward-looking design and a short "Recently shipped" digest for the `Astronomy` library — *where the library is going and what just landed*. How current modules work lives in `ARCHITECTURE.md`; PCL-wrapper-specific forward scope lives in `PCL Wrapper Roadmap.md`.
+
 ## Shipped: catalog write-back to TS (`TargetSchedulerWriter`) — 2026-06-08
 
 The catalog reconciles disk (actual) ↔ TS (plan) onto one canonical target and computes goal-vs-actual; **Phase 4
@@ -274,7 +276,7 @@ All sealed + immutable + `With(...)` per AL convention. 87 unit tests pass cumul
 
 ## Recently shipped (2026-05-18): Astronomy.NINA — Phase A foundation
 
-Sixth and seventh buildable projects added: `Astronomy.NINA` + `Astronomy.NINA.Tests`. Phase A of the multi-phase plan at `~/.claude/plans/what-is-next-from-crispy-garden.md` is complete. What landed:
+Sixth and seventh buildable projects added: `Astronomy.NINA` + `Astronomy.NINA.Tests`. Phase A of the multi-phase plan is complete. What landed:
 
 - **`Xisf/XisfHeaderReader`** — pure-managed XISF header parser, ported from `XisfFileManager/Files/XisfXmlReader.cs` (XDocument-based, no native dependency). Read-only; no XFM mutation logic.
 - **`Xisf/XisfHeader`** — typed FITS-keyword accessors. Required-for-aggregation keywords (OBJECT, RA, DEC, DATE-OBS, EXPTIME with legacy EXPOSURE fallback, FILTER, GAIN, OFFSET with per-camera normalization, SET-TEMP, CCD-TEMP, X/YBINNING, IMAGETYP, INSTRUME) plus capture-only (SSWEIGHT/W_SNR/W_FWHM/W_ECC, FOCALLEN, focuser/rotator, etc.) for future quality-summary work.
