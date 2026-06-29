@@ -1,6 +1,6 @@
 # PCL InterOp — Unifying Astronomy across C# and C++ on Windows
 
-**Charter / domain.** The architectural decision record for *how PCL (the C++ PixInsight Class Library) is exposed to managed C# consumers* — Option 3 / Hybrid (a native wrapper DLL, P/Invoke not C++/CLI), with the interop mechanics, caveats, and rationale. The durable "why" behind the `Astronomy.PCL` / `Astronomy.PCL.Native` modules in `ARCHITECTURE.md`. What to wrap *next* is in `PCL Wrapper Roadmap.md`.
+**Charter / domain.** The architectural decision record for *how PCL (the C++ PixInsight Class Library) is exposed to managed C# consumers* — Option 3 / Hybrid (a native wrapper DLL, P/Invoke not C++/CLI), with the interop mechanics, caveats, and rationale. The durable "why" behind the `Astronomy.PCL` / `Astronomy.PCL.Native` modules in `ARCHITECTURE.md`. What to wrap *next* is in `PCL-WrapperRoadmap.md`.
 
 *Discussion summary, 2026-04-25. TFMs updated 2026-05-08 to reflect the post-NINA-migration uniformly-net10 portfolio; net481 / netstandard2.0 / net8.0 references in this doc are now historical context, not current state.*
 

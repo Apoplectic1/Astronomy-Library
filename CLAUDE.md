@@ -8,7 +8,7 @@
 
 - **`ARCHITECTURE.md`** — subsystem mechanics, *how each module works*. Organized one section per buildable project (Astronomy.Core + its API conventions/thread-safety/code-organization, .XISF, .Diagnostics, .Catalog, .NINA, .PCL/.Native + the PCL local-build and interop story). Grep by project name.
 - **`ROADMAP.md`** — forward-looking design + "Recently shipped" digest. Whole-library direction.
-- **`PCL Wrapper Roadmap.md`** — sub-roadmap: forward scope for the **PCL managed wrapper specifically** (what surface to wrap next). *(Foldable into ROADMAP — see note below; kept separate for now.)*
+- **`PCL-WrapperRoadmap.md`** — sub-roadmap: forward scope for the **PCL managed wrapper specifically** (what surface to wrap next). *(Foldable into ROADMAP — see note below; kept separate for now.)*
 - **`VERIFICATION.md`** — how to **build / test / benchmark** and the build traps. Read before claiming a build or tests pass. The cross-repo contract DRC is `..\build-all.ps1`.
 - **`CONSUMERS.md`** — the Library's de-facto public **contract / datasheet**: what each downstream consumer depends on (the "pinned pinout").
 - **`PCL-InterOp.md`** — domain/decision record: *why* PCL is wrapped the way it is (Option 3 / Hybrid, P/Invoke not C++/CLI).

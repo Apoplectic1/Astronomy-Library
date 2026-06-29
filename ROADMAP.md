@@ -1,6 +1,6 @@
 # Astronomy Library — Roadmap
 
-**Charter.** Forward-looking design and a short "Recently shipped" digest for the `Astronomy` library — *where the library is going and what just landed*. How current modules work lives in `ARCHITECTURE.md`; PCL-wrapper-specific forward scope lives in `PCL Wrapper Roadmap.md`.
+**Charter.** Forward-looking design and a short "Recently shipped" digest for the `Astronomy` library — *where the library is going and what just landed*. How current modules work lives in `ARCHITECTURE.md`; PCL-wrapper-specific forward scope lives in `PCL-WrapperRoadmap.md`.
 
 ## Shipped: catalog write-back to TS (`TargetSchedulerWriter`) — 2026-06-08
 
