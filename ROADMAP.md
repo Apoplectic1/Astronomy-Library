@@ -2,6 +2,36 @@
 
 **Charter.** Forward-looking design and a short "Recently shipped" digest for the `Astronomy` library — *where the library is going and what just landed*. How current modules work lives in `ARCHITECTURE.md`; PCL-wrapper-specific forward scope lives in `PCL-WrapperRoadmap.md`.
 
+## Recently shipped (2026-06-28): CONSUMERS.md datasheet + Astronomy.Contracts.Tests bench
+
+`CONSUMERS.md` stakes out the Library's **de-facto public contract** — the "pinned pinout" derived from grep-verified real usage: who consumes the Library and how (only **TP + TSM**, by `ProjectReference`/source), the surface each depends on, 18 semantic assumptions (contract-test candidates), fragility flags, and a design-review decision on the large dead/speculative public surface (**keep, don't prune** — it's API ahead of its planned consumers: the ISP plugin, the TSM write-back action, XFM's Library migration; not cruft).
+
+`Astronomy.Contracts.Tests` (13th buildable project) is the pure-managed xUnit-v3 **bench that pins those assumptions** — a red test = a violated contract. 17 testable assumptions green / 6 documented-not-cleanly-testable: e.g. `RaDegrees`=degrees, `LunarAge.DaysAt` UTC-guard, `MoonEphemeris.Sample` exact count, `MoonSeparation.ObserveAt` geometric-not-apparent, `CatalogGraph` FK-order + mosaic-panels-after-parent, `ScanAsync` throws on missing root, the editor's required-columns refusal (DB untouched), `SkyBrightness.KsAt` pinned golden value (locks the 10-param order). Run by the constellation DRC `..\build-all.ps1`. (The same pass also restructured the docs into the lean-router `CLAUDE.md` + per-module `ARCHITECTURE.md` / `VERIFICATION.md` set.)
+
+## Recently shipped (2026-06-26): TargetSchedulerEditor — guarded TS edit path
+
+A write layer for the catalog → TS edit story, sibling to the Reader/Writer, built up 2026-06-11 → 06-26. `TargetSchedulerEditor.TrySetField(table, key, column, value)` is the guarded entry point: it folds four safety predicates (required columns present / file writable / no open sidecar / column present) into one structured-refusal call returning `(FieldEditResult?, RefusalReason)` (`None`/`SchemaIncompatible`/`ReadOnly`/`OpenSidecar`/`ColumnAbsent`) — consumers map the reason to their own wording; the library names none. The editor drives off a declarative `TsEditableSchema` data dictionary naming every user-editable TS column (table / exact SQLite column / label / value type / cadence-safety / enum-range) — which also doubles as the SQL-injection whitelist and an open-time schema-drift guard. It resolves rows by guid-or-Id, UPDATEs one column, and read-back verifies. Cadence-safe columns write plainly; cadence-breakers (`exposureplan.enabled`, `project.filterswitchfrequency`) are flagged, not specially handled — the caller must warn or defer. `ReconciliationProjection` grew the cell-granularity join (lifted from the consumer's grid loader) plus the write-back provenance addresses (`PlanTsKey` / `TemplateTsKey` / `ProjectTsKey`, `TargetCells.Enabled` / `TsTargetKey`).
+
+## Recently shipped (2026-06-21): SQLite CVE pin (CVE-2025-6965)
+
+Direct-pinned `SQLitePCLRaw.bundle_e_sqlite3` to **3.0.3** so it overrides the vulnerable native engine 2.1.11 that `Microsoft.Data.Sqlite` 10.0.9 pulled transitively (CVE-2025-6965 / GHSA-2m69-gcr7-jv3q, high, affects ≤ 2.1.11; no 2.1.12 — the package renumbered to a 3.x line). Native lib 3.50.3 = SQLite ≥ 3.50.2 (patched). NU1903 cleared with no NU1605 downgrade; the fix flows to every `Astronomy.Catalog` consumer. (Paired with a routine `Microsoft.Data.Sqlite` 10.0.3 → 10.0.9 bump.)
+
+## Recently shipped (2026-06-21): xUnit v3 migration + Core-benchmark split
+
+Every test project migrated **xUnit 2.9.3 → xUnit.v3 3.2.2** (`Microsoft.NET.Test.Sdk` → 18.6.0; `xunit.runner.visualstudio` on the `4.0.0-pre` line for VS2026 / .NET 10). Because v3 **generates the assembly entry point**, it collided with `Astronomy.Core.Tests`' custom `BenchmarkSwitcher` `Main` — so the BenchmarkDotNet harness (`Program.cs` + `Benchmarks/`) split out into a new pure-managed **`Astronomy.Core.Benchmarks`** exe (references only `Astronomy.Core`'s public surface, no `PCL.Native` → runs under plain `dotnet run -c Release`, no SLN/MSBuild). With the native graph gone, BDN's default out-of-process toolchain replaced the old `InProcessEmit` config (better-isolated numbers). New trap captured: **never let `xunit.v3` land on a non-test project** — a bulk "apply to all projects" NuGet action sprayed it onto 4 production projects (its `mtp-v1` targets force `OutputType=Exe`; the break only surfaces on a later version bump). 468 Core tests pass.
+
+## Recently shipped (2026-06-11): Astronomy.Diagnostics — shared logging + screen-capture contract
+
+New pure-managed library (11th buildable project) hosting the portfolio's diagnostic **conventions as code**, factored out of per-app copies (TP and TSM had hand-ported duplicates that drifted). `Log`: an append-only `%APPDATA%\<app>\Logs\` trail with a fixed line grammar and two verbosity axes — always-on Info/Warn/Error severity (survives Release) + gated `Diag` channels (default all-in-Debug / none-in-Release, per-channel runtime toggle via the app's env var) — plus session rotation, local-time stamps, and the `USER_OBS_*` observation protocol (START/CAP/END/CANCEL share an id). Configured once per app via `AppLogIdentity` (a shared library compiles once and can't read the consumer's `#if DEBUG`). `ScreenCapture.ToPng`: the System.Drawing `CopyFromScreen` grab, framework-agnostic (WinForms or WinUI). The method surface *is* the convention; the implementation enforces the invariants so an off-convention line can't be emitted. **Open follow-up — `ObservationSession`:** now that two live consumers each duplicate the dialog START/CAP/END/CANCEL wiring, factor it into the library (detail in `ARCHITECTURE.md`).
+
+## Recently shipped (2026-06-10): mosaic-panel resolver + exposure-aware write-back
+
+Two reconciliation deepenings landed across the Catalog this day.
+
+**Mosaic panels became first-class targets.** A mosaic is now one parent `target` row plus one child row per panel (self-FK `parent_target_id`, `ON DELETE CASCADE`; composite directory-name `<mosaic dir>/<panel label>`). After several iterations the model converged on **"a panel is a normal target whose key is composite"**: the scanner retains per-panel `TargetReport.Panels` from the same walk, panels enter the working set as ordinary units, and the **one** standard resolve loop does nearest-coordinate anchoring, duplicate/alias reporting, and Both/Actual/Planned classification. Mosaic-specific logic shrank to coordinate **scope keys** (a panel anchors only among its mosaic's panels; standalone targets never see panels — cross-scope matches impossible by construction) and a panel-token name facet (`Panel 01of16` → `P1`). Aligned claims **outrank** unaligned ones (an unshot panel inside tolerance of a shot neighbour stays planned instead of false-folding — the Witch Head shape). `ManualReason.Mosaic` retired: panels auto-write like any target; the plan-less / inventory-less parent is inert by construction.
+
+**Exposure time joined the identity.** The scanner buckets inventory per `(filter, purpose, whole-second exposure)` instead of folding sub-lengths into one mode value; `inventory_filter` gained `exposure_seconds` in its PK. The write-back key became `(target, filter, purpose, whole-second exposure)` — **the plan's seconds is the spec**: a plan receives the disk count at exactly its `round(ExposureSeconds ?? template default)` bucket (0 = a flagged decrease). Same-purpose plans at different durations now auto-resolve into separate writes instead of routing to manual; disk buckets with no plan surface as `UnplannedFrames` notes (write-back updates existing rows only — plan creation/deletion is a later milestone). Alias-aware dup-folds (option B): ≥2 TS names that each exactly equal a disk identity facet (M27 + Dumbell) are one `AliasTsTarget`, auto-written to every member when plan-count = alias-member-count. `EffectiveExposure` single-sourced across both planners. (Schema change — `Catalog.db` is derived; delete and rebuild, no migration.)
+
 ## Shipped: catalog write-back to TS (`TargetSchedulerWriter`) — 2026-06-08
 
 The catalog reconciles disk (actual) ↔ TS (plan) onto one canonical target and computes goal-vs-actual; **Phase 4
@@ -301,7 +331,7 @@ up with a proper SIMD / vectorization investigation when time allows.
 Full field notes — toolchain answers, runtime knobs, performance model,
 microbench design lessons, the HotPathBenchmarks before/after table,
 and four open directions ranked by impact — live in
-**[docs/SIMD_Investigation.md](docs/SIMD_Investigation.md)**.
+**[docs/2026-06-21-simd-investigation.md](docs/2026-06-21-simd-investigation.md)**.
 
 The four open directions in summary:
 
@@ -335,8 +365,8 @@ here so it doesn't drift out of memory.
   `Astronomy.PCL` / `Astronomy.PCL.Native` in the existing private layout (or
   a separate private sibling). Smallest scope, no PCL-license entanglement,
   gets the pure-Meeus astronomy code into the open. Estimated 1–2 sessions.
-- **Option B — whole Library, public**. One public repo with all four
-  projects. PCL adds friction: third-party SDK dependency, build docs,
+- **Option B — whole Library, public**. One public repo with all thirteen
+  projects (scope/effort estimate needs revisiting at this count). PCL adds friction: third-party SDK dependency, build docs,
   license-compatibility check (PCL Open License vs. whichever license is
   picked in step 1). Estimated 2–4 sessions.
 - **Option C — public mirror, dev stays private**. Keep working in the
@@ -372,8 +402,8 @@ here so it doesn't drift out of memory.
    (`Library\PCL\` snapshot from `PCL-master.zip`, pinned 2025-02-22) so
    `Astronomy.PCL.Native.vcxproj` can find its static libs.
 5. **Git history.** `git log -p` against the lib's history for personal
-   paths in commit diffs. The library was extracted from TargetPlanner in
-   `b28ef9e` (2026-04-23), so the surface area to audit is small.
+   paths in commit diffs. The library was extracted from TargetPlanner
+   (2026-04-23), so the surface area to audit is small.
    `git filter-repo` if anything sensitive turns up.
 6. **CI** *(optional, defer for v1)*. GitHub Actions workflow that runs
    `dotnet test Astronomy.Core.Tests` on push. Skippable if Option A

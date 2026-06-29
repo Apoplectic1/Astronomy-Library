@@ -20,7 +20,7 @@ dotnet test Astronomy.Core.Tests -c Debug -p:Platform=x64 --no-build --filter "T
 # Pure-managed Astronomy.Core build (no SLN, no C++ tooling needed)
 dotnet build Astronomy.Core/Astronomy.Core.csproj
 
-# Astronomy.XISF / Astronomy.NINA build + tests — pure-managed (no native dep in Phase A)
+# Astronomy.XISF / Astronomy.NINA build + tests — pure-managed (no native dep)
 dotnet build Astronomy.XISF/Astronomy.XISF.csproj
 dotnet test Astronomy.XISF.Tests/Astronomy.XISF.Tests.csproj
 dotnet build Astronomy.NINA/Astronomy.NINA.csproj
@@ -28,7 +28,7 @@ dotnet test Astronomy.NINA.Tests/Astronomy.NINA.Tests.csproj
 
 # Smoke-test against a real image library (env var gates the live scan)
 TP_SMOKE_IMAGE_LIBRARY='E:\Photography\Astro Photography\Processing' \
-    dotnet test Astronomy.NINA.Tests --filter "FullyQualifiedName~ImageLibrarySmokeTest" --logger "console;verbosity=detailed"
+    dotnet test Astronomy.Catalog.Tests --filter "FullyQualifiedName~ImageLibrarySmokeTest" --logger "console;verbosity=detailed"
 
 # Run BenchmarkDotNet — Release is mandatory (Debug numbers are misleading).
 # Benchmarks live in Astronomy.Core.Benchmarks (pure-managed, references only Astronomy.Core),
@@ -45,4 +45,4 @@ dotnet run -c Release --project Astronomy.Core.Benchmarks -- --list tree
 
 ## Cross-repo contract verification (constellation DRC)
 
-The portfolio-level design-rule check is `..\build-all.ps1` (one level up from this repo, at the `Astronomy\` constellation root). It compiles the downstream consumers against the current Library and runs the contract benchmark in `Astronomy.Contracts.Tests` — run it to confirm a Library change hasn't broken a consumer's pinned pinout. The consumer contract itself is documented in `CONSUMERS.md`.
+The portfolio-level design-rule check is `..\build-all.ps1` (one level up from this repo, at the `Astronomy\` constellation root). It compiles the downstream consumers against the current Library and runs the contract tests in `Astronomy.Contracts.Tests` — run it to confirm a Library change hasn't broken a consumer's pinned pinout. The consumer contract itself is documented in `CONSUMERS.md`.
