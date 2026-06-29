@@ -114,8 +114,8 @@ Astronomy.Catalog persistence + write-back** (`CatalogStore`, `SchemaManager`, `
 (`Sun.*` beyond `SunPosition`, several `Session.*`, `TwilightCalculator`, …) · **XISF `Compression`** +
 most typed accessors.
 
-→ Decision for the user: is each block **intended future API** (a consumer is coming — e.g. XFM's
-planned migration, a TSM write-back action) or **speculative generality** to *internalize/prune*? A
-smaller public surface = a clearer contract = easier to keep stable. (This is the "enforce consistency
-& good design" lever.) Don't prune blindly — the write-back family, for instance, is built+tested for a
-*planned* TSM action.
+→ **Decision (2026-06-28): keep — largely intended-future API, not speculative cruft.** Much of this
+unused surface is for the **planned ISP plugin (not yet started)**, plus the planned TSM write-back
+action and XFM's planned Library migration. So it's *API ahead of its consumers*, not dead generality
+— **do not prune.** (A smaller public surface is still better in principle, but pruning here would
+just be rebuilt when ISP lands.) Revisit a block only if it ends up with **no** planned consumer.
