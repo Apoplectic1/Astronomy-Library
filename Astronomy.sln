@@ -45,6 +45,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Astronomy.Diagnostics", "As
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Astronomy.Core.Benchmarks", "Astronomy.Core.Benchmarks\Astronomy.Core.Benchmarks.csproj", "{193516D4-13DA-4638-8084-7E1CC5EAF89D}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Astronomy.Contracts.Tests", "Astronomy.Contracts.Tests\Astronomy.Contracts.Tests.csproj", "{F1E2D3C4-B5A6-4978-8C7D-6E5F4A3B2C1D}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -279,6 +281,18 @@ Global
 		{193516D4-13DA-4638-8084-7E1CC5EAF89D}.Release|Any CPU.Build.0 = Release|x64
 		{193516D4-13DA-4638-8084-7E1CC5EAF89D}.Release|x86.ActiveCfg = Release|x64
 		{193516D4-13DA-4638-8084-7E1CC5EAF89D}.Release|x86.Build.0 = Release|x64
+		{F1E2D3C4-B5A6-4978-8C7D-6E5F4A3B2C1D}.Debug|x64.ActiveCfg = Debug|x64
+		{F1E2D3C4-B5A6-4978-8C7D-6E5F4A3B2C1D}.Debug|x64.Build.0 = Debug|x64
+		{F1E2D3C4-B5A6-4978-8C7D-6E5F4A3B2C1D}.Debug|Any CPU.ActiveCfg = Debug|x64
+		{F1E2D3C4-B5A6-4978-8C7D-6E5F4A3B2C1D}.Debug|Any CPU.Build.0 = Debug|x64
+		{F1E2D3C4-B5A6-4978-8C7D-6E5F4A3B2C1D}.Debug|x86.ActiveCfg = Debug|x64
+		{F1E2D3C4-B5A6-4978-8C7D-6E5F4A3B2C1D}.Debug|x86.Build.0 = Debug|x64
+		{F1E2D3C4-B5A6-4978-8C7D-6E5F4A3B2C1D}.Release|x64.ActiveCfg = Release|x64
+		{F1E2D3C4-B5A6-4978-8C7D-6E5F4A3B2C1D}.Release|x64.Build.0 = Release|x64
+		{F1E2D3C4-B5A6-4978-8C7D-6E5F4A3B2C1D}.Release|Any CPU.ActiveCfg = Release|x64
+		{F1E2D3C4-B5A6-4978-8C7D-6E5F4A3B2C1D}.Release|Any CPU.Build.0 = Release|x64
+		{F1E2D3C4-B5A6-4978-8C7D-6E5F4A3B2C1D}.Release|x86.ActiveCfg = Release|x64
+		{F1E2D3C4-B5A6-4978-8C7D-6E5F4A3B2C1D}.Release|x86.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

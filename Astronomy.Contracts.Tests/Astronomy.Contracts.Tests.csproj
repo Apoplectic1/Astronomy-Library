@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Platforms>x64</Platforms>
+    <ProjectGuid>{F1E2D3C4-B5A6-4978-8C7D-6E5F4A3B2C1D}</ProjectGuid>
+  </PropertyGroup>
+
+  <!-- Contract-test bench: pins the compiler-invisible SEMANTIC ASSUMPTIONS that the
+       Library's consumers (TP, TSM) bake in, as catalogued in CONSUMERS.md
+       "Semantic assumptions". A future change that violates one breaks a test here.
+       Package refs mirror Astronomy.Catalog.Tests exactly (xUnit v3 pin). -->
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.6.0" />
+    <PackageReference Include="xunit.v3" Version="3.2.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="4.0.0-pre.4">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <!-- Managed Library assemblies only (no Astronomy.PCL / no native build) so
+       `dotnet test` runs with no C++ step. Catalog brings Astronomy.XISF + the
+       Microsoft.Data.Sqlite NuGet (managed runtime assets) transitively. -->
+  <ItemGroup>
+    <ProjectReference Include="..\Astronomy.Core\Astronomy.Core.csproj" />
+    <ProjectReference Include="..\Astronomy.XISF\Astronomy.XISF.csproj" />
+    <ProjectReference Include="..\Astronomy.Catalog\Astronomy.Catalog.csproj" />
+  </ItemGroup>
+
+</Project>
