@@ -81,11 +81,11 @@ Two caveats limit that promise:
 - **`Astronomy.PCL.Native`** — vcxproj, x64-only C++ DLL. Statically links the vendored PixInsight Class Library (`Library\PCL\lib\x64\$(Configuration)\*-pxi.lib`). Public surface is the `extern "C"` C ABI in `include\Astronomy\PCL\XisfCApi.h`. Mirrors PCL's build flavor (`/MD`, `/fp:fast`, `stdcpp17`, `__PCL_WINDOWS`, `__PCL_AVX2`, `__PCL_FMA`) using the same MSVC toolset PCL itself uses (`v145` as of VS2026 — both wrapper and PCL bumped together); compiled with `AdvancedVectorExtensions2` (AVX2) for portability — PCL's own AVX-512 paths remain runtime-gated inside the static lib. The wrapper itself does no numerical work, but matching PCL's flags keeps any PCL header inlines instantiated in the wrapper TU bit-identical to the same inlines inside the static libs.
 - **`Astronomy.PCL`** — `net10.0-windows` x64, `LangVersion latest`. Managed P/Invoke wrapper. Public surface: `XisfFile : IDisposable` (`Open` / `SelectImage` / `ReadImageF32`), `XisfImageInfo`, `XisfColorSpace`, `XisfException`. Internal `NativeMethods` in `Interop/` holds the `[DllImport]` declarations. `<InternalsVisibleTo Include="Astronomy.Core.Tests" />` lets the smoke test bypass the wrapper. The TFM history: originally net8.0 because VS2026 `MSBuild.exe` had a defect resolving `System.Runtime.InteropServices.DllImportAttribute` for netstandard2.0 projects (and TP, the only other potential consumer at the time, was on net481 but didn't use PCL); bumped to net10.0 on 2026-05-04 (commit `c7eeff9`) alongside the rest of the portfolio, then narrowed to `net10.0-windows` on 2026-05-11 (commit `e7ae75c`) alongside the same portfolio-wide VS2026 settings-review pass.
 
-`Library\PCL\` is the vendored PixInsight Class Library (~10 GB of source + prebuilt `.lib` outputs). It's gitignored — re-extract from `PCL\PCL-master.zip` (snapshot pinned 2025-02-22 per `PCL-InterOp.md`) on a fresh clone.
+`Library\PCL\` is the vendored PixInsight Class Library (~10 GB of source + prebuilt `.lib` outputs). It's gitignored — re-extract from `PCL\PCL-master.zip` (snapshot pinned 2025-02-22 per `archive/PCL-InterOp.md`) on a fresh clone.
 
 ### PCL local build
 
-`Library\PCL\` is the vendored Pleiades PixInsight Class Library, locally pruned to **Windows-only** — the macOS and Linux build trees were largely stripped (some Makefile stubs survive under `Library\PCL\src\modules\...`, but the actual source trees were removed). The canonical pinned snapshot is `Library\PCL\PCL-master.zip` (2025-02-22 per `PCL-InterOp.md`). Re-extract on a fresh clone, or to discard local edits.
+`Library\PCL\` is the vendored Pleiades PixInsight Class Library, locally pruned to **Windows-only** — the macOS and Linux build trees were largely stripped (some Makefile stubs survive under `Library\PCL\src\modules\...`, but the actual source trees were removed). The canonical pinned snapshot is `Library\PCL\PCL-master.zip` (2025-02-22 per `archive/PCL-InterOp.md`). Re-extract on a fresh clone, or to discard local edits.
 
 **Toolset.** All PCL projects (`PCL.vcxproj` + the six 3rd-party libs + `xisf.vcxproj`) are at `<PlatformToolset>v145</PlatformToolset>`, matching `Astronomy.PCL.Native`. The directory naming `vc17` under `src\3rdparty\*\windows\vc17\` and `src\modules\*\windows\vc17\` is historical PCL convention and was deliberately not renamed; only the main PCL solution moved from `src\pcl\windows\vc17\` → `src\pcl\windows\vc18\` to signal the VS2026 build flavor.
 
@@ -106,7 +106,7 @@ Two caveats limit that promise:
 
 ### PCL interop
 
-The hybrid architecture from `PCL-InterOp.md` is **implemented** for the first surface (XISF read). Two projects:
+The hybrid architecture from `archive/PCL-InterOp.md` (the archived interop-rationale decision record) is **implemented** for the first surface (XISF read). Two projects:
 
 - `Astronomy.PCL.Native` (C++ DLL, statically links PCL `.lib`s from `Library\PCL\lib\x64\`).
 - `Astronomy.PCL` (managed P/Invoke wrapper, `net10.0-windows` x64).

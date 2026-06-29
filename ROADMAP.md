@@ -1,6 +1,12 @@
 # Astronomy Library — Roadmap
 
-**Charter.** Forward-looking design and a short "Recently shipped" digest for the `Astronomy` library — *where the library is going and what just landed*. How current modules work lives in `ARCHITECTURE.md`; PCL-wrapper-specific forward scope lives in `PCL-WrapperRoadmap.md`.
+**Charter.** Forward-looking design and a short "Recently shipped" digest for the `Astronomy` library — *where the library is going and what just landed*. How current modules work lives in `ARCHITECTURE.md`. (The PCL wrapper's design records — the interop decision + the parked wrapper-extension plan — are archived; see § PCL design docs below.)
+
+## PCL design docs (archived)
+
+The PCL wrapper is a deep but **settled / parked** subsystem; its design records live in `archive/`, off the live reference set:
+- **Interop decision** — *why* PCL is wrapped via a native DLL + P/Invoke (Option 3 / Hybrid, not C++/CLI): `archive/PCL-InterOp.md`.
+- **Wrapper-extension plan** — *what PCL surface to wrap next* (parked discussion-stage; resume cold when ready): `archive/PCL-WrapperRoadmap.md`.
 
 ## Recently shipped (2026-06-28): CONSUMERS.md datasheet + Astronomy.Contracts.Tests bench
 
@@ -331,7 +337,8 @@ up with a proper SIMD / vectorization investigation when time allows.
 Full field notes — toolchain answers, runtime knobs, performance model,
 microbench design lessons, the HotPathBenchmarks before/after table,
 and four open directions ranked by impact — live in
-**[docs/2026-06-21-simd-investigation.md](docs/2026-06-21-simd-investigation.md)**.
+**[archive/2026-06-21-simd-investigation.md](archive/2026-06-21-simd-investigation.md)**
+(archived — conclusions graduated into `VERIFICATION.md` § *Benchmark findings*).
 
 The four open directions in summary:
 
@@ -350,6 +357,13 @@ The four open directions in summary:
 
 Not gating any active work — recorded here so the investigation isn't
 re-derived next time.
+
+## Open: Library-review residuals (2026-05-18)
+
+The 2026-05-18 library review and its re-check both fully closed — every actionable item landed (full record archived at `archive/2026-05-18-library-review*.md`). These are the only items that remained genuinely open after closure, lifted here so they don't get lost in the archive:
+
+- **F5.7 Phase 3 — NINA-as-oracle parity.** The parity baseline currently freezes the Library's *own* post-CoordinateSharp output as a self-snapshot (catches drift, but not an independent-implementation check). Promoting it to "Library matches NINA within tolerance" needs a small `tools/NinaParityExtract` exe referencing `NINA.Astrometry` (with `NOVAS31.dll` co-located), calling `AstroUtil` directly to dodge `IProfileService`, emitting `NinaBaselineSnapshot` initializers for a `ParityFixtures.NinaBaselines` dictionary. ~30–60 min, native-DLL co-location the likeliest stumble. Lower-fidelity alternative: NOAA/USNO web baselines for the 9 fixtures. Full integration scope in the archived follow-ups doc.
+- **Docstring drift (two sites, polish).** `SunPosition.ApparentAltitudeAt` XML doc still cites *Bennett* refraction though commit `f444ef2` switched the implementation to *Saemundsson* (`SunPosition.cs:108,113`); and `AltAzCalculator.Of`'s XML doc names `.ToUniversalTime()` though the body now routes through `TimeKindGuard.AsUtc` (`AltAz.cs:79-87`). Both are docs-vs-code drift only — semantics unchanged. (The review's other residuals — single-value hemisphere extensions and the `360.985647` Meeus citation literal — were deliberately left as-is; do not "fix" them.)
 
 ## Open: publish to GitHub
 
