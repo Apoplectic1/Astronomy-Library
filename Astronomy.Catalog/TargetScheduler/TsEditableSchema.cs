@@ -60,6 +60,10 @@ public sealed record TsField(
     string? Unit = null,
     string? Notes = null);
 
+/// <summary>One selectable value of a named TS enumeration: the integer <see cref="Code"/> stored in the
+/// column and a display <see cref="Label"/> (the TS source enum member name).</summary>
+public sealed record TsEnumValue(int Code, string Label);
+
 /// <summary>
 /// The single declarative reference to the user-editable TS columns — the data dictionary that drives the editor
 /// (the whitelist <em>is</em> this table), value-surfacing, and a consumer's generic edit UI. Authored from the
@@ -133,6 +137,21 @@ public static class TsEditableSchema
     /// <summary>The editable fields of one table, in UI order (empty if none).</summary>
     public static IReadOnlyList<TsField> For(TsTable table) =>
         ByTable.TryGetValue(table, out IReadOnlyList<TsField>? fields) ? fields : [];
+
+    // The code/label sets behind every TsField.EnumName — authored from the TS source enums (ProjectState /
+    // ProjectPriority / TargetPriority in the TS plugin's Database/Schema/Project.cs), like the field rows above.
+    private static readonly Dictionary<string, IReadOnlyList<TsEnumValue>> EnumMaps = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["ProjectState"] = [new(0, "Draft"), new(1, "Active"), new(2, "Inactive"), new(3, "Closed")],
+        ["ProjectPriority"] = [new(0, "Low"), new(1, "Normal"), new(2, "High")],
+        ["TargetPriority"] = [new(-1, "Default"), new(0, "Low"), new(1, "Normal"), new(2, "High")],
+    };
+
+    /// <summary>The ordered code/label values of the named enumeration (a <see cref="TsField.EnumName"/>,
+    /// case-insensitive) — what a consumer binds to a selection control instead of hard-coding TS codes.
+    /// Empty for an unknown or null name, never a throw.</summary>
+    public static IReadOnlyList<TsEnumValue> EnumValues(string? enumName) =>
+        enumName is not null && EnumMaps.TryGetValue(enumName, out IReadOnlyList<TsEnumValue>? values) ? values : [];
 
     /// <summary>The field for <paramref name="table"/>.<paramref name="column"/> (case-insensitive), or <c>null</c>
     /// if that column is not an editable field — the lookup the editor uses as its write whitelist.</summary>

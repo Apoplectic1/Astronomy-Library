@@ -58,6 +58,30 @@ public sealed class TsEditableSchemaTests
     }
 
     [Fact]
+    public void EnumValues_EveryEnumFieldResolvesToANonEmptyMap()
+    {
+        Assert.All(
+            TsEditableSchema.Fields.Where(f => f.Type == TsFieldType.Enum),
+            f => Assert.NotEmpty(TsEditableSchema.EnumValues(f.EnumName)));
+    }
+
+    [Fact]
+    public void EnumValues_TargetPriorityIncludesDefaultAtMinusOne()
+    {
+        IReadOnlyList<TsEnumValue> values = TsEditableSchema.EnumValues("TargetPriority");
+        Assert.Equal(new TsEnumValue(-1, "Default"), values[0]);
+        Assert.Equal(4, values.Count);
+    }
+
+    [Fact]
+    public void EnumValues_IsCaseInsensitive_AndEmptyForUnknown()
+    {
+        Assert.NotEmpty(TsEditableSchema.EnumValues("projectstate"));
+        Assert.Empty(TsEditableSchema.EnumValues("NoSuchEnum"));
+        Assert.Empty(TsEditableSchema.EnumValues(null));
+    }
+
+    [Fact]
     public void For_ReturnsOnlyThatTablesFields()
     {
         IReadOnlyList<TsField> target = TsEditableSchema.For(TsTable.Target);
