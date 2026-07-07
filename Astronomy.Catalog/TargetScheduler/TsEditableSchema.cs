@@ -145,6 +145,24 @@ public static class TsEditableSchema
         new(TsTable.ExposureTemplate, "readoutmode", "Readout mode", TsFieldType.Whole, Min: 0, Notes: "-1 = camera default.",
             Sentinel: -1, SentinelLabel: "camera default"),
         new(TsTable.ExposureTemplate, "defaultexposure", "Default exposure", TsFieldType.Real, Min: 0, Unit: "s"),
+        // Scheduling-condition columns (all scoring/filter inputs — none clear the TS cadence). The column
+        // spelling "twilightlevel" is TS's own EF rename (property twilightlevel_col); the rest use the
+        // property names, matched case-insensitively like every other row.
+        new(TsTable.ExposureTemplate, "twilightlevel", "Twilight level", TsFieldType.Enum, EnumName: "TwilightLevel"),
+        new(TsTable.ExposureTemplate, "minutesoffset", "Minutes offset", TsFieldType.Whole, Min: -720, Max: 720, Unit: "min",
+            Notes: "Shifts the twilight window; negative is legal. ±720 is a sanity clamp, not a TS bound."),
+        new(TsTable.ExposureTemplate, "moonavoidanceenabled", "Moon avoidance", TsFieldType.Bool),
+        new(TsTable.ExposureTemplate, "moonavoidanceseparation", "Moon separation", TsFieldType.Real, Min: 0, Max: 180, Unit: "°"),
+        new(TsTable.ExposureTemplate, "moonavoidancewidth", "Moon width", TsFieldType.Whole, Min: 0, Max: 30, Unit: "days"),
+        new(TsTable.ExposureTemplate, "moonrelaxscale", "Moon relax scale", TsFieldType.Real, Min: 0, Max: 10,
+            Notes: "0 disables relax."),
+        new(TsTable.ExposureTemplate, "moonrelaxmaxaltitude", "Moon relax max alt", TsFieldType.Real, Min: -90, Max: 90, Unit: "°"),
+        new(TsTable.ExposureTemplate, "moonrelaxminaltitude", "Moon relax min alt", TsFieldType.Real, Min: -90, Max: 90, Unit: "°",
+            Notes: "Negative is normal (TS ships -15)."),
+        new(TsTable.ExposureTemplate, "moondownenabled", "Moon down only", TsFieldType.Bool),
+        new(TsTable.ExposureTemplate, "ditherevery", "Dither every", TsFieldType.Whole, Min: 0, Max: 999),
+        new(TsTable.ExposureTemplate, "maximumhumidity", "Max humidity", TsFieldType.Real, Min: 0, Max: 100, Unit: "%",
+            Notes: "0 = disabled."),
     ];
 
     private static readonly Dictionary<TsTable, IReadOnlyList<TsField>> ByTable =
@@ -160,12 +178,14 @@ public static class TsEditableSchema
         ByTable.TryGetValue(table, out IReadOnlyList<TsField>? fields) ? fields : [];
 
     // The code/label sets behind every TsField.EnumName — authored from the TS source enums (ProjectState /
-    // ProjectPriority / TargetPriority in the TS plugin's Database/Schema/Project.cs), like the field rows above.
+    // ProjectPriority / TargetPriority in the TS plugin's Database/Schema/Project.cs; TwilightLevel in its
+    // Astrometry/TwilightCircumstances.cs), like the field rows above.
     private static readonly Dictionary<string, IReadOnlyList<TsEnumValue>> EnumMaps = new(StringComparer.OrdinalIgnoreCase)
     {
         ["ProjectState"] = [new(0, "Draft"), new(1, "Active"), new(2, "Inactive"), new(3, "Closed")],
         ["ProjectPriority"] = [new(0, "Low"), new(1, "Normal"), new(2, "High")],
         ["TargetPriority"] = [new(-1, "Default"), new(0, "Low"), new(1, "Normal"), new(2, "High")],
+        ["TwilightLevel"] = [new(0, "Nighttime"), new(1, "Astronomical"), new(2, "Nautical"), new(3, "Civil")],
     };
 
     /// <summary>The ordered code/label values of the named enumeration (a <see cref="TsField.EnumName"/>,

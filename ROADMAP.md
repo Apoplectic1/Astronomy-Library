@@ -8,6 +8,16 @@ The PCL wrapper is a deep but **settled / parked** subsystem; its design records
 - **Interop decision** — *why* PCL is wrapped via a native DLL + P/Invoke (Option 3 / Hybrid, not C++/CLI): `archive/PCL-InterOp.md`.
 - **Wrapper-extension plan** — *what PCL surface to wrap next* (parked discussion-stage; resume cold when ready): `archive/PCL-WrapperRoadmap.md`.
 
+## Recently shipped (2026-07-06): TsEditableSchema — full exposuretemplate surface
+
+11 new exposuretemplate rows (18 total): `twilightlevel` (new `TwilightLevel` enum map — Nighttime/
+Astronomical/Nautical/Civil, codes from the TS source; the column spelling is TS's own EF rename of
+`twilightlevel_col`), `minutesoffset` (±720, negatives legal), the moon avoidance suite (`enabled`,
+`separation` 0–180°, `width` 0–30 d, `relaxscale`, `relaxmaxaltitude`/`relaxminaltitude` −90–90° — TS ships
+−15, so the floor must admit negatives), `moondownenabled`, `ditherevery`, `maximumhumidity` (0–100 %, 0 =
+disabled). All cadence-safe (template columns are scoring/filter inputs; nothing clears `FilterCadenceItem`).
+Reference-driven consumers render them with zero UI code. 163 tests (+ surface/bounds/enum pins).
+
 ## Recently shipped (2026-06-28): CONSUMERS.md datasheet + Astronomy.Contracts.Tests bench
 
 `CONSUMERS.md` stakes out the Library's **de-facto public contract** — the "pinned pinout" derived from grep-verified real usage: who consumes the Library and how (only **TP + TSM**, by `ProjectReference`/source), the surface each depends on, 18 semantic assumptions (contract-test candidates), fragility flags, and a design-review decision on the large dead/speculative public surface (**keep, don't prune** — it's API ahead of its planned consumers: the ISP plugin, the TSM write-back action, XFM's Library migration; not cruft).

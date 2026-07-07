@@ -126,4 +126,44 @@ public sealed class TsEditableSchemaTests
         Assert.Contains(target, f => f.Column == "active");
         Assert.All(target, f => Assert.Equal(TsTable.Target, f.Table));
     }
+
+    [Fact]
+    public void ExposureTemplate_CarriesTheFullSchedulingSurface()
+    {
+        // The 7 camera/filter columns plus the 11 scheduling-condition columns (twilight, moon suite,
+        // dither, humidity) — a consumer's template form renders all of these from the reference alone.
+        IReadOnlyList<TsField> fields = TsEditableSchema.For(TsTable.ExposureTemplate);
+        Assert.Equal(18, fields.Count);
+        foreach (string column in new[]
+        {
+            "twilightlevel", "minutesoffset", "moonavoidanceenabled", "moonavoidanceseparation",
+            "moonavoidancewidth", "moonrelaxscale", "moonrelaxmaxaltitude", "moonrelaxminaltitude",
+            "moondownenabled", "ditherevery", "maximumhumidity",
+        })
+            Assert.NotNull(TsEditableSchema.Find(TsTable.ExposureTemplate, column));
+        Assert.All(fields, f => Assert.True(f.CadenceSafe));   // template columns never clear the TS cadence
+    }
+
+    [Fact]
+    public void ExposureTemplate_SchedulingBounds_MatchTsSemantics()
+    {
+        Assert.Equal(TsFieldType.Enum, TsEditableSchema.Find(TsTable.ExposureTemplate, "twilightlevel")!.Type);
+        TsField minutes = TsEditableSchema.Find(TsTable.ExposureTemplate, "minutesoffset")!;
+        Assert.Equal(-720, minutes.Min);                        // negative offsets are legal in TS
+        TsField relaxMin = TsEditableSchema.Find(TsTable.ExposureTemplate, "moonrelaxminaltitude")!;
+        Assert.Equal(-90, relaxMin.Min);                        // TS ships -15 — the bound must not exclude it
+        TsField humidity = TsEditableSchema.Find(TsTable.ExposureTemplate, "maximumhumidity")!;
+        Assert.Equal(0, humidity.Min);
+        Assert.Equal(100, humidity.Max);
+        Assert.Equal(180, TsEditableSchema.Find(TsTable.ExposureTemplate, "moonavoidanceseparation")!.Max);
+    }
+
+    [Fact]
+    public void EnumValues_TwilightLevel_MatchesTheTsSourceCodes()
+    {
+        IReadOnlyList<TsEnumValue> values = TsEditableSchema.EnumValues("TwilightLevel");
+        Assert.Equal(
+            [new(0, "Nighttime"), new(1, "Astronomical"), new(2, "Nautical"), new(3, "Civil")],
+            values);
+    }
 }
