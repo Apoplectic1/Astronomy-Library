@@ -28,7 +28,8 @@ public sealed record ReconciliationCell(
     int Disk,
     int PlanCount,
     string? PlanTsKey = null,
-    string? TemplateTsKey = null);
+    string? TemplateTsKey = null,
+    bool? PlanEnabled = null);
 
 /// <summary>
 /// One canonical target's reconciliation: its identity + match-state plus its <see cref="Cells"/>, which are
@@ -138,6 +139,7 @@ public static class ReconciliationProjection
         public int PlanCount;
         private string? _planTsKey;
         private string? _templateTsKey;
+        private bool? _planEnabled;
 
         // Fold one plan (and its resolved template) into the bucket; remember the TS keys, which only become a
         // usable write-back address when the bucket ends up with exactly one plan.
@@ -149,11 +151,13 @@ public static class ReconciliationProjection
             PlanCount++;
             _planTsKey = p.ImportedFromTsGuid;
             _templateTsKey = tpl.ImportedFromTsGuid;
+            _planEnabled = p.Enabled;
         }
 
         public ReconciliationCell ToCell() =>
             new(filter, purpose, seconds, Desired, Acquired, Accepted, Disk, PlanCount,
                 PlanCount == 1 ? _planTsKey : null,
-                PlanCount == 1 ? _templateTsKey : null);
+                PlanCount == 1 ? _templateTsKey : null,
+                PlanCount == 1 ? _planEnabled : null);
     }
 }

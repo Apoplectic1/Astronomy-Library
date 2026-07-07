@@ -13,7 +13,7 @@ public sealed record TsProject(long Id, string ProfileId, string Name, int State
 public sealed record TsTarget(long Id, string Name, int Active, double? Ra, double? Dec, int EpochCode, double? Rotation, double? Roi, long? ProjectId, int Priority, string? TsGuid);
 
 /// <summary>A TS <c>exposureplan</c> row (desired/acquired/accepted counts per target/filter).</summary>
-public sealed record TsExposurePlan(long Id, string ProfileId, double Exposure, int Desired, int Acquired, int Accepted, long TargetId, long ExposureTemplateId);
+public sealed record TsExposurePlan(long Id, string ProfileId, double Exposure, int Desired, int Acquired, int Accepted, long TargetId, long ExposureTemplateId, bool Enabled = true);
 
 /// <summary>A TS <c>exposuretemplate</c> row.</summary>
 public sealed record TsExposureTemplate(long Id, string ProfileId, string Name, string FilterName, int Gain, int Offset, int Bin, double DefaultExposure);
@@ -87,10 +87,11 @@ public sealed class TargetSchedulerReader : IDisposable
 
     /// <summary>Reads all TS exposure plans.</summary>
     public IReadOnlyList<TsExposurePlan> ReadExposurePlans() => Query(
-        "SELECT Id, profileId, exposure, desired, acquired, accepted, targetid, exposureTemplateId FROM exposureplan;",
+        "SELECT Id, profileId, exposure, desired, acquired, accepted, targetid, exposureTemplateId, enabled FROM exposureplan;",
         r => new TsExposurePlan(
             r.GetInt64("Id"), r.GetString("profileId"), r.GetDouble("exposure"), r.GetInt32("desired"),
-            r.GetInt32("acquired"), r.GetInt32("accepted"), r.GetInt64("targetid"), r.GetInt64("exposureTemplateId")));
+            r.GetInt32("acquired"), r.GetInt32("accepted"), r.GetInt64("targetid"), r.GetInt64("exposureTemplateId"),
+            r.GetInt32("enabled") != 0));
 
     /// <summary>Reads all TS exposure templates.</summary>
     public IReadOnlyList<TsExposureTemplate> ReadExposureTemplates() => Query(

@@ -324,7 +324,7 @@ public static class TargetResolver
                 DeterministicGuid($"plan:{p.Id}"), targetGuid, templateGuid,
                 ExposureSeconds: p.Exposure < 0 ? null : p.Exposure,
                 DesiredCount: p.Desired, AcquiredCount: p.Acquired, AcceptedCount: p.Accepted,
-                Enabled: true, ImportedFromTsGuid: p.Id.ToString(CultureInfo.InvariantCulture)));
+                Enabled: p.Enabled, ImportedFromTsGuid: p.Id.ToString(CultureInfo.InvariantCulture)));
         }
 
         CatalogGraph graph = new(profiles, projects, templates, targets, plans, inventory);
