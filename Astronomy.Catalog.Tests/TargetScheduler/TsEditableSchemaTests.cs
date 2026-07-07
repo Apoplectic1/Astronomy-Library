@@ -111,6 +111,15 @@ public sealed class TsEditableSchemaTests
     }
 
     [Fact]
+    public void Guarded_FlagsRotationOnly()
+    {
+        Assert.True(TsEditableSchema.Find(TsTable.Target, "rotation")!.Guarded);
+        Assert.All(
+            TsEditableSchema.Fields.Where(f => f is not { Table: TsTable.Target, Column: "rotation" }),
+            f => Assert.False(f.Guarded));
+    }
+
+    [Fact]
     public void For_ReturnsOnlyThatTablesFields()
     {
         IReadOnlyList<TsField> target = TsEditableSchema.For(TsTable.Target);

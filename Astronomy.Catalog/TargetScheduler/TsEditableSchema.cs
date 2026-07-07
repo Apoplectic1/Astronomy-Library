@@ -49,6 +49,11 @@ public enum TsFieldType
 /// exempt it from <see cref="Min"/>/<see cref="Max"/> bounds — the sentinel is legal to write back.
 /// </para>
 /// <para>
+/// <see cref="Guarded"/> marks a field whose accidental change breaks acquisition against existing data (e.g.
+/// <c>target.rotation</c> — a changed angle misaligns every future frame with the stack). A consumer's edit UI
+/// should require an explicit arm gesture (e.g. an enable checkbox) before the field's input accepts changes.
+/// </para>
+/// <para>
 /// Consumer-neutral by design (shared-library discipline): this describes the abstract TS contract, not how any
 /// one app presents it. <see cref="CadenceSafe"/> is <c>false</c> for the handful of columns whose change clears
 /// the TS scheduling cadence (<c>FilterCadenceItem</c>); a consumer must warn or defer rather than do a plain
@@ -67,7 +72,8 @@ public sealed record TsField(
     string? Unit = null,
     string? Notes = null,
     double? Sentinel = null,
-    string? SentinelLabel = null);
+    string? SentinelLabel = null,
+    bool Guarded = false);
 
 /// <summary>One selectable value of a named TS enumeration: the integer <see cref="Code"/> stored in the
 /// column and a display <see cref="Label"/> (the TS source enum member name).</summary>
@@ -115,7 +121,8 @@ public static class TsEditableSchema
         // ---- target -----------------------------------------------------------------------------------------
         new(TsTable.Target, "active", "Enabled", TsFieldType.Bool),
         new(TsTable.Target, "priority", "Priority", TsFieldType.Enum, EnumName: "TargetPriority"),
-        new(TsTable.Target, "rotation", "Rotation", TsFieldType.Real, Min: 0, Max: 360, Unit: "°"),
+        new(TsTable.Target, "rotation", "Rotation", TsFieldType.Real, Min: 0, Max: 360, Unit: "°",
+            Guarded: true, Notes: "Guarded: an accidental rotation change misaligns future frames with the existing stack."),
         // target.roi deliberately omitted (2026-07-06): the user never adjusts ROI — not part of the editable surface.
 
         // ---- exposureplan -----------------------------------------------------------------------------------
