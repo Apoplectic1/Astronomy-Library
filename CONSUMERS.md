@@ -103,6 +103,14 @@ Compiler-invisible expectations consumers bake in. Each is a candidate for an ex
 17. `Time.ObservationMoment.Zone` must stay in lockstep with `Location.TimeZoneInfo`.
 18. *(retired 2026-07-06)* ~~`TsEditGate`/editor calls `SqliteConnection.ClearAllPools()` after every verified write~~ — TSM's sync-model rework (commit `9e8ec19`) deleted the call: edits now hit a **local working copy** (pull at open / push-as-replay), so the stale-SMB-read concern the call defended against no longer exists. Kept numbered so the assumption list stays stable.
 
+**TS editing / write-back (surface shipped 2026-07-05/06; assumptions added 2026-07-07):**
+
+19. `EffectiveExposure.Seconds` — a plan's whole-second effective exposure is **its own value when set, else its template's default**; the raw-TS overload treats a **negative** exposure as TS's "use template default" sentinel; both-null → **0** (never matches a scanner bucket, all ≥ 1). *(Known nuance: the raw-TS overload takes `0` literally (`< 0` sentinel test) while #20's SQL defers `0` to the template (`> 0` override test) — divergent at exactly 0, flagged for adjudication.)*
+20. `TargetSchedulerEditor.ReadPlanEffectiveExposure` resolves the sentinel **through the template** (the #19 rule as SQL) and returns `Found=false` for an unknown key *or a missing template row* — TSM seeds its exposure editor from the resolved value, never the raw sentinel.
+21. `TsEditableSchema.EnumValues` **codes are the persisted TS ints** (authored from the TS source enums); a renumber compiles but writes wrong values into the TS DB. `For`/`Find` are the exact editable-column set TSM's schema-driven editors are generated from; `exposureplan.exposure` carries the `-1` "template default" sentinel metadata.
+22. `TsEditableSchema.IsCadenceBreaking`/`TsField.Clears` gate cadence handling: a cadence-breaking edit **clears the scoped `filtercadenceitem` rows in the same transaction** as the column write (an unchanged-value edit is a verified no-op — **no clear**); a **target-scope clear refuses** (`RefusalReason.HasOverrideOrder`) when the target has hand-authored override-order rows, leaving the DB untouched.
+23. `TargetSchedulerWriter.Execute` is **update-only**: existing `exposureplan` rows' `acquired`/`accepted` only — never inserts/deletes rows, never alters the journal mode; `desired` **ratchets to `max(old, new)`** (raised, never lowered); `DiskCount = 0` is a **real write**, not a skip.
+
 ## Fragility flags
 - **Three public `Target` types** — `Core.Targets.Target` (class), `NINA.Target` (class), `Catalog.Schema.Target` (record). Naming-overload hazard; consumers alias around it.
 - **Positional-ctor coupling** — TSM tests build Library records positionally (`CatalogBuildReport` 11 args, `Schema.Target` 18, …); a same-typed reorder compiles *wrong*.

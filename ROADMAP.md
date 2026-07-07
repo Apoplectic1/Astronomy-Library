@@ -8,6 +8,21 @@ The PCL wrapper is a deep but **settled / parked** subsystem; its design records
 - **Interop decision** — *why* PCL is wrapped via a native DLL + P/Invoke (Option 3 / Hybrid, not C++/CLI): `archive/PCL-InterOp.md`.
 - **Wrapper-extension plan** — *what PCL surface to wrap next* (parked discussion-stage; resume cold when ready): `archive/PCL-WrapperRoadmap.md`.
 
+## Recently shipped (2026-07-07): Contracts.Tests refresh — TS surface pinned (#19–#23), #6/#10 gaps closed
+
+The contract bench caught up with the grown pinout. CONSUMERS.md "Semantic assumptions" extended
+append-only with **#19–#23** (TS editing / write-back): the `EffectiveExposure` rule (own value else
+template default; negative = TS sentinel; both-null → 0), `ReadPlanEffectiveExposure` template
+resolution, `TsEditableSchema` enum codes = persisted TS ints + the exact cadence-breaking set,
+same-transaction cadence clears + `HasOverrideOrder` refusal, and writer update-only/ratcheted-desired
+semantics — each pinned in a new bench test file. Old-list gaps closed: **#6** (pre-init `Log.*` is a
+silent no-op — bench gained the `Astronomy.Diagnostics` ref) and **#10** (edit key guid-or-Id via
+`long.TryParse`; by-Id wins for digit strings). Registry reworded **#18 as retired**. Bench: 52 pass +
+6 intentional skips; every number 1..23 now maps to a test or registry entry. **Flagged for
+adjudication**: exposure = 0 diverges between `ReadPlanEffectiveExposure`'s SQL (`> 0` → 0 defers to
+template) and `EffectiveExposure.Seconds`' raw-TS overload (`< 0` → 0 taken literally) — both current
+behaviors are pinned with cross-reference comments; decide against TS's own semantics.
+
 ## Recently shipped (2026-07-06): cadence-safe TS editing — transactional clear + OEO refusal
 
 `TsField.CadenceSafe : bool` → `Clears : TsCadenceClear` (`None`/`Target`/`Project`; breaking, no shim).

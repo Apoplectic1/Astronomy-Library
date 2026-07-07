@@ -13,12 +13,20 @@ namespace Astronomy.Contracts.Tests;
 ///   #3  ObserveAt geometric alt ........ MoonContractTests
 ///   #4  KsAt 10-param order ............. SkyBrightnessContractTests
 ///   #5  CatalogGraph FK/mosaic order ... CatalogGraphOrderingContractTests
+///   #6  Log pre-init = silent no-op .... LogLifecycleContractTests
 ///   #7  NightCache pure statics ........ NightCacheContractTests
 ///   #8  Reader/Editor open-in-ctor ..... TargetSchedulerContractTests
 ///   #9  HasRequiredColumns gates writes  TargetSchedulerContractTests
+///   #10 Edit key guid-or-Id (TryParse) . TargetSchedulerContractTests
 ///   #13 MoonEphemeris.Sample exact count MoonContractTests
 ///   #14 ScanAsync missing-root throws .. ImageLibraryScannerContractTests
 ///   #16 LunarAge non-UTC throws ........ MoonContractTests
+///   #19 EffectiveExposure rule ......... EffectiveExposureContractTests
+///   #20 ReadPlanEffectiveExposure ...... TargetSchedulerContractTests
+///   #21 TsEditableSchema enum codes .... TsEditableSchemaContractTests
+///   #22 Cadence-clear gating ........... TsEditableSchemaContractTests (classification)
+///                                        + TsCadenceClearContractTests (DB behavior)
+///   #23 Writer update-only + ratchet ... TargetSchedulerWriterContractTests
 ///
 /// NOT cleanly unit-testable (placeholders below mirror this list):
 ///
@@ -56,13 +64,12 @@ namespace Astronomy.Contracts.Tests;
 ///         (how TP builds an ObservationMoment from a Location), not a single Library call with
 ///         an observable in/out. No isolated unit boundary expresses "they were kept in sync".
 ///
-///   #18 TsEditGate / editor calls SqliteConnection.ClearAllPools() after every verified write —
-///       required against stale SMB reads, but AppDomain-GLOBAL (disturbs any other in-process
-///       SQLite connection).
-///       — A PROCESS-GLOBAL SIDE EFFECT. ClearAllPools() has no return value and no per-instance
-///         observable; "it was called" is only detectable by disrupting an unrelated pooled
-///         connection — an inherently racy, environment-coupled probe (and the disruption is the
-///         documented hazard, not a behavior to lock). Verified by code review of the gate.
+///   #18 (RETIRED 2026-07-06) ~~TsEditGate / editor calls SqliteConnection.ClearAllPools() after
+///       every verified write~~.
+///       — No longer a contract at all: TSM's sync-model rework (commit 9e8ec19) deleted the call —
+///         edits now hit a LOCAL working copy (pull at open / push-as-replay), so the stale-SMB-read
+///         concern the call defended against no longer exists. The number is kept (per CONSUMERS.md,
+///         the assumption list is append-only) so notes referencing #18 stay reconcilable.
 /// </summary>
 public sealed class NotCleanlyTestableAssumptions
 {
@@ -81,6 +88,6 @@ public sealed class NotCleanlyTestableAssumptions
     [Fact(Skip = "#17 ObservationMoment.Zone ↔ Location.TimeZoneInfo lockstep is a cross-object invariant maintained by the CONSUMER's construction, not a single Library in/out.")]
     public void Assumption17_ObservationMoment_ZoneLockstep_IsConsumerInvariant() { }
 
-    [Fact(Skip = "#18 ClearAllPools() is a process-global, return-less side effect; 'it was called' is only observable by disrupting an unrelated connection — the documented hazard itself.")]
-    public void Assumption18_ClearAllPools_AppDomainGlobalSideEffect() { }
+    [Fact(Skip = "#18 RETIRED 2026-07-06 — the ClearAllPools() call was deleted with TSM's local-working-copy sync rework; the number is kept because the assumption list is append-only.")]
+    public void Assumption18_Retired_ClearAllPoolsCallDeleted() { }
 }
