@@ -7,8 +7,10 @@
 **Reference docs** (current truth, edited in place — route by name):
 
 - **`ARCHITECTURE.md`** — subsystem mechanics, *how each module works*. Organized one section per buildable project (Astronomy.Core + its API conventions/thread-safety/code-organization, .XISF, .Diagnostics, .Catalog, .NINA, .PCL/.Native + the PCL local-build and interop story). Grep by project name.
-- **`ROADMAP.md`** — forward-looking design + "Recently shipped" digest. Whole-library direction.- **`VERIFICATION.md`** — how to **build / test / benchmark** and the build traps. Read before claiming a build or tests pass. The cross-repo contract DRC is `..\build-all.ps1`.
+- **`ROADMAP.md`** — forward-looking design + "Recently shipped" digest. Whole-library direction.
+- **`VERIFICATION.md`** — how to **build / test / benchmark** and the build traps. Read before claiming a build or tests pass. The cross-repo contract DRC is `..\build-all.ps1`.
 - **`CONSUMERS.md`** — the Library's de-facto public **contract / datasheet**: what each downstream consumer depends on (the "pinned pinout").
+- **`DOMAIN.md`** — the domain layer's home (science/unit conventions, algorithm provenance, multi-consumer strategy): *why* the library models things this way. Charter'd-thin — routes to where each domain truth currently lives.
 
 **Journal** (dated capture — by convention, not an enumerated list): `docs/YYYY-MM-DD-<slug>.md` for substantial standalone records (reviews, decisions, investigations) — `glob docs/*.md` then grep; and **`NOTEBOOK.md`** for small chronological lab-notebook findings. Standing truths graduate up into the reference docs.
 
