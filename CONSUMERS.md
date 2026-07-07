@@ -4,7 +4,7 @@
 depends on (the "pinned pinout"), the semantic assumptions beyond signatures, and the dependency
 graph. Treat this as the **stable interface** — change it *deliberately* (a pinout revision = update
 consumers + tests in the same breath); the implementation behind it can churn freely. Derived from
-grep-verified real usage (2026-06-28); keep current as the contract evolves.
+grep-verified real usage (2026-06-28; refreshed 2026-07-07 audit); keep current as the contract evolves.
 
 **How this is validated** (docs *describe* the contract; these *verify* it):
 - **Structural — free:** both consumers `ProjectReference` the Library (source), so a breaking API
@@ -27,7 +27,7 @@ Both consume **by `ProjectReference` (source) — no DLL, no NuGet.** That's the
 - **XisfFileManager** — has its own independent XISF/SQLite stack; *migration to Library is
   aspirational, not done.* Zero Library references today.
 - **IntervalScheduler** — empty WPF stub, zero references.
-- **LibraryCatalogManager** — does not exist (no project in the tree).
+- **LibraryCatalogManager** — stub repo only (`.git` + ROADMAP.md; no project, no Library reference).
 - NINA plugin/source + other Astronomy projects — no Library reference.
 
 So the live constellation is a **3-node graph** (Library → TP, TSM), not the 5-consumer web the docs imply.
@@ -57,7 +57,11 @@ No consumer→consumer references. Note: **Catalog does NOT depend on Core** (it
   `CatalogGraph` + `CatalogBuildReport` + `UnanchoredTsTarget`/`TargetMatchIssues`;
   `Reconcile.ReconciliationProjection.Project` + `TargetCells`/`ReconciliationCell`;
   `TargetScheduler.TargetSchedulerReader`(+`TsPlanData`);
-  `TargetScheduler.TargetSchedulerEditor.TrySetField`(+`FieldEditResult`/`RefusalReason`/`TsTable`).
+  `TargetScheduler.TargetSchedulerEditor.TrySetField`(+`FieldEditResult`/`RefusalReason`/`TsTable`) +
+  `.ReadPlanEffectiveExposure`; `TargetScheduler.TsEditableSchema` (`.For`/`.EnumValues`/`.Find`/
+  `.IsCadenceBreaking` + `TsField`/`TsFieldType`/`TsCadenceClear`/`TsEnumValue` — TSM's field editors
+  are schema-driven off this surface); `TargetScheduler.TargetSchedulerWriter` +
+  `Build.WriteBackPlanner` (TSM write-back shipped 2026-07-06: `TsWriteBackApplier`/`WriteBackStep`).
 - **Astronomy.Core** — *TP* (broad): `Targets.Target`, `Locations.Location`, `Night.*`,
   `Session.{BestSession, SessionAltitude, TransitTime, CoarseVisibility, AltitudeCurve}`,
   `AltAzCalculator`/`AltAz`, `Astrometry.{SiderealTime, ObserverInfo, AstroUtil, Refraction}`,
@@ -82,7 +86,7 @@ Compiler-invisible expectations consumers bake in. Each is a candidate for an ex
 
 **Call-order / lifecycle:**
 6. `Log.Init` → `Log.StartNewSession` **must precede any `Log.*`** (else silent no-op).
-7. `Night.NightCache.ComputeYearStartDay/Count` are **pure statics called before the ctor**.
+7. `Night.NightCache.ComputeYearStartDay` / `ComputeYearDaysCount` are **pure statics called before the ctor**.
 8. `TargetSchedulerReader`/`Editor` **open the DB in their ctor** — file must exist; reader is single-use.
 9. `TargetSchedulerEditor.HasRequiredColumns` (`Id,guid,active`) **gates ALL writes** (else `RefusalReason.SchemaIncompatible`).
 10. Editor write-back **key = `ImportedFromTsGuid`** (GUID string *or* TS int Id as decimal string; disambiguated by `long.TryParse`).
@@ -97,7 +101,7 @@ Compiler-invisible expectations consumers bake in. Each is a candidate for an ex
 15. `Horizons.PolylineHorizonProfile(az[], alt[])` — parallel arrays; length/monotonic/dedup preconditions are caller's to honor.
 16. `Moon.LunarAge.DaysAt` throws on non-UTC `DateTimeKind`.
 17. `Time.ObservationMoment.Zone` must stay in lockstep with `Location.TimeZoneInfo`.
-18. **`TsEditGate`/editor calls `SqliteConnection.ClearAllPools()` after every verified write** — required against stale SMB reads, but **AppDomain-global** (disturbs any other SQLite connection in-process).
+18. *(retired 2026-07-06)* ~~`TsEditGate`/editor calls `SqliteConnection.ClearAllPools()` after every verified write~~ — TSM's sync-model rework (commit `9e8ec19`) deleted the call: edits now hit a **local working copy** (pull at open / push-as-replay), so the stale-SMB-read concern the call defended against no longer exists. Kept numbered so the assumption list stays stable.
 
 ## Fragility flags
 - **Three public `Target` types** — `Core.Targets.Target` (class), `NINA.Target` (class), `Catalog.Schema.Target` (record). Naming-overload hazard; consumers alias around it.
@@ -109,13 +113,15 @@ Compiler-invisible expectations consumers bake in. Each is a candidate for an ex
 
 A large fraction of the public API has **no external caller** (only Library tests / internal composition):
 **all of Astronomy.PCL** · **most of Astronomy.NINA root** (+ `ReportToTargetAdapter`) · **most of
-Astronomy.Catalog persistence + write-back** (`CatalogStore`, `SchemaManager`, `CatalogBuilder`,
-`Reconciler`, the whole `WriteBackPlanner` family, `TargetSchedulerWriter`) · many **Core statics**
+Astronomy.Catalog persistence** (`CatalogStore`, `SchemaManager`, `CatalogBuilder`, `Reconciler` —
+`WriteBackPlanner`/`TargetSchedulerWriter` left this list 2026-07-06 when TSM's write-back shipped) ·
+many **Core statics**
 (`Sun.*` beyond `SunPosition`, several `Session.*`, `TwilightCalculator`, …) · **XISF `Compression`** +
 most typed accessors.
 
 → **Decision (2026-06-28): keep — largely intended-future API, not speculative cruft.** Much of this
-unused surface is for the **planned ISP plugin (not yet started)**, plus the planned TSM write-back
-action and XFM's planned Library migration. So it's *API ahead of its consumers*, not dead generality
+unused surface is for the **planned ISP plugin (not yet started)** and XFM's planned Library
+migration (the TSM write-back action, once also on this list, shipped 2026-07-06 and validated the
+call — its API was consumed as-built). So it's *API ahead of its consumers*, not dead generality
 — **do not prune.** (A smaller public surface is still better in principle, but pruning here would
 just be rebuilt when ISP lands.) Revisit a block only if it ends up with **no** planned consumer.

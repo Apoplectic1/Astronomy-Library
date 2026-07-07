@@ -13,7 +13,8 @@ this file routes to it and is the ready home for domain content that outgrows th
   `ARCHITECTURE.md` § *Architectural conventions*, because they are baked into the public API and
   must travel with it.
 - **Algorithm provenance** — the managed math is **Meeus-backed** (Jean Meeus, *Astronomical
-  Algorithms*); the CoordinateSharp dependency was removed (commit `2249834`) so every helper is
+  Algorithms*); the CoordinateSharp dependency was removed (commits `759496a` parity baseline →
+  `e602bdb` Meeus swap) so every helper is
   self-contained. Native image math is the vendored PixInsight **PCL** (see
   `archive/PCL-InterOp.md` for the wrapping decision).
 - **Multi-consumer strategy** — the Library is deliberately consumer-agnostic (no downstream app

@@ -24,9 +24,9 @@ temp dbs — a trigger forces the DELETE to fail and proves the UPDATE rolls bac
 
 11 new exposuretemplate rows (18 total): `twilightlevel` (new `TwilightLevel` enum map — Nighttime/
 Astronomical/Nautical/Civil, codes from the TS source; the column spelling is TS's own EF rename of
-`twilightlevel_col`), `minutesoffset` (±720, negatives legal), the moon avoidance suite (`enabled`,
-`separation` 0–180°, `width` 0–30 d, `relaxscale`, `relaxmaxaltitude`/`relaxminaltitude` −90–90° — TS ships
-−15, so the floor must admit negatives), `moondownenabled`, `ditherevery`, `maximumhumidity` (0–100 %, 0 =
+`twilightlevel_col`), `minutesoffset` (±720, negatives legal), the moon avoidance suite (`moonavoidanceenabled`,
+`moonavoidanceseparation` 0–180°, `moonavoidancewidth` 0–30 d, `moonrelaxscale`,
+`moonrelaxmaxaltitude`/`moonrelaxminaltitude` −90–90° — TS ships −15, so the floor must admit negatives), `moondownenabled`, `ditherevery`, `maximumhumidity` (0–100 %, 0 =
 disabled). All cadence-safe (template columns are scoring/filter inputs; nothing clears `FilterCadenceItem`).
 Reference-driven consumers render them with zero UI code. 163 tests (+ surface/bounds/enum pins).
 
@@ -134,7 +134,8 @@ Astronomy.Catalog.Tests 28 + Astronomy.NINA.Tests 45 pass; TargetPlanner builds.
 Ported XFM's image-block codec into `Astronomy.XISF` (`Compression/`): byte-shuffle + zlib
 (max level) + SHA-1, symmetric `Compress`/`Decompress`, plus `BlockCompressionInfo`
 (compression/checksum attribute parse/format) — the Tier-4 "compression + checksum"
-foundation. XFM now consumes it instead of its own copy. 8 codec tests (34 XISF total).
+foundation. XFM consumed it briefly (`e1cd34a`) but the adoption was reverted (XFM `2cd23fc`,
+2026-06-08) — XFM still runs its local copy; the migration stays planned. 8 codec tests (34 XISF total).
 
 ## Recently shipped (2026-05-28): MoonEphemeris + AltitudeCurve.Sample reshape
 
@@ -277,19 +278,19 @@ four axes) and `Location` (publish-time
 around it initially, then the cleanup propagated to every analogous
 factory across the Library for consistency.
 
-Now: all 12 are `public static readonly` fields. Every owning type is
+Now: all 17 are `public static readonly` fields. Every owning type is
 immutable (mutations produce new instances via `With(...)` / structural
 record equality), so a shared singleton is risk-free. Side benefits:
 zero per-access allocation in cold-path callers (e.g. TP's
 `MainForm.CoordinatePresenter` calls `Target.Default` on every D/M/S
 coordinate edit), plus callers can rely on reference identity if useful.
 
-Converted (12 total):
+Converted (17 total — 12 production + 5 test fixtures):
 
 - `Astronomy.Core/Targets/Target.cs` — `Target.Default` (M31).
 - `Astronomy.Core/Locations/Location.cs` — `Location.Default` (40°N/75°W placeholder).
 - `Astronomy.Core/Moon/MoonAvoidance.cs` — `MoonAvoidanceProfile.Disabled` / `Narrowband` (60°/7d) / `Broadband` (120°/14d).
-- `Astronomy.NINA/Filter.cs` — `Filter.Ha` / `OIII` / `SII` / `L` / `R` / `G` / `B` (the standard astronomical narrowband + LRGB set).
+- `Astronomy.NINA/Filter.cs` — `Filter.Ha` / `OIII` / `SII` / `L` / `R` / `G` / `B` (the standard astronomical narrowband + LRGB set; the narrowband trio was renamed `H`/`O`/`S` in the same-day Filter-rename entry above).
 - `Astronomy.Core.Tests/Tests/TestLocations.cs` — `PennsPark` / `Sydney` / `Equator` / `Reykjavik` / `Antarctic` (test-only fixtures; 5 sites).
 
 No production behaviour change. All 553 Library tests pass (460 Core +
@@ -308,14 +309,14 @@ What landed:
 - `Astronomy.XISF/XisfHeaderReader.cs` — header-only XISF parser; `XDocument.Parse()` on the embedded XML section. Pure managed, no native dep.
 - `Astronomy.XISF.Tests` — 26 unit tests with synthetic XISF fixtures.
 
-`Astronomy.NINA` now ProjectReferences `Astronomy.XISF`; the scanner (`Astronomy.NINA/Xisf/ImageLibraryScanner.cs`) consumes XisfHeader via `using Astronomy.XISF;`. AL.NINA tests unchanged (61 still pass); XISF-specific tests moved to the new test project (26 there).
+`Astronomy.NINA` now ProjectReferences `Astronomy.XISF`; the scanner (`Astronomy.NINA/Xisf/ImageLibraryScanner.cs` — since moved to `Astronomy.Catalog/Scan/`, 2026-06) consumes XisfHeader via `using Astronomy.XISF;`. AL.NINA tests unchanged (61 still pass); XISF-specific tests moved to the new test project (26 there).
 
 **Why not NINA's own XISF code?** NINA.Image.FileFormat.XISF is coupled to `IImageData` / `IImageDataFactory` / `NINA.Profile.FileSaveInfo` / WPF, forces a full pixel decode on every read (`XISF.Load()` has no header-only path), and exposes FITS keywords as a weak `TryGetFITSProperty(key, out value)` dictionary. The user's existing XFM approach (XDocument + strongly-typed accessors, header-only by design) is the better fit for shared consumption across non-plugin apps.
 
 **Tiers 2-4 — future work** (added when a real consumer needs them; no eager design):
 
 - **Tier 2** — header write-back. Modify FITS keywords in place, preserving the image-attachment block. Required for XFM migration (XFM does rename / normalization / accept-reject prefix writes) and a future TPS grade-state keyword write.
-- **Tier 3** — full image read. Pixel data decode for uncompressed + LZ4 + zlib + zstd. Borrow compression algorithm strategies from NINA's `XISFData`; don't pull NINA's classes (decouple). Required by any consumer that does actual image processing.
+- **Tier 3** — full image read. Pixel data decode for uncompressed + LZ4 + zlib + zstd. Borrow compression algorithm strategies from NINA's `XISFData`; don't pull NINA's classes (decouple). Required by any consumer that does actual image processing. *(Partially seeded: the shared zlib+shuffle+SHA-1 codec shipped 2026-06 — see the `Astronomy.XISF.Compression` entry above.)*
 - **Tier 4** — full image write. Image data composition + compression + checksum (SHA-256). Required for XFM's writes and any future image-save pipeline.
 
 When XFM eventually migrates to Astronomy.XISF as its sole reader, the additional `KeywordList` accessors (FocalLength, Camera, EGAIN, MasterFrame metadata, weight keywords, etc.) port over alongside Tier 2.
@@ -325,7 +326,7 @@ When XFM eventually migrates to Astronomy.XISF as its sole reader, the additiona
 Rich `Target` class + composition types in `Astronomy.NINA` root namespace, plus `Xisf/ReportToTargetAdapter` bridging Phase A output. What landed:
 
 - **`Target`** — wraps `Astronomy.Core.Targets.Target` geometry; composes `IReadOnlyList<FilterHistory>` (empty when never imaged), `IReadOnlyList<PlannedExposure>?` (null when no plan source covers this target), optional `IHorizonProfile`, and `RotationDeg` (mod-360 normalized for lenient user input).
-- **`Filter`** — sealed, immutable; `FilterKind` enum (Narrowband / Broadband / Luminance / RGB / Unknown); static factory presets (`Ha`/`OIII`/`SII`/`L`/`R`/`G`/`B`) with conventional center/bandwidth values.
+- **`Filter`** — sealed, immutable; `FilterKind` enum (Narrowband / Broadband / Luminance / RGB / Unknown); static factory presets (`Ha`/`OIII`/`SII`/`L`/`R`/`G`/`B`) with conventional center/bandwidth values. *(Superseded 2026-05-27: `FilterKind` dropped, presets renamed `H`/`O`/`S` and made `static readonly` — see those entries above.)*
 - **`FilterHistory`** — per-(filter, purpose) rich history with count + integration + first/last imaged + typical settings. Carries `FilterPurpose` (Light vs Stars) so star-recombination captures don't muddy primary integration totals.
 - **`ExposureSettings`** + **`PlannedExposure`** — leaf records for camera config + forward-looking sequence-plan entries.
 - **`Xisf/ReportToTargetAdapter`** — extension methods `ImageLibraryReport.ToTargets()` / `TargetReport.ToTarget()`; maps XFM single-letter filter codes to standard `Filter` presets, preserves `FilterPurpose`, hands signed declination to Core's normalizing ctor (passing a pre-derived `north` flag would double-flip and silently land southern targets in the wrong hemisphere — caught by an early test).
@@ -334,7 +335,7 @@ All sealed + immutable + `With(...)` per AL convention. 87 unit tests pass cumul
 
 ## Recently shipped (2026-05-18): Astronomy.NINA — Phase A foundation
 
-Sixth and seventh buildable projects added: `Astronomy.NINA` + `Astronomy.NINA.Tests`. Phase A of the multi-phase plan is complete. What landed:
+Fifth and sixth buildable projects added: `Astronomy.NINA` + `Astronomy.NINA.Tests`. Phase A of the multi-phase plan is complete. *(The scanner + report records described below moved to `Astronomy.Catalog/Scan/` in 2026-06.)* What landed:
 
 - **`Xisf/XisfHeaderReader`** — pure-managed XISF header parser, ported from `XisfFileManager/Files/XisfXmlReader.cs` (XDocument-based, no native dependency). Read-only; no XFM mutation logic.
 - **`Xisf/XisfHeader`** — typed FITS-keyword accessors. Required-for-aggregation keywords (OBJECT, RA, DEC, DATE-OBS, EXPTIME with legacy EXPOSURE fallback, FILTER, GAIN, OFFSET with per-camera normalization, SET-TEMP, CCD-TEMP, X/YBINNING, IMAGETYP, INSTRUME) plus capture-only (SSWEIGHT/W_SNR/W_FWHM/W_ECC, FOCALLEN, focuser/rotator, etc.) for future quality-summary work.
@@ -385,7 +386,7 @@ re-derived next time.
 The 2026-05-18 library review and its re-check both fully closed — every actionable item landed (full record archived at `archive/2026-05-18-library-review*.md`). These are the only items that remained genuinely open after closure, lifted here so they don't get lost in the archive:
 
 - **F5.7 Phase 3 — NINA-as-oracle parity.** The parity baseline currently freezes the Library's *own* post-CoordinateSharp output as a self-snapshot (catches drift, but not an independent-implementation check). Promoting it to "Library matches NINA within tolerance" needs a small `tools/NinaParityExtract` exe referencing `NINA.Astrometry` (with `NOVAS31.dll` co-located), calling `AstroUtil` directly to dodge `IProfileService`, emitting `NinaBaselineSnapshot` initializers for a `ParityFixtures.NinaBaselines` dictionary. ~30–60 min, native-DLL co-location the likeliest stumble. Lower-fidelity alternative: NOAA/USNO web baselines for the 9 fixtures. Full integration scope in the archived follow-ups doc.
-- **Docstring drift (two sites, polish).** `SunPosition.ApparentAltitudeAt` XML doc still cites *Bennett* refraction though commit `f444ef2` switched the implementation to *Saemundsson* (`SunPosition.cs:108,113`); and `AltAzCalculator.Of`'s XML doc names `.ToUniversalTime()` though the body now routes through `TimeKindGuard.AsUtc` (`AltAz.cs:79-87`). Both are docs-vs-code drift only — semantics unchanged. (The review's other residuals — single-value hemisphere extensions and the `360.985647` Meeus citation literal — were deliberately left as-is; do not "fix" them.)
+- **Docstring drift — resolved (2026-07-07 audit).** Both cited sites were in fact fixed the same day as the review (`0e777de`), and `AltAzCalculator.Of` was later deleted outright (`b3fc182`) — nothing remains to do. Kept only for the standing warning: the review's other residuals — single-value hemisphere extensions and the `360.985647` Meeus citation literal — were deliberately left as-is; do not "fix" them.
 
 ## Open: publish to GitHub
 
@@ -506,7 +507,7 @@ Captured 2026-05-24 from cross-component review. Two TP-side paths
 currently apply the moon-altitude horizon at different conventions:
 
 - **K-S Sky chart** (TP `AltitudeSubChart_Sky`, after the 2026-05-24
-  `bec0d6c` refraction fix): `moonAltApparent = m.MoonAltDeg +
+  `0c106e0` refraction fix — the "refraction freebie" in the Filter/PlanningPolicy commit): `moonAltApparent = m.MoonAltDeg +
   Refraction.SaemundssonDeg(m.MoonAltDeg)`, then `SkyBrightness.KsAt`
   clamps moon contribution at `moonAltApparent > 0`. Cutoff aligns with
   visually-observed moonset (~34' / ~2 min later than geometric).
