@@ -20,8 +20,11 @@ public sealed record FieldEditResult(bool RowFound, string? OldValue, bool Verif
 }
 
 /// <summary>Why a guarded field write was refused — a structured reason the consumer maps to its own wording
-/// (this library names no consumer). <see cref="None"/> means the write proceeded.</summary>
-public enum RefusalReason { None, SchemaIncompatible, ReadOnly, OpenSidecar, ColumnAbsent }
+/// (this library names no consumer). <see cref="None"/> means the write proceeded.
+/// <see cref="HasOverrideOrder"/>: a cadence-clearing target-scope edit was refused because the target has
+/// hand-authored <c>overrideexposureorderitem</c> rows — index-coupled to the plan set, so honoring the edit
+/// would require deleting user-authored data; re-author the order in the TS editor instead.</summary>
+public enum RefusalReason { None, SchemaIncompatible, ReadOnly, OpenSidecar, ColumnAbsent, HasOverrideOrder }
 
 /// <summary>
 /// Edits individual fields of a <b>local</b> N.I.N.A. Target Scheduler <c>schedulerdb.sqlite</c> copy (never the
@@ -37,8 +40,10 @@ public enum RefusalReason { None, SchemaIncompatible, ReadOnly, OpenSidecar, Col
 /// <see cref="ReadField"/> reads) any column in that reference, validated against it — the reference doubles as
 /// the SQL-injection whitelist. At open the editor reflects each table's columns (<c>PRAGMA table_info</c>) so
 /// <see cref="IsFieldAvailable"/> can tell the caller whether a referenced field actually exists on this db
-/// version. Cadence-breaking fields are flagged in the reference and are <em>not</em> specially handled here — a
-/// plain UPDATE — so the caller must warn or defer for those.
+/// version. Fields with a cadence clear scope (<see cref="TsCadenceClear"/>) delete the
+/// invalidated <c>filtercadenceitem</c> rows in the same transaction as the write (empty is always safe — TS
+/// regenerates); unchanged values are verified no-ops; a target-scope edit refuses when hand-authored
+/// override-order rows exist.
 /// </para>
 /// </summary>
 public sealed class TargetSchedulerEditor : IDisposable
@@ -137,7 +142,7 @@ public sealed class TargetSchedulerEditor : IDisposable
     {
         TsField field = TsEditableSchema.Find(table, column)
             ?? throw new ArgumentException($"column '{column}' is not an editable {table} field", nameof(column));
-        return UpdateField(TsEditableSchema.TableName(table), field.Column, tsKey, value);
+        return UpdateField(TsEditableSchema.TableName(table), field, tsKey, value);
     }
 
     /// <summary>
@@ -153,6 +158,12 @@ public sealed class TargetSchedulerEditor : IDisposable
         if (IsReadOnly) return (null, RefusalReason.ReadOnly);
         if (HasOpenSidecar) return (null, RefusalReason.OpenSidecar);
         if (!IsFieldAvailable(table, column)) return (null, RefusalReason.ColumnAbsent);
+        // A target-scope cadence clear must not orphan hand-authored override-order rows (index-coupled to
+        // the plan set); deleting them is data loss, so the edit refuses instead. Project scope mirrors TS,
+        // whose filter-switch-frequency path leaves override orders untouched.
+        TsField field = TsEditableSchema.Find(table, column)!;   // non-null: IsFieldAvailable passed
+        if (field.Clears == TsCadenceClear.Target && TargetHasOverrideOrder(TsEditableSchema.TableName(table), tsKey))
+            return (null, RefusalReason.HasOverrideOrder);
         return (SetField(table, tsKey, column, value), RefusalReason.None);
     }
 
@@ -217,27 +228,70 @@ public sealed class TargetSchedulerEditor : IDisposable
 
     // Resolve the row by guid-or-Id (a guid never parses as long), read the old value, UPDATE the one column, and
     // read-back verify. Table + column are whitelisted literals; key + value are parameterised.
-    private FieldEditResult UpdateField(string table, string column, string key, object? value)
+    // An unchanged value is a verified no-op (no UPDATE, no cadence clear — mirrors TS, whose own setters only
+    // mark a breaking change on !=). A field with a cadence clear scope deletes the invalidated
+    // filtercadenceitem rows IN THE SAME TRANSACTION as the column write: TS restores those rows verbatim and
+    // regenerates only from empty, so update-without-clear (or a crash between the two) is exactly the
+    // silent-wrong-rotation state this exists to prevent.
+    private FieldEditResult UpdateField(string table, TsField field, string key, object? value)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(key);
-        bool byId = long.TryParse(key, out long id);
-        string where = byId ? "Id = $key" : "guid = $key";
-        object keyObj = byId ? id : key;
+        string column = field.Column;
+        (string where, object keyObj) = KeyClause(key);
 
         (bool found, object? old) = ReadRaw(table, column, where, keyObj);
         if (!found)
             return new FieldEditResult(RowFound: false, OldValue: null, Verified: false);
+        if (NormalizedEquals(old, value))
+            return new FieldEditResult(RowFound: true, OldValue: ToText(old), Verified: true);
 
-        using (SqliteCommand cmd = _connection.CreateCommand())
+        using (SqliteTransaction tx = _connection.BeginTransaction())
         {
-            cmd.CommandText = $"UPDATE {table} SET {column} = $v WHERE {where};";
-            cmd.Parameters.AddWithValue("$v", value ?? (object)DBNull.Value);
-            cmd.Parameters.AddWithValue("$key", keyObj);
-            cmd.ExecuteNonQuery();
+            using (SqliteCommand cmd = _connection.CreateCommand())
+            {
+                cmd.Transaction = tx;
+                cmd.CommandText = $"UPDATE {table} SET {column} = $v WHERE {where};";
+                cmd.Parameters.AddWithValue("$v", value ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("$key", keyObj);
+                cmd.ExecuteNonQuery();
+            }
+            if (field.Clears != TsCadenceClear.None)
+            {
+                using SqliteCommand clear = _connection.CreateCommand();
+                clear.Transaction = tx;
+                clear.CommandText = field.Clears switch
+                {
+                    TsCadenceClear.Target =>
+                        $"DELETE FROM filtercadenceitem WHERE targetid = (SELECT targetid FROM {table} WHERE {where});",
+                    _ =>
+                        $"DELETE FROM filtercadenceitem WHERE targetid IN " +
+                        $"(SELECT Id FROM target WHERE projectid = (SELECT Id FROM {table} WHERE {where}));",
+                };
+                clear.Parameters.AddWithValue("$key", keyObj);
+                clear.ExecuteNonQuery();
+            }
+            tx.Commit();
         }
 
         (_, object? readBack) = ReadRaw(table, column, where, keyObj);
         return new FieldEditResult(RowFound: true, OldValue: ToText(old), Verified: NormalizedEquals(readBack, value));
+    }
+
+    // True when the row's target (via the row table's targetid) has hand-authored override-order rows.
+    private bool TargetHasOverrideOrder(string table, string key)
+    {
+        (string where, object keyObj) = KeyClause(key);
+        using SqliteCommand cmd = _connection.CreateCommand();
+        cmd.CommandText =
+            $"SELECT COUNT(*) FROM overrideexposureorderitem WHERE targetid = (SELECT targetid FROM {table} WHERE {where});";
+        cmd.Parameters.AddWithValue("$key", keyObj);
+        return Convert.ToInt64(cmd.ExecuteScalar() ?? 0L, CultureInfo.InvariantCulture) > 0;
+    }
+
+    private static (string Where, object Key) KeyClause(string key)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(key);
+        bool byId = long.TryParse(key, out long id);
+        return (byId ? "Id = $key" : "guid = $key", byId ? id : key);
     }
 
     private (bool Found, object? Value) ReadRaw(string table, string column, string where, object key)

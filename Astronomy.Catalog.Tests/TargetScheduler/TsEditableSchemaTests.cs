@@ -33,6 +33,17 @@ public sealed class TsEditableSchemaTests
     }
 
     [Fact]
+    public void CadenceClearScopes_MatchTheTsSourcePaths()
+    {
+        Assert.Equal(TsCadenceClear.Target, TsEditableSchema.Find(TsTable.ExposurePlan, "enabled")!.Clears);
+        Assert.Equal(TsCadenceClear.Project, TsEditableSchema.Find(TsTable.Project, "filterswitchfrequency")!.Clears);
+        Assert.All(
+            TsEditableSchema.Fields.Where(f => f is not ({ Table: TsTable.ExposurePlan, Column: "enabled" }
+                                            or { Table: TsTable.Project, Column: "filterswitchfrequency" })),
+            f => Assert.Equal(TsCadenceClear.None, f.Clears));   // IsCadenceBreaking ≡ Clears != None
+    }
+
+    [Fact]
     public void TableName_MapsEachTable()
     {
         Assert.Equal("project", TsEditableSchema.TableName(TsTable.Project));
@@ -141,7 +152,7 @@ public sealed class TsEditableSchemaTests
             "moondownenabled", "ditherevery", "maximumhumidity",
         })
             Assert.NotNull(TsEditableSchema.Find(TsTable.ExposureTemplate, column));
-        Assert.All(fields, f => Assert.True(f.CadenceSafe));   // template columns never clear the TS cadence
+        Assert.All(fields, f => Assert.Equal(TsCadenceClear.None, f.Clears));   // template columns never clear the TS cadence
     }
 
     [Fact]

@@ -8,6 +8,18 @@ The PCL wrapper is a deep but **settled / parked** subsystem; its design records
 - **Interop decision** — *why* PCL is wrapped via a native DLL + P/Invoke (Option 3 / Hybrid, not C++/CLI): `archive/PCL-InterOp.md`.
 - **Wrapper-extension plan** — *what PCL surface to wrap next* (parked discussion-stage; resume cold when ready): `archive/PCL-WrapperRoadmap.md`.
 
+## Recently shipped (2026-07-06): cadence-safe TS editing — transactional clear + OEO refusal
+
+`TsField.CadenceSafe : bool` → `Clears : TsCadenceClear` (`None`/`Target`/`Project`; breaking, no shim).
+`TargetSchedulerEditor` now honors the scope: the column UPDATE and the scoped
+`DELETE FROM filtercadenceitem` run in ONE transaction (TS restores cadence rows verbatim and regenerates
+only from empty — update-without-clear is the silent-wrong-rotation state this prevents); unchanged values
+are verified no-ops (no write, no clear — mirrors TS's own `!=` checks); a target-scope edit refuses with new
+`RefusalReason.HasOverrideOrder` when hand-authored `overrideexposureorderitem` rows exist (project scope
+passes through, mirroring TS's fsf path). Scopes: `exposureplan.enabled` → Target,
+`project.filterswitchfrequency` → Project. 170 tests (+ scoped-clear/no-op/OEO/rollback-atomicity over real
+temp dbs — a trigger forces the DELETE to fail and proves the UPDATE rolls back too).
+
 ## Recently shipped (2026-07-06): TsEditableSchema — full exposuretemplate surface
 
 11 new exposuretemplate rows (18 total): `twilightlevel` (new `TwilightLevel` enum map — Nighttime/

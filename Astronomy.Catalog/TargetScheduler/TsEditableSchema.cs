@@ -16,6 +16,27 @@ public enum TsTable
     ExposureTemplate,
 }
 
+/// <summary>
+/// Which derived <c>filtercadenceitem</c> rows an edit of a column invalidates. TS persists per-target filter
+/// rotation in that table and restores it <b>verbatim</b> on every planning pass (regenerating only when a
+/// target has none — structural in its <c>FilterCadenceFactory.Generate</c>); every TS code path that changes
+/// a plan set clears the affected rows in the same breath (<c>SchedulerDatabaseContext.ToggleExposurePlan</c>;
+/// <c>SaveProject</c> on a filter-switch-frequency change). An editor honoring this scope keeps the db in a
+/// state TS itself could have produced: the column write and the scoped delete are one transaction, and an
+/// empty cadence is always safe.
+/// </summary>
+public enum TsCadenceClear
+{
+    /// <summary>The column does not invalidate cadence rows (a plain UPDATE suffices).</summary>
+    None,
+
+    /// <summary>Clears the edited row's target's cadence rows (the row's table carries <c>targetid</c>).</summary>
+    Target,
+
+    /// <summary>Clears the cadence rows of every target belonging to the edited project row.</summary>
+    Project,
+}
+
 /// <summary>The value shape of a TS column — lets a consumer pick the right input control without hard-coding
 /// per-field knowledge: <see cref="Bool"/>→checkbox, <see cref="Enum"/>→dropdown, numeric→spinner, <see cref="Text"/>→text box.</summary>
 public enum TsFieldType
@@ -39,7 +60,7 @@ public enum TsFieldType
 /// <summary>
 /// One user-editable TS column: its <see cref="Table"/> + exact SQLite <see cref="Column"/> (which is both the
 /// write whitelist and — since the column name is interpolated into the UPDATE — the SQL-injection guard), a
-/// neutral <see cref="Label"/>, its value <see cref="Type"/>, whether changing it is <see cref="CadenceSafe"/>,
+/// neutral <see cref="Label"/>, its value <see cref="Type"/>, its cadence clear scope <see cref="Clears"/>,
 /// and optional enum/range/unit metadata a consumer uses to choose and bound an input control.
 /// <para>
 /// <see cref="Sentinel"/>/<see cref="SentinelLabel"/> describe TS's defer-to-default convention on some numeric
@@ -55,9 +76,9 @@ public enum TsFieldType
 /// </para>
 /// <para>
 /// Consumer-neutral by design (shared-library discipline): this describes the abstract TS contract, not how any
-/// one app presents it. <see cref="CadenceSafe"/> is <c>false</c> for the handful of columns whose change clears
-/// the TS scheduling cadence (<c>FilterCadenceItem</c>); a consumer must warn or defer rather than do a plain
-/// UPDATE for those — the plain editor write does not perform the cadence clear.
+/// one app presents it. <see cref="Clears"/> names the scope of derived <c>filtercadenceitem</c>
+/// rows an edit invalidates (see <see cref="TsCadenceClear"/>); the editor deletes that scope in the same
+/// transaction as the column write, so a consumer's only duty is to warn/confirm before committing.
 /// </para>
 /// </summary>
 public sealed record TsField(
@@ -65,7 +86,7 @@ public sealed record TsField(
     string Column,
     string Label,
     TsFieldType Type,
-    bool CadenceSafe = true,
+    TsCadenceClear Clears = TsCadenceClear.None,
     string? EnumName = null,
     double? Min = null,
     double? Max = null,
@@ -115,8 +136,8 @@ public static class TsEditableSchema
         new(TsTable.Project, "flatshandling", "Flats handling", TsFieldType.Whole,
             Notes: "TS flats-handling code (0=off, 100=target complete, 200=immediate, else a frame count)."),
         new(TsTable.Project, "filterswitchfrequency", "Filter switch frequency", TsFieldType.Whole,
-            CadenceSafe: false, Min: 0, Max: 999,
-            Notes: "Cadence-breaking: TS clears FilterCadenceItem when this changes."),
+            Clears: TsCadenceClear.Project, Min: 0, Max: 999,
+            Notes: "Resets the filter rotation of every target in the project (cleared atomically with the write; TS regenerates)."),
 
         // ---- target -----------------------------------------------------------------------------------------
         new(TsTable.Target, "active", "Enabled", TsFieldType.Bool),
@@ -131,8 +152,8 @@ public static class TsEditableSchema
             Sentinel: -1, SentinelLabel: "template default",
             Notes: "-1 = use the exposure template's default exposure."),
         new(TsTable.ExposurePlan, "enabled", "Enabled", TsFieldType.Bool,
-            CadenceSafe: false,
-            Notes: "Cadence-breaking: TS ToggleExposurePlan clears FilterCadenceItem (vs. target.active, which is safe)."),
+            Clears: TsCadenceClear.Target,
+            Notes: "Resets the target's filter rotation (cleared atomically with the write; TS regenerates). target.active stays scope-free."),
 
         // ---- exposuretemplate -------------------------------------------------------------------------------
         new(TsTable.ExposureTemplate, "name", "Template name", TsFieldType.Text),
@@ -200,10 +221,11 @@ public static class TsEditableSchema
         ByColumn.TryGetValue(table, out Dictionary<string, TsField>? cols)
         && cols.TryGetValue(column, out TsField? field) ? field : null;
 
-    /// <summary>True when <paramref name="column"/> is editable but changing it clears the TS scheduling cadence
-    /// (so a plain UPDATE is insufficient — the consumer must warn or defer). False for unknown or cadence-safe columns.</summary>
+    /// <summary>True when <paramref name="column"/> is editable and its edit clears TS cadence rows
+    /// (<see cref="TsField.Clears"/> is not <see cref="TsCadenceClear.None"/> — the editor performs the scoped
+    /// clear atomically; a consumer should confirm before committing). False for unknown or scope-free columns.</summary>
     public static bool IsCadenceBreaking(TsTable table, string column) =>
-        Find(table, column) is { CadenceSafe: false };
+        Find(table, column) is { Clears: not TsCadenceClear.None };
 
     /// <summary>The exact SQLite table name for <paramref name="table"/>.</summary>
     public static string TableName(TsTable table) => table switch
