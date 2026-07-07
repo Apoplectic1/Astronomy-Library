@@ -42,6 +42,13 @@ public enum TsFieldType
 /// neutral <see cref="Label"/>, its value <see cref="Type"/>, whether changing it is <see cref="CadenceSafe"/>,
 /// and optional enum/range/unit metadata a consumer uses to choose and bound an input control.
 /// <para>
+/// <see cref="Sentinel"/>/<see cref="SentinelLabel"/> describe TS's defer-to-default convention on some numeric
+/// columns: one reserved impossible value (always −1 in TS) stored in the column means "no explicit value —
+/// resolve it elsewhere" (<see cref="SentinelLabel"/> names where: the exposure template, the camera). A consumer
+/// should render the sentinel as that meaning (e.g. a "use default" checkbox), never as the raw number, and must
+/// exempt it from <see cref="Min"/>/<see cref="Max"/> bounds — the sentinel is legal to write back.
+/// </para>
+/// <para>
 /// Consumer-neutral by design (shared-library discipline): this describes the abstract TS contract, not how any
 /// one app presents it. <see cref="CadenceSafe"/> is <c>false</c> for the handful of columns whose change clears
 /// the TS scheduling cadence (<c>FilterCadenceItem</c>); a consumer must warn or defer rather than do a plain
@@ -58,7 +65,9 @@ public sealed record TsField(
     double? Min = null,
     double? Max = null,
     string? Unit = null,
-    string? Notes = null);
+    string? Notes = null,
+    double? Sentinel = null,
+    string? SentinelLabel = null);
 
 /// <summary>One selectable value of a named TS enumeration: the integer <see cref="Code"/> stored in the
 /// column and a display <see cref="Label"/> (the TS source enum member name).</summary>
@@ -111,7 +120,9 @@ public static class TsEditableSchema
 
         // ---- exposureplan -----------------------------------------------------------------------------------
         new(TsTable.ExposurePlan, "desired", "Desired", TsFieldType.Whole, Min: 0, Max: 99999),
-        new(TsTable.ExposurePlan, "exposure", "Exposure", TsFieldType.Real, Min: 0, Unit: "s"),
+        new(TsTable.ExposurePlan, "exposure", "Exposure", TsFieldType.Real, Min: 0, Unit: "s",
+            Sentinel: -1, SentinelLabel: "template default",
+            Notes: "-1 = use the exposure template's default exposure."),
         new(TsTable.ExposurePlan, "enabled", "Enabled", TsFieldType.Bool,
             CadenceSafe: false,
             Notes: "Cadence-breaking: TS ToggleExposurePlan clears FilterCadenceItem (vs. target.active, which is safe)."),
@@ -119,10 +130,13 @@ public static class TsEditableSchema
         // ---- exposuretemplate -------------------------------------------------------------------------------
         new(TsTable.ExposureTemplate, "name", "Template name", TsFieldType.Text),
         new(TsTable.ExposureTemplate, "filtername", "Filter", TsFieldType.Text),
-        new(TsTable.ExposureTemplate, "gain", "Gain", TsFieldType.Whole, Notes: "-1 = camera default."),
-        new(TsTable.ExposureTemplate, "offset", "Offset", TsFieldType.Whole, Notes: "-1 = camera default."),
+        new(TsTable.ExposureTemplate, "gain", "Gain", TsFieldType.Whole, Min: 0, Notes: "-1 = camera default.",
+            Sentinel: -1, SentinelLabel: "camera default"),
+        new(TsTable.ExposureTemplate, "offset", "Offset", TsFieldType.Whole, Min: 0, Notes: "-1 = camera default.",
+            Sentinel: -1, SentinelLabel: "camera default"),
         new(TsTable.ExposureTemplate, "bin", "Binning", TsFieldType.Whole, Min: 1, Max: 4),
-        new(TsTable.ExposureTemplate, "readoutmode", "Readout mode", TsFieldType.Whole, Notes: "-1 = camera default."),
+        new(TsTable.ExposureTemplate, "readoutmode", "Readout mode", TsFieldType.Whole, Min: 0, Notes: "-1 = camera default.",
+            Sentinel: -1, SentinelLabel: "camera default"),
         new(TsTable.ExposureTemplate, "defaultexposure", "Default exposure", TsFieldType.Real, Min: 0, Unit: "s"),
     ];
 

@@ -82,6 +82,35 @@ public sealed class TsEditableSchemaTests
     }
 
     [Fact]
+    public void Sentinels_DeclareTsDeferToDefaultColumns()
+    {
+        // exposureplan.exposure defers to the template; template gain/offset/readoutmode defer to the camera.
+        Assert.Equal(-1, TsEditableSchema.Find(TsTable.ExposurePlan, "exposure")!.Sentinel);
+        Assert.Equal("template default", TsEditableSchema.Find(TsTable.ExposurePlan, "exposure")!.SentinelLabel);
+        foreach (string column in new[] { "gain", "offset", "readoutmode" })
+        {
+            TsField field = TsEditableSchema.Find(TsTable.ExposureTemplate, column)!;
+            Assert.Equal(-1, field.Sentinel);
+            Assert.Equal("camera default", field.SentinelLabel);
+        }
+        Assert.Null(TsEditableSchema.Find(TsTable.ExposurePlan, "desired")!.Sentinel);
+    }
+
+    [Fact]
+    public void Sentinels_AlwaysSitOutsideTheFieldsBounds()
+    {
+        // A consumer must exempt the sentinel from Min/Max clamping — pin that the reference keeps every
+        // sentinel outside its own bounds, so clamped == sentinel can never be ambiguous.
+        Assert.All(
+            TsEditableSchema.Fields.Where(f => f.Sentinel is not null),
+            f =>
+            {
+                Assert.NotNull(f.SentinelLabel);
+                if (f.Min is double min) Assert.True(f.Sentinel < min);
+            });
+    }
+
+    [Fact]
     public void For_ReturnsOnlyThatTablesFields()
     {
         IReadOnlyList<TsField> target = TsEditableSchema.For(TsTable.Target);
