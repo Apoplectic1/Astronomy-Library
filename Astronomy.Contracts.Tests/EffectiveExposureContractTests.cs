@@ -69,11 +69,10 @@ public sealed class EffectiveExposureContractTests
     [Fact]
     public void RawTs_ZeroExposure_IsTakenLiterally_NotAsSentinel()
     {
-        // PINS CURRENT BEHAVIOR — known divergence flagged in CONSUMERS.md #19: this overload's
-        // sentinel test is `< 0` (0 is a literal zero-second exposure), while
-        // TargetSchedulerEditor.ReadPlanEffectiveExposure's SQL uses `exposure > 0` as the override
-        // test (0 defers to the template) — see TargetSchedulerContractTests. The two disagree at
-        // exactly 0; adjudicate against TS's own semantics before relying on either at 0.
+        // Adjudicated 2026-07-07 against the TS source: the planner's sentinel test is `!= -1`
+        // (PlanningExposure.cs), so 0 is a LITERAL zero-second exposure. This overload (`< 0`) and
+        // TargetSchedulerEditor.ReadPlanEffectiveExposure's SQL now agree at every value — see
+        // TargetSchedulerContractTests.
         Assert.Equal(0, EffectiveExposure.Seconds(
             TsPlan(exposure: 0.0), TsTemplate(defaultExposure: 300.0)));
     }

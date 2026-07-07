@@ -18,10 +18,12 @@ same-transaction cadence clears + `HasOverrideOrder` refusal, and writer update-
 semantics — each pinned in a new bench test file. Old-list gaps closed: **#6** (pre-init `Log.*` is a
 silent no-op — bench gained the `Astronomy.Diagnostics` ref) and **#10** (edit key guid-or-Id via
 `long.TryParse`; by-Id wins for digit strings). Registry reworded **#18 as retired**. Bench: 52 pass +
-6 intentional skips; every number 1..23 now maps to a test or registry entry. **Flagged for
-adjudication**: exposure = 0 diverges between `ReadPlanEffectiveExposure`'s SQL (`> 0` → 0 defers to
-template) and `EffectiveExposure.Seconds`' raw-TS overload (`< 0` → 0 taken literally) — both current
-behaviors are pinned with cross-reference comments; decide against TS's own semantics.
+6 intentional skips; every number 1..23 now maps to a test or registry entry. **Adjudicated same day**:
+exposure = 0 had diverged — `ReadPlanEffectiveExposure`'s SQL deferred 0 to the template (`> 0`) while
+`EffectiveExposure.Seconds`' raw-TS overload took it literally (`< 0`). The TS source rules for literal:
+its planner's sentinel test is exactly `!= -1` (`PlanningExposure.cs`; the `<= 0`-as-unset spot is the
+sync client, not the planner). The SQL was aligned to `< 0`; all three Library sites (SQL, raw-TS
+overload, `TargetResolver`'s import normalization) now agree, tests pin the agreement.
 
 ## Recently shipped (2026-07-06): cadence-safe TS editing — transactional clear + OEO refusal
 

@@ -184,11 +184,13 @@ public sealed class TargetSchedulerEditor : IDisposable
     }
 
     /// <summary>
-    /// Reads one exposure plan's <em>effective</em> exposure — its positive override, else its template's
-    /// default — keyed like <see cref="SetField"/> (guid-or-Id). Resolves the same rule the scheduler applies
-    /// behind the defer-to-template sentinel (see <see cref="TsField.Sentinel"/>), so a consumer can surface
-    /// the resolved value without re-implementing the join. <c>Found</c> is false for an unknown key or a plan
-    /// whose template row is missing.
+    /// Reads one exposure plan's <em>effective</em> exposure — its own value, unless it holds the negative
+    /// defer-to-template sentinel (see <see cref="TsField.Sentinel"/>), then its template's default — keyed
+    /// like <see cref="SetField"/> (guid-or-Id). Resolves the same rule the scheduler applies (TS's planner
+    /// tests <c>!= -1</c>; the Library treats every negative as the sentinel — indistinguishable in-contract,
+    /// and 0 is a literal zero-second exposure in both, matching <see cref="EffectiveExposure"/>), so a
+    /// consumer can surface the resolved value without re-implementing the join. <c>Found</c> is false for an
+    /// unknown key or a plan whose template row is missing.
     /// </summary>
     public (bool Found, double? Value) ReadPlanEffectiveExposure(string tsPlanKey)
     {
@@ -199,7 +201,7 @@ public sealed class TargetSchedulerEditor : IDisposable
 
         using SqliteCommand cmd = _connection.CreateCommand();
         cmd.CommandText =
-            "SELECT CASE WHEN ep.exposure > 0 THEN ep.exposure ELSE et.defaultexposure END " +
+            "SELECT CASE WHEN ep.exposure < 0 THEN et.defaultexposure ELSE ep.exposure END " +
             $"FROM exposureplan ep JOIN exposuretemplate et ON et.Id = ep.exposureTemplateId WHERE {where};";
         cmd.Parameters.AddWithValue("$key", key);
         using SqliteDataReader r = cmd.ExecuteReader();

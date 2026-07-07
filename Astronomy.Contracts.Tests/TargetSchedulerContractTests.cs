@@ -188,20 +188,20 @@ public sealed class TargetSchedulerContractTests
     }
 
     [Fact]
-    public void ReadPlanEffectiveExposure_ZeroExposure_DefersToTemplate()
+    public void ReadPlanEffectiveExposure_ZeroExposure_IsLiteral_OnlyNegativeDefers()
     {
-        // PINS CURRENT BEHAVIOR — known divergence flagged in CONSUMERS.md #19: this SQL's override
-        // test is `exposure > 0` (0 defers to the template), while EffectiveExposure.Seconds'
-        // raw-TS overload uses `< 0` as the sentinel test (0 is a literal zero-second exposure) —
-        // see EffectiveExposureContractTests. The two disagree at exactly 0; adjudicate against
-        // TS's own semantics before relying on either at 0.
+        // Adjudicated 2026-07-07 against the TS source: the planner's sentinel test is `!= -1`
+        // (PlanningExposure.cs), so 0 is a LITERAL zero-second exposure — this SQL and
+        // EffectiveExposure.Seconds' raw-TS overload (`< 0`) now agree at every value; see
+        // EffectiveExposureContractTests. (TS's sync-client path re-marks `<= 0` as unset — a
+        // client wrinkle, deliberately not the rule mirrored here.)
         string db = NewEffectiveExposureDb();
         try
         {
             using TargetSchedulerEditor editor = new(db);
             (bool found, double? value) = editor.ReadPlanEffectiveExposure("ep-zero");
             Assert.True(found);
-            Assert.Equal(300.0, value);
+            Assert.Equal(0.0, value);
         }
         finally
         {

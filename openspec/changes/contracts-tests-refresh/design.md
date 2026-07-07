@@ -93,4 +93,9 @@ the user's docs-with-code rule).
 
 ## Open Questions
 
-- D4's adjudication (exposure = 0 semantics) — flagged during apply; does not block the refresh.
+- ~~D4's adjudication (exposure = 0 semantics)~~ — **resolved 2026-07-07** against the TS source: the
+  planner's sentinel test is exactly `!= -1` (`PlanningExposure.cs:52`, + 3 API sites), so 0 is a
+  literal zero-second exposure; TS's `<= 0`-as-unset spot (`TargetSchedulerSyncContainer.cs:402`) is
+  the sync client, not the planner. `ReadPlanEffectiveExposure`'s SQL (`> 0`, the outlier) was aligned
+  to the Library's `< 0` rule; the zero-exposure pins were updated from divergence-documentation to
+  agreement.
