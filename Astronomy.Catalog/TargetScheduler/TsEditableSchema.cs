@@ -116,7 +116,7 @@ public static class TsEditableSchema
         new(TsTable.Target, "active", "Enabled", TsFieldType.Bool),
         new(TsTable.Target, "priority", "Priority", TsFieldType.Enum, EnumName: "TargetPriority"),
         new(TsTable.Target, "rotation", "Rotation", TsFieldType.Real, Min: 0, Max: 360, Unit: "°"),
-        new(TsTable.Target, "roi", "ROI", TsFieldType.Real, Min: 0, Max: 100, Unit: "%"),
+        // target.roi deliberately omitted (2026-07-06): the user never adjusts ROI — not part of the editable surface.
 
         // ---- exposureplan -----------------------------------------------------------------------------------
         new(TsTable.ExposurePlan, "desired", "Desired", TsFieldType.Whole, Min: 0, Max: 99999),
