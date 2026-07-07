@@ -273,6 +273,31 @@ public sealed class TargetSchedulerEditorTests
         finally { TestSupport.Cleanup(db); }
     }
 
+    [Fact]
+    public void ReadPlanEffectiveExposure_ResolvesSentinelThroughTheTemplate()
+    {
+        string db = NewFullDb();
+        try
+        {
+            using TargetSchedulerEditor editor = new(db);
+
+            // Plan holds the -1 defer-to-template sentinel → the template's default.
+            (bool found, double? value) = editor.ReadPlanEffectiveExposure("ep-1");
+            Assert.True(found);
+            Assert.Equal(300.0, value);
+
+            // A positive override wins over the template.
+            editor.SetField(TsTable.ExposurePlan, "ep-1", "exposure", 301.0);
+            (found, value) = editor.ReadPlanEffectiveExposure("ep-1");
+            Assert.True(found);
+            Assert.Equal(301.0, value);
+
+            // Unknown key → not found.
+            Assert.False(editor.ReadPlanEffectiveExposure("no-such").Found);
+        }
+        finally { TestSupport.Cleanup(db); }
+    }
+
     // ---- helpers ------------------------------------------------------------
 
     // A db with target/exposureplan/project rows carrying the editable columns the field setters touch.
@@ -286,8 +311,8 @@ public sealed class TargetSchedulerEditorTests
             cmd.CommandText =
                 "CREATE TABLE target (Id INTEGER PRIMARY KEY, guid TEXT, active INTEGER NOT NULL, priority INTEGER, rotation REAL, roi REAL, name TEXT);" +
                 "INSERT INTO target (guid, active, priority, name) VALUES ('tg-1', 1, -1, 'Alpha');" +
-                "CREATE TABLE exposureplan (Id INTEGER PRIMARY KEY, guid TEXT, desired INTEGER, acquired INTEGER, accepted INTEGER);" +
-                "INSERT INTO exposureplan (guid, desired, acquired, accepted) VALUES ('ep-1', 10, 0, 0);" +
+                "CREATE TABLE exposureplan (Id INTEGER PRIMARY KEY, guid TEXT, desired INTEGER, acquired INTEGER, accepted INTEGER, exposure REAL, exposureTemplateId INTEGER);" +
+                "INSERT INTO exposureplan (guid, desired, acquired, accepted, exposure, exposureTemplateId) VALUES ('ep-1', 10, 0, 0, -1, 1);" +
                 "CREATE TABLE project (Id INTEGER PRIMARY KEY, guid TEXT, state INTEGER, minimumaltitude REAL, ditherevery INTEGER);" +
                 "INSERT INTO project (guid, state, minimumaltitude, ditherevery) VALUES ('pr-1', 1, 30.0, 0);" +
                 "CREATE TABLE exposuretemplate (Id INTEGER PRIMARY KEY, guid TEXT, name TEXT, filtername TEXT, gain INTEGER, offset INTEGER, bin INTEGER, readoutmode INTEGER, defaultexposure REAL);" +

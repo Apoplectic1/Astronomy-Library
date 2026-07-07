@@ -172,6 +172,29 @@ public sealed class TargetSchedulerEditor : IDisposable
         return ReadRaw(TsEditableSchema.TableName(table), field.Column, where, keyObj);
     }
 
+    /// <summary>
+    /// Reads one exposure plan's <em>effective</em> exposure — its positive override, else its template's
+    /// default — keyed like <see cref="SetField"/> (guid-or-Id). Resolves the same rule the scheduler applies
+    /// behind the defer-to-template sentinel (see <see cref="TsField.Sentinel"/>), so a consumer can surface
+    /// the resolved value without re-implementing the join. <c>Found</c> is false for an unknown key or a plan
+    /// whose template row is missing.
+    /// </summary>
+    public (bool Found, double? Value) ReadPlanEffectiveExposure(string tsPlanKey)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(tsPlanKey);
+        bool byId = long.TryParse(tsPlanKey, out long id);
+        string where = byId ? "ep.Id = $key" : "ep.guid = $key";
+        object key = byId ? id : tsPlanKey;
+
+        using SqliteCommand cmd = _connection.CreateCommand();
+        cmd.CommandText =
+            "SELECT CASE WHEN ep.exposure > 0 THEN ep.exposure ELSE et.defaultexposure END " +
+            $"FROM exposureplan ep JOIN exposuretemplate et ON et.Id = ep.exposureTemplateId WHERE {where};";
+        cmd.Parameters.AddWithValue("$key", key);
+        using SqliteDataReader r = cmd.ExecuteReader();
+        return r.Read() ? (true, r.IsDBNull(0) ? null : r.GetDouble(0)) : (false, null);
+    }
+
     /// <summary>Sets one editable <c>target</c> column on the row keyed by guid-or-Id (thin wrapper over <see cref="SetField"/>).</summary>
     public FieldEditResult SetTargetField(string tsTargetKey, string column, object? value) =>
         SetField(TsTable.Target, tsTargetKey, column, value);
