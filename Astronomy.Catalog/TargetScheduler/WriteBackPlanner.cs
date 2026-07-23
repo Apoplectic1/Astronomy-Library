@@ -11,10 +11,12 @@ namespace Astronomy.Catalog.TargetScheduler;
 /// issues to surface. The write key is <b>(target, filter, purpose, whole-second exposure)</b> — a plan's
 /// effective sub length is its spec, so it receives the count of disk frames at exactly that duration (0 when
 /// none exist: an unmet spec, written as a flagged decrease). Disk is the single source of truth, so every
-/// writable cell takes its bucket's count verbatim (overwrite up or down). Disk buckets no plan targets are
-/// surfaced as <see cref="ReconcileNote.UnplannedFramesKind"/> notes — write-back updates existing plan rows
-/// only, never creates or deletes plans. Scoped to <see cref="TargetSource.Both"/> targets; targets present on
-/// only one side (disk xor TS) are counted in <see cref="WriteBackPlan.IgnoredMissing"/> and left untouched.
+/// writable cell takes its bucket's count verbatim (overwrite up or down) — and that truth covers absence:
+/// a plan on a target with no disk match at all stamps to 0 like any other unmet spec, so a stray count (or
+/// a diverged accepted/acquired pair) on a not-yet-shot target heals instead of persisting. Disk buckets no
+/// plan targets are surfaced as <see cref="ReconcileNote.UnplannedFramesKind"/> notes — write-back updates
+/// existing plan rows only, never creates or deletes plans. Disk-only targets have no TS plan rows to update
+/// and are counted in <see cref="WriteBackPlan.IgnoredMissing"/>.
 /// </summary>
 public static class WriteBackPlanner
 {
@@ -44,13 +46,14 @@ public static class WriteBackPlanner
             diskCount[key] = diskCount.GetValueOrDefault(key) + f.ExposureCount;
         }
 
-        // Group catalog plans by the write key, scoped to Both targets (others are missing-on-one-side -> ignored).
-        // Same-purpose plans at DIFFERENT sub lengths land in different groups and auto-resolve against their own
-        // disk buckets — only same-key multiplicity remains a manual case.
+        // Group ALL catalog plans by the write key — a planned-only target's plans group like any other and
+        // stamp against an empty disk (0): no disk match is disk truth too. Same-purpose plans at DIFFERENT
+        // sub lengths land in different groups and auto-resolve against their own disk buckets — only
+        // same-key multiplicity remains a manual case.
         Dictionary<(Guid Target, string Filter, FilterPurpose Purpose, int Seconds), List<ExposurePlan>> groups = new(KeyComparer.Instance);
         foreach (ExposurePlan p in plans)
         {
-            if (!targetById.TryGetValue(p.TargetId, out Target? t) || t.Source != TargetSource.Both) continue;
+            if (!targetById.TryGetValue(p.TargetId, out Target? t)) continue;
             if (!templateById.TryGetValue(p.ExposureTemplateId, out ExposureTemplate? tpl)) continue;
 
             FilterPurpose purpose = FilterPurposeClassifier.Classify(tpl.Name);
@@ -134,8 +137,7 @@ public static class WriteBackPlanner
             .OrderBy(n => n.TargetName, StringComparer.OrdinalIgnoreCase)
             .ThenBy(n => n.Detail, StringComparer.Ordinal));
 
-        int ignoredMissing = report.PlannedOnlyCount + report.ActualOnlyCount;
-        return new WriteBackPlan(writes, manual, needs, ignoredMissing);
+        return new WriteBackPlan(writes, manual, needs, report.ActualOnlyCount);
     }
 
 

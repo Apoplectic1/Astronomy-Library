@@ -8,8 +8,8 @@ namespace Astronomy.Catalog.TargetScheduler;
 
 /// <summary>
 /// The plan for one write-back run: the auto-resolvable counts to push, the groups that need manual
-/// reconciliation, the TS target-level issues surfaced by the build, and how many targets were ignored because
-/// they exist on only one side (disk xor TS).
+/// reconciliation, the TS target-level issues surfaced by the build, and how many disk-only targets were
+/// ignored (no TS plan rows exist for them, and write-back never creates plans).
 /// </summary>
 public sealed record WriteBackPlan(
     IReadOnlyList<PlannedWrite> Writes,

@@ -172,7 +172,7 @@ public sealed class WriteBackPlannerTests
     }
 
     [Fact]
-    public void PlannedOnlyTarget_IsIgnored()
+    public void PlannedOnlyTarget_PlansStampToZero_DiskTruthCoversAbsence()
     {
         Guid t = Guid.NewGuid(), tpl = Guid.NewGuid();
 
@@ -180,12 +180,32 @@ public sealed class WriteBackPlannerTests
             [Planned(t, "Future")],
             [Plan(t, tpl, tsId: 1, desired: 50)],
             [Tpl(tpl, "H", "H")],
-            [],                              // not yet on disk
+            [],                              // not yet on disk — truth is zero
             Report(plannedOnly: 1));
 
-        Assert.Empty(plan.Writes);
+        PlannedWrite w = Assert.Single(plan.Writes);
+        Assert.Equal(0, w.DiskCount);
         Assert.Empty(plan.Manual);
-        Assert.Equal(1, plan.IgnoredMissing);
+        Assert.Equal(0, plan.IgnoredMissing);   // planned-only is written, not ignored
+    }
+
+    [Fact]
+    public void PlannedOnlyTarget_DivergedCounters_HealViaZeroStamp()
+    {
+        // A hand-edit slip left accepted != acquired on a not-yet-shot plan: the zero stamp re-couples both
+        // to disk truth (the applier's diff layer skips genuinely clean 0/0 plans as no-ops).
+        Guid t = Guid.NewGuid(), tpl = Guid.NewGuid();
+
+        WriteBackPlan plan = WriteBackPlanner.Plan(
+            [Planned(t, "Galaxy")],
+            [Plan(t, tpl, tsId: 9, desired: 64, acquired: 0, accepted: 64)],
+            [Tpl(tpl, "H", "H")],
+            [],
+            Report(plannedOnly: 1));
+
+        PlannedWrite w = Assert.Single(plan.Writes);
+        Assert.Equal(9, w.TsExposurePlanId);
+        Assert.Equal(0, w.DiskCount);
     }
 
     [Fact]

@@ -32,7 +32,7 @@ public static class SingleTargetPlanner
     /// <param name="isMosaic">Whether <paramref name="dirName"/> is a <see cref="MosaicConvention">mosaic</see> directory.</param>
     /// <param name="dirName">The target's top-level directory name (used to name-match the TS isMosaic project for a mosaic).</param>
     /// <param name="ts">The TS plan snapshot.</param>
-    /// <param name="options">Match tolerance (default 0.5°).</param>
+    /// <param name="options">Match tolerances (default 0.5°; mosaic panels anchor within the tighter panel radius).</param>
     public static WriteBackPlan Plan(
         IReadOnlyList<TargetReport> units,
         bool isMosaic,
@@ -43,7 +43,10 @@ public static class SingleTargetPlanner
         ArgumentNullException.ThrowIfNull(units);
         ArgumentException.ThrowIfNullOrWhiteSpace(dirName);
         ArgumentNullException.ThrowIfNull(ts);
-        double tolerance = (options ?? ResolveOptions.Default).MatchToleranceDegrees;
+        ResolveOptions opts = options ?? ResolveOptions.Default;
+        // Units here are mosaic panels when isMosaic — they anchor within the tighter panel radius, same as
+        // the full resolver (panel spacing is a fraction of a field; a larger separation is a different framing).
+        double tolerance = isMosaic ? opts.PanelMatchToleranceDegrees : opts.MatchToleranceDegrees;
 
         List<PlannedWrite> writes = [];
         List<ManualGroup> manual = [];
