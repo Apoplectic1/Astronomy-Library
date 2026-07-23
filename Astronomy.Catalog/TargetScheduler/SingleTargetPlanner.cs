@@ -32,7 +32,8 @@ public static class SingleTargetPlanner
     /// <param name="isMosaic">Whether <paramref name="dirName"/> is a <see cref="MosaicConvention">mosaic</see> directory.</param>
     /// <param name="dirName">The target's top-level directory name (used to name-match the TS isMosaic project for a mosaic).</param>
     /// <param name="ts">The TS plan snapshot.</param>
-    /// <param name="options">Match tolerances (default 0.5°; mosaic panels anchor within the tighter panel radius).</param>
+    /// <param name="options">Match tolerances (default 0.5°; an unaligned mosaic-panel claim is limited to the
+    /// tighter panel radius — see <see cref="ResolveOptions.PanelMatchToleranceDegrees"/>).</param>
     public static WriteBackPlan Plan(
         IReadOnlyList<TargetReport> units,
         bool isMosaic,
@@ -44,9 +45,7 @@ public static class SingleTargetPlanner
         ArgumentException.ThrowIfNullOrWhiteSpace(dirName);
         ArgumentNullException.ThrowIfNull(ts);
         ResolveOptions opts = options ?? ResolveOptions.Default;
-        // Units here are mosaic panels when isMosaic — they anchor within the tighter panel radius, same as
-        // the full resolver (panel spacing is a fraction of a field; a larger separation is a different framing).
-        double tolerance = isMosaic ? opts.PanelMatchToleranceDegrees : opts.MatchToleranceDegrees;
+        double tolerance = opts.MatchToleranceDegrees;
 
         List<PlannedWrite> writes = [];
         List<ManualGroup> manual = [];
@@ -83,11 +82,17 @@ public static class SingleTargetPlanner
         // ---- Anchor each unit, then route each of its cells. ------------------------------------------------
         foreach (TargetReport unit in units)
         {
+            // Panels gate their radius on name alignment, mirroring TargetResolver: an aligned TS panel
+            // (its name ends with the directory's derived token) anchors within the full tolerance, an
+            // unaligned one only within the tight panel radius.
+            string unitToken = TargetResolver.PanelToken(unit.DirectoryName.Split('/', '\\')[^1]);
+            bool IsAligned(TsTarget c) => TargetResolver.TokenAligned(c.Name, unitToken);
+
             List<(TsTarget Ts, double Sep)> near = [.. candidates
                 .Where(c => c.Ra is double && c.Dec is double)
                 .Select(c => (Ts: c, Sep: TargetResolver.SeparationDegrees(
                     unit.RaHours, unit.DecDegrees, c.Ra!.Value, c.Dec!.Value)))
-                .Where(x => x.Sep <= tolerance)
+                .Where(x => x.Sep <= (isMosaic && !IsAligned(x.Ts) ? opts.PanelMatchToleranceDegrees : tolerance))
                 .OrderBy(x => x.Sep)];
 
             if (near.Count == 0)

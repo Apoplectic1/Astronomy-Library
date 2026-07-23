@@ -376,6 +376,30 @@ public sealed class TargetResolverTests
     }
 
     [Fact]
+    public void Resolve_Panel_AlignedName_AnchorsBeyondPanelTolerance_RealDriftAbsorbed()
+    {
+        // The mirror of the unclaimed-framing case: the directory token ALIGNS with the TS panel, so the
+        // name confirms identity and the claim is trusted within the full target tolerance — a panel whose
+        // planned-vs-plate-solved offset exceeds the tight radius still matches instead of silently
+        // splitting into a planned/actual pair (which would zero-stamp its real counts on write-back).
+        TargetReport[] disk = [DiskMosaic("Mosaic - Clam", ("Panel 5of6", 10.313, -20.0))];
+        TsPlanData ts = new(
+            [new TsProject(60, "profile-1", "Mosaic - Clam", 1, 1, null, 1, "g-c")],
+            [TsT(1, "Clam P5", 10.3, -20.0, project: 60, guid: "g-c5")],         // ~0.18° — drift, but aligned
+            [new TsExposureTemplate(1000, "profile-1", "Ha", "H", 100, 50, 1, 300.0)],
+            [TsP(100, target: 1, template: 1000)]);
+
+        (CatalogGraph g, CatalogBuildReport r) = TargetResolver.Resolve(disk, ts, Now);
+
+        Target both = Assert.Single(g.Targets, t => t.Source == TargetSource.Both && t.ParentTargetId is not null);
+        Assert.Equal("Clam P5", both.Name);
+        Assert.Empty(r.NameMismatches);
+        Assert.Equal(1, r.PanelsMatched);
+        Assert.Equal(0, r.PanelsPlannedOnly);
+        Assert.Equal(0, r.PanelsActualOnly);
+    }
+
+    [Fact]
     public void Resolve_Mosaic_WrongNumberedPanel_FlagsNameMismatch()
     {
         // A misfiled panel directory (wrong number) still anchors by coordinates, but the token validation

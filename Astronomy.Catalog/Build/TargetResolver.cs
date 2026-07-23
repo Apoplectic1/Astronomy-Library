@@ -17,11 +17,12 @@ namespace Astronomy.Catalog.Build;
 /// after reviewing the first real-data <see cref="CatalogBuildReport"/>.
 /// </param>
 /// <param name="PanelMatchToleranceDegrees">
-/// The tighter radius used when the TS target is a mosaic panel anchoring to a disk panel. Panels sit a
-/// fraction of a field apart — often within the target-scope tolerance of a neighbouring panel — while a
-/// correct panel's planned-vs-plate-solved offset is arcminutes, so panel scope gets its own much smaller
-/// radius: an unrelated framing that merely lands nearby stays unclaimed instead of arriving as a
-/// flagged coordinate match.
+/// The tighter radius for a mosaic panel's claim when the disk directory's name does NOT align with the TS
+/// panel. Panels sit a fraction of a field apart, so coordinates alone are only trusted at plate-solve
+/// precision — an unrelated framing that merely lands nearby stays unclaimed instead of arriving as a
+/// flagged coordinate match. A name-aligned directory (its derived panel token validates) anchors within
+/// the full <paramref name="MatchToleranceDegrees"/>: the name confirms identity, so real recenter drift
+/// beyond this radius still matches.
 /// </param>
 public sealed record ResolveOptions(double MatchToleranceDegrees = 0.5, double PanelMatchToleranceDegrees = 0.1)
 {
@@ -186,11 +187,19 @@ public static class TargetResolver
                 continue;
             }
 
-            double scopeTolerance = isPanelTarget ? panelTolerance : tolerance;
+            // A panel's directory label ("Panel 01of16") never textually matches its TS name, but its
+            // derived token does ("P1" suffixes "CygnusLoop P1") — same validation, panel-shaped facet.
+            bool IsAligned(WorkingTarget w) => NameAligned(tst.Name, w.Disk)
+                || (w.PanelToken is string token && TokenAligned(tst.Name, token));
+
+            // Panels gate their radius on name alignment: an aligned directory anchors within the full
+            // tolerance (the name confirms identity, so real recenter drift is absorbed), while an unaligned
+            // claim must sit within the tight panel radius (coordinates alone are only trusted at plate-solve
+            // precision — a merely-nearby framing under the same mosaic is a different panel, not drift).
             List<(WorkingTarget Work, double Sep)> candidates = [.. diskWorking
                 .Where(w => w.ScopeKey == tsScope)
                 .Select(w => (Work: w, Sep: SeparationDegrees(raHours, decDegrees, w.Disk.RaHours, w.Disk.DecDegrees)))
-                .Where(x => x.Sep <= scopeTolerance)
+                .Where(x => x.Sep <= (isPanelTarget && !IsAligned(x.Work) ? panelTolerance : tolerance))
                 .OrderBy(x => x.Sep)];
 
             if (candidates.Count == 0)
@@ -200,10 +209,7 @@ public static class TargetResolver
             }
 
             (WorkingTarget nearest, double nearestSep) = candidates[0];
-            // A panel's directory label ("Panel 01of16") never textually matches its TS name, but its
-            // derived token does ("P1" suffixes "CygnusLoop P1") — same validation, panel-shaped facet.
-            bool aligned = NameAligned(tst.Name, nearest.Disk)
-                || (nearest.PanelToken is string token && TokenAligned(tst.Name, token));
+            bool aligned = IsAligned(nearest);
             nearest.AssignedTs.Add((tst, nearestSep, aligned));
             tsTargetToCanonical[tst.Id] = nearest.Id;
 
