@@ -16,9 +16,16 @@ namespace Astronomy.Catalog.Build;
 /// a neighbouring target. A large mosaic whose panels spread beyond this from the folded centroid may miss — tune
 /// after reviewing the first real-data <see cref="CatalogBuildReport"/>.
 /// </param>
-public sealed record ResolveOptions(double MatchToleranceDegrees = 0.5)
+/// <param name="PanelMatchToleranceDegrees">
+/// The tighter radius used when the TS target is a mosaic panel anchoring to a disk panel. Panels sit a
+/// fraction of a field apart — often within the target-scope tolerance of a neighbouring panel — while a
+/// correct panel's planned-vs-plate-solved offset is arcminutes, so panel scope gets its own much smaller
+/// radius: an unrelated framing that merely lands nearby stays unclaimed instead of arriving as a
+/// flagged coordinate match.
+/// </param>
+public sealed record ResolveOptions(double MatchToleranceDegrees = 0.5, double PanelMatchToleranceDegrees = 0.1)
 {
-    /// <summary>The default options (0.5° tolerance).</summary>
+    /// <summary>The default options (0.5° target tolerance, 0.1° panel tolerance).</summary>
     public static ResolveOptions Default { get; } = new();
 }
 
@@ -51,7 +58,9 @@ public static class TargetResolver
     {
         ArgumentNullException.ThrowIfNull(diskTargets);
         ArgumentNullException.ThrowIfNull(ts);
-        double tolerance = (options ?? ResolveOptions.Default).MatchToleranceDegrees;
+        ResolveOptions opts = options ?? ResolveOptions.Default;
+        double tolerance = opts.MatchToleranceDegrees;
+        double panelTolerance = opts.PanelMatchToleranceDegrees;
 
         // ---- Profiles: one per distinct TS profileId (a NINA profile GUID string). --------------------------
         Dictionary<string, Guid> profileIds = new(StringComparer.OrdinalIgnoreCase);
@@ -177,10 +186,11 @@ public static class TargetResolver
                 continue;
             }
 
+            double scopeTolerance = isPanelTarget ? panelTolerance : tolerance;
             List<(WorkingTarget Work, double Sep)> candidates = [.. diskWorking
                 .Where(w => w.ScopeKey == tsScope)
                 .Select(w => (Work: w, Sep: SeparationDegrees(raHours, decDegrees, w.Disk.RaHours, w.Disk.DecDegrees)))
-                .Where(x => x.Sep <= tolerance)
+                .Where(x => x.Sep <= scopeTolerance)
                 .OrderBy(x => x.Sep)];
 
             if (candidates.Count == 0)

@@ -110,7 +110,7 @@ TS is the PLAN; the catalog re-organizes the plan clean and anchored to actual. 
 and `exposure_plan` (goals) both hang off the one target.
 
 - **`Build/TargetResolver`** (pure, unit-tested): **coordinate-primary** match — each TS target anchors to the
-  nearest disk target within a tolerance (default 0.5° haversine); name only validates; disk plate-solved coords
+  nearest disk target within a tolerance (default 0.5° haversine; mosaic panels 0.1°); name only validates; disk plate-solved coords
   win on merge; **the TS guid is retained on `Both` for the planned write-back-to-TS path**; TS duplicates fold
   onto one canonical, and name-mismatch / ambiguous / unanchored / out-of-range rows are reported in
   `CatalogBuildReport` (surfacing TS's "problems and errors"), not dropped.

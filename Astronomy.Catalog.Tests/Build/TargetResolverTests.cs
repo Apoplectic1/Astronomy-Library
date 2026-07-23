@@ -310,7 +310,7 @@ public sealed class TargetResolverTests
         TsPlanData ts = new(
             [new TsProject(40, "profile-1", "Mosaic - Tight", 1, 1, null, 1, "g-t")],
             [TsT(1, "Tight P1", 20.5, 30.5, project: 40, guid: "g-t1"),          // aligned (token P1), sep 0
-             TsT(2, "Tight P2", 20.52, 30.5, project: 40, guid: "g-t2")],        // ~0.26° — close, unaligned
+             TsT(2, "Tight P2", 20.505, 30.5, project: 40, guid: "g-t2")],       // ~0.065° — inside panel tolerance, unaligned
             [new TsExposureTemplate(1000, "profile-1", "Ha", "H", 100, 50, 1, 300.0)],
             [TsP(100, target: 1, template: 1000), TsP(101, target: 2, template: 1000)]);
 
@@ -332,11 +332,12 @@ public sealed class TargetResolverTests
     public void Resolve_AllClaimsUnaligned_NearestStands_NothingReleases()
     {
         // With no aligned claim at all, the rule never demotes: the nearest unaligned match stands and is
-        // flagged (the Rosette "Panel Center" shape — coordinates succeed where the naming broke).
+        // flagged — a misnamed directory whose coordinates succeed (inside the panel radius) where the
+        // naming broke.
         TargetReport[] disk = [DiskMosaic("Mosaic - Rose", ("Panel Center", 6.5, 5.0))];
         TsPlanData ts = new(
             [new TsProject(50, "profile-1", "Mosaic - Rose", 1, 1, null, 1, "g-r")],
-            [TsT(1, "Rose P4", 6.51, 5.0, project: 50, guid: "g-r4")],
+            [TsT(1, "Rose P4", 6.505, 5.0, project: 50, guid: "g-r4")],          // ~0.075° — same framing, wrong name
             [new TsExposureTemplate(1000, "profile-1", "Ha", "H", 100, 50, 1, 300.0)],
             [TsP(100, target: 1, template: 1000)]);
 
@@ -346,6 +347,32 @@ public sealed class TargetResolverTests
         Assert.Equal("Rose P4", both.Name);
         Assert.Single(r.NameMismatches);
         Assert.Empty(r.DuplicateTsTargets);
+    }
+
+    [Fact]
+    public void Resolve_Panel_BeyondPanelTolerance_StaysUnclaimed_EvenInsideTargetTolerance()
+    {
+        // An independent framing filed under the mosaic directory, ~0.2° from a planned panel: inside the
+        // target-scope tolerance but beyond the panel radius. Panel spacing is a fraction of a field, so a
+        // separation that large is a different framing, not recenter drift — no claim, no name≠ flag; the
+        // TS panel stays planned and the directory stays actual-only.
+        TargetReport[] disk = [DiskMosaic("Mosaic - Rose", ("Panel Center", 6.5, 5.0))];
+        TsPlanData ts = new(
+            [new TsProject(50, "profile-1", "Mosaic - Rose", 1, 1, null, 1, "g-r")],
+            [TsT(1, "Rose P4", 6.513, 5.0, project: 50, guid: "g-r4")],          // ~0.194° away
+            [new TsExposureTemplate(1000, "profile-1", "Ha", "H", 100, 50, 1, 300.0)],
+            [TsP(100, target: 1, template: 1000)]);
+
+        (CatalogGraph g, CatalogBuildReport r) = TargetResolver.Resolve(disk, ts, Now);
+
+        Target planned = Assert.Single(g.Targets, t => t.Source == TargetSource.Planned);
+        Assert.Equal("Rose P4", planned.Name);
+        Assert.NotNull(planned.ParentTargetId);                                  // still a panel of the mosaic
+        Assert.Single(g.Targets, t => t.Source == TargetSource.Actual && t.ParentTargetId is not null);
+        Assert.Empty(r.NameMismatches);
+        Assert.Equal(0, r.PanelsMatched);
+        Assert.Equal(1, r.PanelsPlannedOnly);
+        Assert.Equal(1, r.PanelsActualOnly);
     }
 
     [Fact]
