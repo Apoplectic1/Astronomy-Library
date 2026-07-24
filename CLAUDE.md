@@ -6,7 +6,7 @@
 
 **Reference docs** (current truth, edited in place — route by name):
 
-- **`ARCHITECTURE.md`** — subsystem mechanics, *how each module works*. Organized one section per buildable project (Astronomy.Core + its API conventions/thread-safety/code-organization, .XISF, .Diagnostics, .Catalog, .NINA, .PCL/.Native + the PCL local-build and interop story). Grep by project name.
+- **`ARCHITECTURE.md`** — subsystem mechanics, *how each module works*. Organized one section per buildable project (Astronomy.Core + its API conventions/thread-safety/code-organization, .XISF, .Diagnostics, .Catalog, .NINA, .Contracts.Tests, .PCL/.Native + the PCL local-build and interop story). Grep by project name.
 - **`ROADMAP.md`** — forward-looking design (open work, planned direction) + a three-line recently-shipped digest. Whole-library direction. Shipped history is *not* here — it's `CHANGELOG.md`.
 - **`VERIFICATION.md`** — how to **build / test / benchmark** and the build traps. Read before claiming a build or tests pass. The cross-repo contract DRC is `..\build-all.ps1`.
 - **`CONSUMERS.md`** — the Library's de-facto public **contract / datasheet**: what each downstream consumer depends on (the "pinned pinout").
@@ -27,5 +27,5 @@ Standing truths graduate up out of the journal into the reference docs.
 ## Load-bearing gotchas (detail in the docs above)
 
 - **The SLN is a mixed C++/C# graph — build it with `MSBuild.exe`, never `dotnet build Astronomy.sln`.** dotnet silently produces a managed-only build (skips the vcxproj) and any `Astronomy.PCL` test then throws `DllNotFoundException`. Pure-managed projects build fine with `dotnet build` individually. (→ `VERIFICATION.md`)
-- **x64 is the only fully-wired config** (Debug/Release × x64) — always build x64. The solution also exposes AnyCPU/x86 sln entries, but they're unmaintained aliases (most projects map them to AnyCPU/Win32, a few newer ones to x64). The vendored `PCL/` tree is gitignored — re-extract from `PCL\PCL-master.zip` on a fresh clone. (→ `ARCHITECTURE.md`)
+- **x64 is the only fully-wired config** (Debug/Release × x64) — always build x64. The solution also exposes AnyCPU/x86 sln entries, but they're unmaintained aliases: of the thirteen `Astronomy.*` projects nine map to AnyCPU and four newer ones to x64, while the eight vendored PCL projects map x86 → `Win32`, a configuration none of them actually declares. The vendored `PCL/` tree is gitignored — re-extract from `PCL\PCL-master.zip` on a fresh clone. (→ `ARCHITECTURE.md`)
 - **Every test project is xUnit v3** (`OutputType=Exe`; v3 generates the entry point). **Never let `xunit.v3` land on a non-test project** — a "Manage NuGet for Solution → all projects" action forces `OutputType=Exe` and breaks the build later (bit four projects 2026-06-21). A non-test project needing xUnit types uses `xunit.v3.extensibility.core`. (→ `VERIFICATION.md`)

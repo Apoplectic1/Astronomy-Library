@@ -8,6 +8,11 @@ This is a companion to `archive/PCL-InterOp.md` (the archived architectural deci
 
 ## Status today
 
+> **Snapshot as captured 2026-04-28 — not current truth.** Live wrapper state (surface, TFM, toolset)
+> is in `ARCHITECTURE.md` § *Astronomy.PCL / Astronomy.PCL.Native*; the TFM below has since narrowed to
+> `net10.0-windows`. **Before resuming this plan, see the premise check in `ROADMAP.md`
+> § *Open: parked PCL wrapper-extension plan*.**
+
 `Astronomy.PCL` (managed wrapper, `net10.0` x64 — was net8.0 initially; bumped 2026-05-04) currently exposes:
 
 ```csharp

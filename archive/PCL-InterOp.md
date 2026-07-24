@@ -197,6 +197,12 @@ PCL snapshot pinned at `PCL\PCL-master.zip` from 2025-02-22. Re-snapshot only wh
 
 ## Status
 
+> **Point-in-time snapshot, not current truth.** This section froze when the record was archived and
+> has since drifted (e.g. the TFM below is now `net10.0-windows`, narrowed 2026-05-11 in `e7ae75c`).
+> For the live wrapper state — public surface, toolset, TFM, C ABI location — read
+> `ARCHITECTURE.md` § *Astronomy.PCL / Astronomy.PCL.Native*. What remains authoritative here is the
+> **decision and its reasoning**, not these implementation facts.
+
 **First surface implemented: XISF read.** `Astronomy.PCL.Native` (vcxproj, statically links PCL `.lib`s from `Library\PCL\lib\x64\$(Configuration)\`) plus `Astronomy.PCL` (net10.0 P/Invoke wrapper, was net8.0 at first implementation; bumped 2026-05-04) are in `Astronomy.sln`. Public C# surface: `XisfFile : IDisposable` with `Open` / `SelectImage` / `ReadImageF32`. Tests live in `Astronomy.Core.Tests/Tests/PCL/`. The C ABI surface is in `Astronomy.PCL.Native\include\Astronomy\PCL\XisfCApi.h` — extension is wrap-on-demand per the strategy in this doc.
 
 **PCL itself was bumped to `v145` post-implementation** (matches the wrapper's toolset). The seven PCL projects we link against — `PCL.vcxproj` plus the six 3rd-party libs (`cminpack`, `lcms`, `lz4`, `RFC6234`, `zlib`, `zstd`) — are also listed in `Astronomy.sln` under a `PCL` Solution Folder for source visibility, but with `Build.0` omitted: they show in Solution Explorer with full IntelliSense / F12, and `Build Solution` does not build them. PCL rebuilds remain a manual step via `Library\PCL\src\pcl\windows\vc18\PCL.sln`.

@@ -4,11 +4,19 @@
 
 ## Build / test / benchmark
 
-The mixed C++/C# solution requires `MSBuild.exe` (from VS2026; build 18.x) for full builds — `dotnet build Astronomy.sln` cannot drive the C++ vcxproj. Locate it via `vswhere.exe` or run from a Developer Command Prompt. Earlier VS lines (2022 / build 17.x) likely also work but the project is developed and verified against VS2026.
+**Prerequisites.**
+- **VS2026 (build 18.x) `MSBuild.exe`** — not optional and not merely "preferred": `Astronomy.PCL.Native.vcxproj` pins `<PlatformToolset>v145</PlatformToolset>`, and v145 ships only with the VS2026 line, so **VS2022 / 17.x cannot load the vcxproj at all**. Earlier lines can still build the pure-managed projects individually (see below). Locate MSBuild via `vswhere.exe` or use a Developer Command Prompt. On this machine: `C:\Program Files\Microsoft Visual Studio\18\Enterprise\MSBuild\Current\Bin\MSBuild.exe`.
+- **.NET 10 SDK** — `global.json` pins `10.0.203` with `rollForward: latestMajor`, so a newer 10.x (e.g. 10.0.302) resolves fine, but with no .NET 10 SDK installed you get an opaque `global.json` resolution failure rather than a build error.
+- **The vendored `PCL/` tree**, for anything touching `Astronomy.PCL` — see *PCL native prerequisites* below. It is gitignored, so a fresh clone has none of it.
+
+`dotnet build Astronomy.sln` cannot drive the C++ vcxproj — see the trap below.
 
 ```bash
 # Full mixed build (native + managed) — REQUIRED to produce Astronomy.PCL.Native.dll
-msbuild Astronomy.sln /p:Configuration=Debug /p:Platform=x64 /m
+# -restore is load-bearing: MSBuild.exe does NOT restore implicitly (unlike dotnet build),
+# and there is no NuGet.config or Directory.Build.targets hook, so without it a clean clone
+# fails on missing project.assets.json / NU1101 before compiling anything.
+msbuild Astronomy.sln -restore -p:Configuration=Debug -p:Platform=x64 -m
 
 # Run xUnit tests (all). The native DLL must already be built; --no-build skips a redundant rebuild.
 dotnet test Astronomy.Core.Tests/Astronomy.Core.Tests.csproj -c Debug -p:Platform=x64 --no-build
@@ -20,11 +28,23 @@ dotnet test Astronomy.Core.Tests -c Debug -p:Platform=x64 --no-build --filter "T
 # Pure-managed Astronomy.Core build (no SLN, no C++ tooling needed)
 dotnet build Astronomy.Core/Astronomy.Core.csproj
 
-# Astronomy.XISF / Astronomy.NINA build + tests — pure-managed (no native dep)
+# Astronomy.XISF / Astronomy.NINA / Catalog / Diagnostics — pure-managed (no native dep)
 dotnet build Astronomy.XISF/Astronomy.XISF.csproj
-dotnet test Astronomy.XISF.Tests/Astronomy.XISF.Tests.csproj
+dotnet test  Astronomy.XISF.Tests/Astronomy.XISF.Tests.csproj
 dotnet build Astronomy.NINA/Astronomy.NINA.csproj
-dotnet test Astronomy.NINA.Tests/Astronomy.NINA.Tests.csproj
+dotnet test  Astronomy.NINA.Tests/Astronomy.NINA.Tests.csproj
+dotnet build Astronomy.Catalog/Astronomy.Catalog.csproj
+dotnet test  Astronomy.Catalog.Tests/Astronomy.Catalog.Tests.csproj
+dotnet build Astronomy.Diagnostics/Astronomy.Diagnostics.csproj
+
+# Contract bench (the CONSUMERS.md pinout) — pure-managed
+dotnet test Astronomy.Contracts.Tests/Astronomy.Contracts.Tests.csproj
+
+# NOTE: Astronomy.Core.Tests is NOT pure-managed — it ProjectReferences Astronomy.PCL,
+# which drags Astronomy.PCL.Native.vcxproj into its graph, so `dotnet test` on it alone
+# fails with MSB4278 (Microsoft.Cpp.Default.props). Build it with MSBuild, then:
+#   msbuild Astronomy.Core.Tests/Astronomy.Core.Tests.csproj -restore -p:Configuration=Debug -p:Platform=x64
+#   dotnet test Astronomy.Core.Tests/Astronomy.Core.Tests.csproj --no-build -c Debug -p:Platform=x64
 
 # Smoke-test against a real image library (env var gates the live scan)
 TP_SMOKE_IMAGE_LIBRARY='E:\Photography\Astro Photography\Processing' \
@@ -38,6 +58,38 @@ dotnet run -c Release --project Astronomy.Core.Benchmarks -- --list tree
 ```
 
 `BDN0001` (BenchmarkDotNet's "build in Release" warning) is suppressed in `Astronomy.Core.Benchmarks.csproj` so a Debug build stays warning-free; the runtime check inside BenchmarkSwitcher still enforces Release for benchmark runs.
+
+### PCL native prerequisites (required before the full mixed build)
+
+The vendored `PCL/` tree is **gitignored**, so a fresh clone cannot build `Astronomy.PCL.Native` until
+these run — the "REQUIRED" mixed build above will otherwise link-error. Module mechanics (what the tree
+*is*, how the wrapper links it) are in `ARCHITECTURE.md` § *PCL local build* / *PCL interop*; this is the
+procedure.
+
+1. **Re-extract the vendored tree.** `PCL\PCL-master.zip` → `Library\PCL\` (snapshot pinned 2025-02-22).
+   Also the way to discard local edits to the tree.
+2. **Set four system environment variables, then reboot** before opening the SLN. They are consumed by
+   `PCL.vcxproj`, the six 3rd-party libs, and `xisf.vcxproj`; without them the C++ build fails to find
+   headers and libraries:
+   - `PCLINCDIR`   = `E:\Projects\VisualStudio\Astronomy\Library\PCL\include`
+   - `PCLSRCDIR`   = `E:\Projects\VisualStudio\Astronomy\Library\PCL\src`
+   - `PCLLIBDIR64` = `E:\Projects\VisualStudio\Astronomy\Library\PCL\lib\x64`
+   - `PCLBINDIR64` = `E:\Projects\VisualStudio\Astronomy\Library\PCL\bin\x64`
+3. **Build the PCL solution** — `Library\PCL\src\pcl\windows\vc18\PCL.sln` — to emit the seven
+   `lib\x64\$(Configuration)\*-pxi.lib` static libs that `Astronomy.PCL.Native` links.
+   **Budget real time for this:** the solution carries **46 buildable vcxproj**, not just PCL + the six
+   3rd-party libs + xisf — it also builds six file-format modules (BMP, FITS, JPEG, JPEG2000, TIFF, XISF)
+   and ~32 process modules (PixelMath, Gaia, Convolution, Debayer, the whole `contrib/` set), which is
+   what fills the 2.9 GB `PCL\bin\x64\`.
+
+**Test-data side effect.** `Astronomy.Core.Tests` conditionally copies
+`..\PCL\src\utils\xisf\TestData\test.xisf`, so a missing `PCL/` tree silently changes *which tests run*
+rather than failing outright — a green run on a fresh clone may simply have skipped the PCL round-trips.
+
+**Running the `xisf` utility.** `xisf.exe` **must be invoked from its solution directory** so its
+relative-path arguments resolve. `Test_GetXisfKeywords..bat` (double-dot name; lives in
+`src\pcl\windows\vc18\`, not the xisf directory) is a developer-convenience smoke that runs
+`xisf.exe --read-fits-keywords` against `TestData\test.xisf`.
 
 **Trap to avoid:** `dotnet build Astronomy.sln` silently produces a managed-only build (skipping the vcxproj) and any test that touches `Astronomy.PCL` then throws `DllNotFoundException`. Always use `msbuild` for the SLN.
 

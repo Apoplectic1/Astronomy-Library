@@ -15,9 +15,66 @@ The PCL wrapper is a deep but **settled / parked** subsystem; its design records
 
 Latest three only. **Full shipped history: [`CHANGELOG.md`](CHANGELOG.md)** (append-only, dated, newest first).
 
+- **2026-07-24** — UTC contract gate + azimuth `[0, 360)` fold-back; docs audit remediation.
 - **2026-07-07** — Contracts.Tests refresh: TS surface pinned (#19–#23), #6/#10 gaps closed, exposure-0 divergence adjudicated.
 - **2026-07-06** — Cadence-safe TS editing: transactional clear + `HasOverrideOrder` refusal.
-- **2026-07-06** — `TsEditableSchema`: full `exposuretemplate` surface.
+
+## Open: parked PCL wrapper-extension plan — premise needs re-checking
+
+The plan itself is `archive/PCL-WrapperRoadmap.md` (captured 2026-04-28, parked at discussion stage).
+**Audit 2026-07-24 found its Phase A premise overtaken.** Phase A proposes exposing XISF header /
+FITS-keyword metadata to C# by extending the native wrapper with new C ABI exports
+(`ExtractXisfHeader`, `ReadFitsHeaderKeywords`, property enumeration). But `Astronomy.XISF` — created
+2026-05-18, *after* that capture — already ships a pure-managed, header-only FITS-keyword reader
+(`XisfHeaderReader`, `XDocument.Parse`, no native dep), chosen precisely to avoid native coupling and
+forced pixel decode for metadata-only reads.
+
+Before any Phase A work resumes, decide one of: **(a)** fold the FITS-keyword needs into
+`Astronomy.XISF` and drop Phase A, or **(b)** justify the native path explicitly for what
+`Astronomy.XISF` genuinely does *not* cover — non-FITS PCL `Variant` properties being the obvious
+candidate. Phases B+ (pixel/image operations) are unaffected.
+
+## Open: Astronomy.XISF Tiers 2-4
+
+Captured 2026-05-18 with the Tier 1 extraction; **added when a real consumer needs them — no eager
+design.** (Moved here from `CHANGELOG.md` on 2026-07-24: forward scope belongs in the roadmap, and
+`Astronomy.XISF.csproj` already pointed here.)
+
+- **Tier 2** — header write-back. Modify FITS keywords in place, preserving the image-attachment block. Required for XFM migration (XFM does rename / normalization / accept-reject prefix writes) and a future TPS grade-state keyword write.
+- **Tier 3** — full image read. Pixel data decode for uncompressed + LZ4 + zlib + zstd. Borrow compression algorithm strategies from NINA's `XISFData`; don't pull NINA's classes (decouple). Required by any consumer that does actual image processing. *(Partially seeded: the shared zlib+shuffle+SHA-1 codec shipped 2026-06 — `Astronomy.XISF.Compression`, which still has no caller outside its own tests.)*
+- **Tier 4** — full image write. Image data composition + compression + checksum (SHA-256). Required for XFM's writes and any future image-save pipeline.
+
+When XFM eventually migrates to Astronomy.XISF as its sole reader, the additional `KeywordList` accessors (FocalLength, Camera, EGAIN, MasterFrame metadata, weight keywords, etc.) port over alongside Tier 2.
+
+## Open: `ObservationSession` — collapse the duplicated Diagnostics wiring
+
+Deferred at the `Astronomy.Diagnostics` extraction (2026-06-11) and **now the next consolidation
+there**: both live consumers duplicate the same log/session bootstrap wiring by hand. An
+`ObservationSession` abstraction would own it once. Mechanics of what exists today are in
+`ARCHITECTURE.md` § *Astronomy.Diagnostics*. *(Moved here 2026-07-24 — the plan had been living in
+ARCHITECTURE, which is a mechanics doc, and had no roadmap entry at all.)*
+
+## Open: Astronomy.NINA Phases C-D
+
+Captured with the Phase A/B work (2026-05-18); neither phase has started. *(Moved here 2026-07-24 from
+`ARCHITECTURE.md` § *Astronomy.NINA*, same reason as above.)*
+
+- **Phase C** — TargetPlanner migrates from `Astronomy.Core.Targets.Target` to `Astronomy.NINA.Target`; the image library becomes a new TP target source; the Sky chart surfaces per-target Filter (color tint + badge + per-target K-S filter bandwidth).
+- **Phase D** — `InputTargetAdapter` (bidirectional `Astronomy.NINA.Target ↔ NINA.InputTarget`); unblocks future NINA-sequence-JSON export from TP. Phase D is what introduces the `NINA.Plugin` NuGet dependency — `Astronomy.NINA` deliberately has **no NINA assembly dependency** until then.
+
+## Open: public-surface retention — API ahead of its consumers
+
+**Decision (2026-06-28, reaffirmed 2026-07-24): keep the unused public surface — do not prune.**
+A large fraction of the public API has no external caller today; the inventory lives in `CONSUMERS.md`
+§ *Dead / speculative public surface*. Much of it is for the **planned IntervalScheduler Plugin (ISP —
+not yet started)** and XFM's planned Library migration. The TSM write-back action was once on that list
+and shipped 2026-07-06 consumed as-built, which validated the call: this is *API ahead of its
+consumers*, not dead generality. A smaller public surface is still better in principle, but pruning
+here would just be rebuilt when ISP lands.
+
+**Revisit a block only if it ends up with no planned consumer.** *(Moved here 2026-07-24 from
+`CONSUMERS.md`: this is a forward-looking commitment, and it was the only library-level record of the
+ISP plan — invisible to anyone following the router's "forward-looking → ROADMAP" rule.)*
 
 ## Open: SIMD / FMA deep dive
 
@@ -66,11 +123,20 @@ here so it doesn't drift out of memory.
 
 ### Three scope options
 
-- **Option A — Core only, public** *(recommended)*. Spin out `Astronomy.Core`
+- **Option A — Core only, public** *(recommended, but see the blocker)*. Spin out `Astronomy.Core`
   + `Astronomy.Core.Tests` + `Astronomy.Core.Benchmarks` into its own public repo. Leave
   `Astronomy.PCL` / `Astronomy.PCL.Native` in the existing private layout (or
   a separate private sibling). Smallest scope, no PCL-license entanglement,
   gets the pure-Meeus astronomy code into the open. Estimated 1–2 sessions.
+
+  > **Blocker found 2026-07-24 — Option A cannot ship `Astronomy.Core.Tests` as-is.**
+  > That project holds a hard `ProjectReference` to `Astronomy.PCL` (for the round-trip tests under
+  > `Tests/PCL/`), which drags `Astronomy.PCL.Native.vcxproj` into its build graph, and it links a
+  > PCL-tree asset (`..\PCL\src\utils\xisf\TestData\test.xisf`). So the "no PCL entanglement / no
+  > native build" premise doesn't hold: the public repo would either fail to build or need a prior
+  > step carving `Tests/PCL/` out into a separate private test project. Add that step (and re-do the
+  > 1–2 session estimate), or ship Core + Benchmarks only and leave the Core tests private —
+  > which weakens the "here's the code, it's tested" story the spin-out is for.
 - **Option B — whole Library, public**. One public repo with all thirteen
   projects (scope/effort estimate needs revisiting at this count). PCL adds friction: third-party SDK dependency, build docs,
   license-compatibility check (PCL Open License vs. whichever license is
@@ -94,8 +160,15 @@ here so it doesn't drift out of memory.
      names (e.g. `MidLatNorthSpring`) or move the personal coordinates
      into the test's `TestLocations.PennsPark` fixture (which already
      exists for the rest of the suite as of 2026-05-08).
-   - ~14 test comments mention "Penns Park" / "M31 at Penns Park" — keep
-     them or rephrase as "the 40°N test fixture"; either is defensible.
+   - **39 lines across 16 files** mention "Penns Park" (re-counted 2026-07-24; the
+     earlier "~14 test comments" understated it ~2.8×) — keep them or rephrase as
+     "the 40°N test fixture"; either is defensible. **Note the scope trap:** they
+     span *three* test projects, not one — 34 in `Astronomy.Core.Tests`, plus
+     `Astronomy.Catalog.Tests\Tests\CatalogTests.cs` (2) and
+     `Astronomy.NINA.Tests\Persistence\NamedSiteTests.cs` (2). The latter two fall
+     outside Option A's spin-out set, so a scrub scoped to Option A leaves them
+     untouched under any option. Heaviest single files: `SessionSolversTests.cs` (5),
+     `ParityFixtures.cs` / `SunEventsTests.cs` / `VisibilityWindowsTests.cs` (4 each).
    - Audit `CLAUDE.md` for personal paths, machine names, or Windows-user
      specifics that won't make sense to a public reader.
 3. **README.** New `README.md` at repo root: one-paragraph "what this is"
@@ -209,8 +282,15 @@ Captured 2026-05-23 (relocated from TP ROADMAP, deferred until much
 later). Allowing a session to span moon-blocked time at a quality
 penalty rather than rejecting outright. The current placement
 primitives are designed so they don't preclude this — the moon profile
-is optional everywhere; mask computation is behind an internal helper
-in `BestSession` / `VisibilityWindows`. Implementation would add a
+is optional (`MoonAvoidanceProfile? profile = null` on `BestSession.For` /
+`ResolveCandidates`) and mask computation is behind
+`BestSession.MoonClearIntersect` (internal). **Corrected 2026-07-24:** this
+previously also named `VisibilityWindows` as holding a mask seam. It does
+not — `VisibilityWindows` is deliberately **moon-blind** (its only public
+method is `For(Target, Location, NightWindow, IHorizonProfile)`; no moon
+type, no moon parameter, no mask, and its private helpers are
+horizon-profile refinement only). An implementer should expect to add the
+seam there, not find one. Implementation would add a
 quality-weighted penalty path alongside the current hard-reject path,
 chosen by an opt-in parameter so existing callers stay on the current
 behavior.

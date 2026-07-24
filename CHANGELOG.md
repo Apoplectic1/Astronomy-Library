@@ -38,6 +38,37 @@ so a non-UTC seed now fails loudly at first use instead of propagating an offset
 780 tests pass across all five projects (+9: azimuth spot/sweep, guard reject/accept/no-convert).
 `CONSUMERS.md` assumption **#16 widened** from "`LunarAge.DaysAt` throws" to the library-wide rule.
 
+**Docs audit remediation (same day).** Both defects above came out of a two-round audit of the
+reference set (14 workers, ~60 flags, model-diversified — the second round found 39 new flags over the
+first, so coverage is not claimed complete). The doc fixes that landed with it:
+
+- **`CONSUMERS.md` caught up with TSM's Core adoption** (2026-07-23, `a48b2fa`): the TSM row had
+  claimed "Core not referenced", the graph was missing the edge, and the whole `Catalog.Schema`
+  namespace was absent despite ~127 TSM references. The dead-surface list now **names** the genuinely
+  uncalled `Session` members — its previous unnamed "several `Session.*`" would have sanctioned
+  pruning `SessionSolvers`/`TargetOrdering`, which TP calls from four sites.
+- **`VERIFICATION.md` build recipe actually works on a clean clone**: `msbuild` doesn't restore
+  implicitly and there's no restore hook, so the "REQUIRED" line needed `-restore`; VS2022 is now
+  stated as impossible rather than "likely also works" (the vcxproj pins toolset `v145`, VS2026-only);
+  the four missing projects and the PCL native prerequisite chain are documented.
+- **Placement**: ARCHITECTURE had become the orphanage for forward-looking plans with no roadmap home
+  — `ObservationSession`, NINA Phases C–D, and the XISF Tier 2-4 scope all moved to `ROADMAP.md`, as
+  did the public-surface retention decision (which was the only library-level record of the ISP plan,
+  invisible to anyone following the router's "forward-looking → ROADMAP" rule).
+- **Corrections worth naming**: "altitude is unrefracted" was false as a universal; the hemisphere
+  ctors XOR rather than let sign override; `TargetSchedulerWriter` has no dry-run *default*; the
+  vendored PCL tree is 19 GB not ~10 GB, its solution builds 46 projects not 8, and the v145 bump
+  spans ~46 project files — so the re-snapshot caveat had been under-scoping the re-apply work.
+- **AVX-512 caveat corrected** (`ARCHITECTURE.md` § PCL): the claim that "PCL's own AVX-512 paths
+  remain runtime-gated" was wrong in both halves — PCL's source contains no AVX-512 paths to gate, and
+  `PCL.vcxproj` compiles the static lib with AVX-512 codegen *unconditionally*. The wrapper's AVX2
+  setting therefore does not buy the portability it claimed; flagged as an illegal-instruction risk on
+  non-AVX-512 hardware, with the remedy (rebuild PCL at AVX2) noted.
+
+Two report-only items were **not** applied: the parent portfolio router's `Catalog.db` description
+contradicts this repo (a cross-repo edit), and `archive/PCL-WrapperRoadmap.md`'s Phase A premise was
+overtaken by `Astronomy.XISF` — now flagged in `ROADMAP.md` rather than silently rewritten.
+
 ## 2026-07-07 — Contracts.Tests refresh: TS surface pinned (#19–#23), #6/#10 gaps closed
 
 The contract bench caught up with the grown pinout. CONSUMERS.md "Semantic assumptions" extended
@@ -364,13 +395,8 @@ What landed:
 
 **Why not NINA's own XISF code?** NINA.Image.FileFormat.XISF is coupled to `IImageData` / `IImageDataFactory` / `NINA.Profile.FileSaveInfo` / WPF, forces a full pixel decode on every read (`XISF.Load()` has no header-only path), and exposes FITS keywords as a weak `TryGetFITSProperty(key, out value)` dictionary. The user's existing XFM approach (XDocument + strongly-typed accessors, header-only by design) is the better fit for shared consumption across non-plugin apps.
 
-**Tiers 2-4 — future work** (added when a real consumer needs them; no eager design):
-
-- **Tier 2** — header write-back. Modify FITS keywords in place, preserving the image-attachment block. Required for XFM migration (XFM does rename / normalization / accept-reject prefix writes) and a future TPS grade-state keyword write.
-- **Tier 3** — full image read. Pixel data decode for uncompressed + LZ4 + zlib + zstd. Borrow compression algorithm strategies from NINA's `XISFData`; don't pull NINA's classes (decouple). Required by any consumer that does actual image processing. *(Partially seeded: the shared zlib+shuffle+SHA-1 codec shipped 2026-06 — see the `Astronomy.XISF.Compression` entry above.)*
-- **Tier 4** — full image write. Image data composition + compression + checksum (SHA-256). Required for XFM's writes and any future image-save pipeline.
-
-When XFM eventually migrates to Astronomy.XISF as its sole reader, the additional `KeywordList` accessors (FocalLength, Camera, EGAIN, MasterFrame metadata, weight keywords, etc.) port over alongside Tier 2.
+*(Tier 1 was the shipped scope. The forward scope for Tiers 2-4 has moved to `ROADMAP.md`
+§ **Open: Astronomy.XISF Tiers 2-4** — forward-looking work doesn't belong in the shipped history.)*
 
 ## 2026-05-18 — Astronomy.NINA: Phase B Target shape
 
@@ -399,5 +425,5 @@ Fifth and sixth buildable projects added: `Astronomy.NINA` + `Astronomy.NINA.Tes
 - **Phase C** — TargetPlanner migrates from `Astronomy.Core.Targets.Target` to `Astronomy.NINA.Target`; image library becomes a new TP target source; Sky chart surfaces per-target Filter (color tint + badge + per-target K-S filter bandwidth).
 - **Phase D** — `InputTargetAdapter` (bidirectional `Astronomy.NINA.Target ↔ NINA.InputTarget`); unblocks future NINA-sequence-JSON export from TP. Phase D introduces the `NINA.Plugin` NuGet dependency.
 
-**Resolved (2026-05-18):** `Astronomy.XISF` extraction landed (see the *2026-05-18 — Astronomy.XISF: Tier 1 extraction* entry above). Tier 1 (header-only read) shipped; Tiers 2-4 are tracked in that same entry.
+**Resolved (2026-05-18):** `Astronomy.XISF` extraction landed (see the *2026-05-18 — Astronomy.XISF: Tier 1 extraction* entry above). Tier 1 (header-only read) shipped; Tiers 2-4 are tracked in `ROADMAP.md` § *Open: Astronomy.XISF Tiers 2-4*.
 

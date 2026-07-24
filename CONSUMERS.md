@@ -158,9 +158,7 @@ Catalog's scanner doesn't read (the weight/quality block, optics/pointing, focus
 > surface** (four call sites, TP's sort modes) and must never be read into this list — an earlier
 > unnamed "several `Session.*`" would have sanctioned pruning them.
 
-→ **Decision (2026-06-28): keep — largely intended-future API, not speculative cruft.** Much of this
-unused surface is for the **planned ISP plugin (not yet started)** and XFM's planned Library
-migration (the TSM write-back action, once also on this list, shipped 2026-07-06 and validated the
-call — its API was consumed as-built). So it's *API ahead of its consumers*, not dead generality
-— **do not prune.** (A smaller public surface is still better in principle, but pruning here would
-just be rebuilt when ISP lands.) Revisit a block only if it ends up with **no** planned consumer.
+→ **Do not prune.** The retention decision and its revisit-trigger are forward-looking, so they live in
+`ROADMAP.md` § *Open: public-surface retention — API ahead of its consumers*. Short version: this is
+API ahead of its consumers (the planned ISP plugin, XFM's migration), not dead generality. **This
+section is the inventory; the roadmap holds the policy.**
