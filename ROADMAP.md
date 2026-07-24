@@ -15,9 +15,9 @@ The PCL wrapper is a deep but **settled / parked** subsystem; its design records
 
 Latest three only. **Full shipped history: [`CHANGELOG.md`](CHANGELOG.md)** (append-only, dated, newest first).
 
+- **2026-07-24** — docs audit #2: 65-flag remediation across the reference set (Catalog section restructured; contract-bench covered-or-registered rule surfaced; report-only code concerns handed off).
 - **2026-07-24** — K-S Δmag moon gate replaces the Lorentzian (`MoonLimitProfile`; closes the partial-moon-tolerance + refraction-asymmetry items; TP migrates per its in-repo note).
 - **2026-07-24** — PCL linked closure restored to upstream AVX2 (the 4800U imaging machine has no AVX-512).
-- **2026-07-24** — UTC contract gate + azimuth `[0, 360)` fold-back; docs audit remediation.
 
 ## Open: parked PCL wrapper-extension plan — premise needs re-checking
 
@@ -76,6 +76,14 @@ here would just be rebuilt when ISP lands.
 `CONSUMERS.md`: this is a forward-looking commitment, and it was the only library-level record of the
 ISP plan — invisible to anyone following the router's "forward-looking → ROADMAP" rule.)*
 
+## Open: contract bench — NINA gap
+
+Found by the 2026-07-24 docs audit. `Astronomy.Contracts.Tests` covers Core, XISF, Catalog and
+Diagnostics but has **no `Astronomy.NINA` reference**, so `CONSUMERS.md` assumption #2
+(`PlanningPreferencesDto.MinDurationMinutes` is minutes, serialized in `NamedSite`) — a classic
+silent-unit hazard — cannot be pinned. Small lift: add the ProjectReference + one
+serialization-round-trip pin test. Until then the assumption stays register-only.
+
 ## Open: SIMD / FMA deep dive
 
 Captured 2026-05-12. The FMA hygiene pass landed in `b83a0d8` (Meeus +
@@ -87,7 +95,7 @@ Full field notes — toolchain answers, runtime knobs, performance model,
 microbench design lessons, the HotPathBenchmarks before/after table,
 and four open directions ranked by impact — live in
 **[archive/2026-06-21-simd-investigation.md](archive/2026-06-21-simd-investigation.md)**
-(archived — conclusions graduated into `VERIFICATION.md` § *Benchmark findings*).
+(archived — conclusions graduated into `docs/2026-05-12-fma-benchmark-findings.md`).
 
 The four open directions in summary:
 
@@ -111,7 +119,7 @@ re-derived next time.
 
 The 2026-05-18 library review and its re-check both fully closed — every actionable item landed (full record archived at `archive/2026-05-18-library-review*.md`). These are the only items that remained genuinely open after closure, lifted here so they don't get lost in the archive:
 
-- **F5.7 Phase 3 — NINA-as-oracle parity.** The parity baseline currently freezes the Library's *own* post-CoordinateSharp output as a self-snapshot (catches drift, but not an independent-implementation check). Promoting it to "Library matches NINA within tolerance" needs a small `tools/NinaParityExtract` exe referencing `NINA.Astrometry` (with `NOVAS31.dll` co-located), calling `AstroUtil` directly to dodge `IProfileService`, emitting `NinaBaselineSnapshot` initializers for a `ParityFixtures.NinaBaselines` dictionary. ~30–60 min, native-DLL co-location the likeliest stumble. Lower-fidelity alternative: NOAA/USNO web baselines for the 9 fixtures. Full integration scope in the archived follow-ups doc.
+- **F5.7 Phase 3 — NINA-as-oracle parity.** The parity baseline currently freezes the Library's *own* post-CoordinateSharp output as a self-snapshot (catches drift, but not an independent-implementation check). Promoting it to "Library matches NINA within tolerance" needs a small `tools/NinaParityExtract` exe referencing `NINA.Astrometry` (with `NOVAS31.dll` co-located), calling `AstroUtil` directly to dodge `IProfileService`, emitting `ParityFixtures.BaselineSnapshot` initializers for a NINA-sourced sibling of the existing `ParityFixtures.Baselines` dictionary. ~30–60 min, native-DLL co-location the likeliest stumble. Lower-fidelity alternative: NOAA/USNO web baselines for the 9 fixtures. Full integration scope in the archived follow-ups doc.
 - **Docstring drift — resolved (2026-07-07 audit).** Both cited sites were in fact fixed the same day as the review (`0e777de`), and `AltAzCalculator.Of` was later deleted outright (`b3fc182`) — nothing remains to do. Kept only for the standing warning: the review's other residuals — single-value hemisphere extensions and the `360.985647` Meeus citation literal — were deliberately left as-is; do not "fix" them.
 
 ## Open: publish to GitHub
@@ -154,23 +162,31 @@ here so it doesn't drift out of memory.
 2. **Personal-data scrub.** Same kind of pass as TargetPlanner's
    2026-05-08 scrub:
    - `Astronomy.Core.Tests/Tests/Astrometry/ParityFixtures.cs` has inline
-     Penns Park lat/lon (`40.282835`, `74.997369`) in named DST regression
-     cases (`PennsParkSpring`, `PennsParkDstFall`, `PennsParkDstSpring`,
-     `PennsParkSummerSolstice`). Parameterize them: rename to neutral
+     Penns Park lat/lon (`40.282835`, `74.997369`) in named test cases
+     (`PennsParkSpring`, `PennsParkDstFall`, `PennsParkDstSpring`,
+     `PennsParkSummerSolstice` — the middle two are the DST regressions). Parameterize them: rename to neutral
      names (e.g. `MidLatNorthSpring`) or move the personal coordinates
      into the test's `TestLocations.PennsPark` fixture (which already
      exists for the rest of the suite as of 2026-05-08).
-   - **39 lines across 16 files** mention "Penns Park" (re-counted 2026-07-24; the
-     earlier "~14 test comments" understated it ~2.8×) — keep them or rephrase as
+   - **40 lines across 17 files** mention "Penns Park" (re-counted 2026-07-24 twice; the
+     earlier "~14 test comments" understated it ~3×) — keep them or rephrase as
      "the 40°N test fixture"; either is defensible. **Note the scope trap:** they
-     span *three* test projects, not one — 34 in `Astronomy.Core.Tests`, plus
+     span *three* test projects, not one — 36 lines / 15 files in `Astronomy.Core.Tests`, plus
      `Astronomy.Catalog.Tests\Tests\CatalogTests.cs` (2) and
      `Astronomy.NINA.Tests\Persistence\NamedSiteTests.cs` (2). The latter two fall
      outside Option A's spin-out set, so a scrub scoped to Option A leaves them
      untouched under any option. Heaviest single files: `SessionSolversTests.cs` (5),
      `ParityFixtures.cs` / `SunEventsTests.cs` / `VisibilityWindowsTests.cs` (4 each).
-   - Audit `CLAUDE.md` for personal paths, machine names, or Windows-user
-     specifics that won't make sense to a public reader.
+     **Scrub-scope caveats (audit 2026-07-24, unresolved):** (a) the name-grep misses
+     coordinate-only files — `LocationTests.cs` carries `40.282835`/`74.997369` with zero
+     "Penns Park" mentions (19 coordinate lines across 4 files total); (b) the "move into
+     `TestLocations.PennsPark`" remedy is circular — that fixture itself hardcodes the name
+     and coordinates, and isn't on the checklist. Re-scope the scrub before executing.
+   - Audit `CLAUDE.md` — **and `ROADMAP.md` / `VERIFICATION.md`, which currently carry the
+     coordinates and absolute `E:\` personal paths themselves** — for personal paths, machine
+     names, or Windows-user specifics that won't make sense to a public reader. Also note the
+     public XML docs name portfolio apps (TP, TSM, XFM — fine locally per the parent glossary,
+     decided 2026-07-24, but public readers lack the glossary; decide keep-or-scrub at publish).
 3. **README.** New `README.md` at repo root: one-paragraph "what this is"
    (pure-managed Meeus + closed-form session placement + K-S sky brightness
    + optional XISF read via PCL P/Invoke), build/test instructions, link
@@ -210,21 +226,13 @@ paths:
 
 ## Open: K-S unphysical extinction-overdrive at low altitudes (urban regime)
 
-Captured 2026-05-24 from TP visual testing. `SkyBrightness.KsAt`'s
-dark-sky baseline formula `vDark = v0 − 2.5·log₁₀(X) + k·(X−1)` has
-the extinction term `k·(X−1)` growing linearly with airmass. For
-high-k sites (Bortle 8–9, k₅₀₀ ≥ 0.4) at target altitudes below
-~10°, this term dominates and predicts a sky that gets darker than
-zenith from extinction alone — physically wrong for urban regimes
-where off-axis light pollution actually brightens the horizon via
-in-scattering. K-S 1991 was calibrated for moderate-to-dark sites
-and doesn't model artificial-light in-scatter.
-
-Concrete example (TP test on 2026-05-24): Markarian's Chain in
-Denver Bortle 9 (v0=16.5, k=0.55) at target altitude 0.79°
-(airmass ~28.6): K-S predicts vDark = 27.95 mag → after V-band BW
-scaling, ~28 mag/arcsec². For narrowband H/O filters the prediction
-extends to mag 21–31, well off the Sky chart's `[16, 22]` axis.
+Captured 2026-05-24 from TP visual testing. **Mechanism, worked example, and the interim
+consumer policy (null-gate K-S display below ~10° target altitude at urban sites) live in the
+`SkyBrightness.cs` class remarks** — alongside the near-moon (separation < ~10°) and
+narrow-airglow-overlap regime caveats. Short version: the `k·(X−1)` extinction term grows
+linearly with airmass, so at high-k sites below ~10° K-S predicts a sky *darker than zenith* —
+K-S 1991 doesn't model urban in-scatter. TP applies the interim gate on its Sky chart (see TP
+ROADMAP § *Future-flagged TP-side work* for the removal condition).
 
 **Real fix:** adopt Garstang 1986 / Falchi 2016 framework that models
 artificial-light scattering INTO the line of sight from off-axis city
@@ -234,17 +242,8 @@ more compute. Not a v2 lift — more like "TP/Library becomes a research
 tool" lift. On-ramp: pull VIIRS satellite data + model the largest
 city near each site + run a simplified single-scatter calc per-azimuth.
 
-**Interim consumer policy:** until Garstang/Falchi adoption, callers
-should null-gate K-S display below ~10° target altitude at urban sites.
-TP's `AltitudeSubChart_Sky` does this via the `KsLowAltitudeGateDeg`
-constant — see TP ROADMAP §Future-flagged TP-side work for the removal
-condition.
-
-Caveat documented in `SkyBrightness.cs` class remarks alongside the
-near-moon (separation < ~10°) and narrow-airglow-overlap regimes.
-
 **Scope note (2026-07-24):** since the K-S Δmag moon gate shipped, this regime feeds a
 *placement gate*, not just a chart. The overdrive dims the predicted low-altitude sky →
 *under*-states Δmag → the gate is too permissive below ~10° target altitude at high-k
-sites. Consumers' existing low-altitude floors (TP's target floor / `KsLowAltitudeGateDeg`)
+sites. Consumers' existing low-altitude floors (target floor / the interim K-S display gate)
 cover the practical range; recorded in the moon-brightness-gate spec as a known limit.

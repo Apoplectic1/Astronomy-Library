@@ -9,6 +9,22 @@ backstop — this is the human-legible layer above it.
 **Entry format:** `## YYYY-MM-DD — <what landed>` (a month-only `YYYY-MM` is fine when the exact day
 wasn't recorded). Newest first; add new entries directly below this charter, never at the bottom.
 
+## 2026-07-24 — docs audit #2: 65-flag remediation across the reference set
+
+Six-round, two-model fan-out audit (placement + currency, judged separately) over the full
+reference set. ~55 doc fixes applied in one pass, highlights: Catalog section restructured by
+folder (+ `ReconciliationProjection`, which had gone undocumented); the contract bench's
+covered-or-registered rule surfaced into `CONSUMERS.md` (heading no longer says "candidates");
+TSM's Core pinout corrected to what it actually calls; PCL interop docs gained the two
+undocumented host-process survival mechanisms (`SilentLogHandler`, `PclRuntimeInit`) and the
+GetLastErrorMessage no-macro exception; VERIFICATION's benchmark conclusions extracted to
+`docs/2026-05-12-fma-benchmark-findings.md`; `-p:Platform=x64` added to the pure-managed test
+invocations (AnyCPU dual-output-tree trap); TFM history backfilled below; DOMAIN softened to admit
+portfolio glossary app-names in XML remarks (decided; UI terminology stays banned). Report-only
+handoffs: five ungated public `TargetSchedulerEditor.Set*` writers (code concern, noted in
+CONSUMERS #9), publish-scrub re-scope (circular `TestLocations.PennsPark` remedy + coordinate-only
+files), new `ROADMAP.md` § *Open: contract bench — NINA gap*, parent-umbrella `scheduler.db` naming.
+
 ## 2026-07-24 — K-S Δmag moon gate replaces the Lorentzian (`MoonLimitProfile`)
 
 The placement primitives' moon gate is now physics, not curve-fitting: **accept a minute iff the
@@ -483,3 +499,17 @@ Fifth and sixth buildable projects added: `Astronomy.NINA` + `Astronomy.NINA.Tes
 
 **Resolved (2026-05-18):** `Astronomy.XISF` extraction landed (see the *2026-05-18 — Astronomy.XISF: Tier 1 extraction* entry above). Tier 1 (header-only read) shipped; Tiers 2-4 are tracked in `ROADMAP.md` § *Open: Astronomy.XISF Tiers 2-4*.
 
+
+## 2026-05-11 — TFM narrowed to `net10.0-windows` (backfilled 2026-07-24)
+
+The VS2026 settings review formalized Windows-only intent: `Astronomy.Core` (and `Astronomy.PCL`
+alongside it, commit `e7ae75c`) narrowed from `net10.0` to `net10.0-windows`. A prior uncommitted
+`net10.0-windows10.0.26100.1` pin was over-tight and broke the build via NETSDK1229 / MSB4184 —
+the OS-version-less TFM is deliberate.
+
+## 2026-05-04 — netstandard2.0 floor lifted to net10.0 (backfilled 2026-07-24)
+
+Commit `b834f52`: once NINA's upstream migration confirmed every consumer was on modern .NET, the
+original netstandard2.0 floor was lifted to net10.0 portfolio-wide (`Astronomy.PCL` came along from
+its original net8.0, commit `c7eeff9` — it had been net8.0 only because VS2026 `MSBuild.exe` had a
+defect resolving `DllImportAttribute` for netstandard2.0 projects).
