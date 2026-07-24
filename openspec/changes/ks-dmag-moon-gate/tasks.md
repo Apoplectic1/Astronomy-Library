@@ -42,12 +42,12 @@
 
 ## Phase 2 — TP migration (separate session, guided by the note)
 
-- [ ] 3.1 `Filter` record 9→5 fields + `ToProfile()`; `FilterLibrary` builtins + `DiffersFromBuiltinDefault`.
-- [ ] 3.2 `PlanningPolicy.MoonProfile` type swap; `ChartCacheStore` re-derivation + 3 helpers;
+- [x] 3.1 `Filter` record 9→5 fields + `ToProfile()`; `FilterLibrary` builtins + `DiffersFromBuiltinDefault`.
+- [x] 3.2 `PlanningPolicy.MoonProfile` type swap; `ChartCacheStore` re-derivation + 3 helpers;
       `SortPresenter` call sites.
-- [ ] 3.3 UI: Designer controls collapse; `FilterMenuPresenter` scrub/write/enable methods;
+- [x] 3.3 UI: Designer controls collapse; `FilterMenuPresenter` scrub/write/enable methods;
       `EditFiltersForm` columns.
-- [ ] 3.4 Delete dead moon sweep; fix stale `MoonSample.cs` docstring by deletion.
-- [ ] 3.5 TP tests (7 files) onto the new shape; delete `filters.json`; retune.
-- [ ] 3.6 Verify: `..\build-all.ps1` green end-to-end; user visual verification of UI + charts;
+- [x] 3.4 Delete dead moon sweep; fix stale `MoonSample.cs` docstring by deletion.
+- [x] 3.5 TP tests (7 files) onto the new shape; delete `filters.json`; retune.
+- [ ] 3.6 (build-all GREEN + docs done + committed TP 3247bfe-ish; REMAINING: user visual verification of UI + charts) Verify: `..\build-all.ps1` green end-to-end; user visual verification of UI + charts;
       TP docs (ARCHITECTURE/CHANGELOG/README mentions) updated; commit.
