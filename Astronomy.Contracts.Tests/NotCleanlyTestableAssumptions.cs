@@ -33,6 +33,8 @@ namespace Astronomy.Contracts.Tests;
 ///   #23 Writer update-only + ratchet ... TargetSchedulerWriterContractTests
 ///   #24 Δmag bandwidth-independent ..... MoonContractTests (deterministic half; the
 ///                                        gate-internal refraction half is registered below)
+///   #25 ObservationSession lifecycle ... ObservationSessionContractTests (state machine;
+///                                        log-line assertions live in Astronomy.Diagnostics.Tests)
 ///
 /// NOT cleanly unit-testable (placeholders below mirror this list):
 ///

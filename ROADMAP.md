@@ -15,7 +15,7 @@ The PCL wrapper is a deep but **settled / parked** subsystem; its design records
 
 Latest three only. **Full shipped history: [`CHANGELOG.md`](CHANGELOG.md)** (append-only, dated, newest first).
 
-- **2026-07-24** — `ObservationSession` ships in Astronomy.Diagnostics (TSM's dialog orchestration lifted library-side; new `Astronomy.Diagnostics.Tests`; assumption #25 pinned; consumers adopt next).
+- **2026-07-24** — `ObservationSession` ships in Astronomy.Diagnostics (TSM's dialog orchestration lifted library-side; new `Astronomy.Diagnostics.Tests`; assumption #25 pinned; both consumers adopted same-day in their own repos, visual passes complete).
 - **2026-07-24** — editor write path hardened: ungated `Set*` setters removed, `TrySetField` is the sole public write (reflection-pinned by the bench; constellation DRC green).
 - **2026-07-24** — contract bench NINA gap closed: `NamedSitePersistenceContractTests` pins the #2 sites-file serialization shape; bench now covers all five managed assemblies.
 
@@ -134,7 +134,7 @@ here so it doesn't drift out of memory.
   > `TargetFramework` or `LangVersion` — both inherit from the repo-root `Directory.Build.props`.
   > A spin-out that copies only the csproj files fails restore; the new repo needs its own
   > `Directory.Build.props` (or the properties inlined per-project).
-- **Option B — whole Library, public**. One public repo with all thirteen
+- **Option B — whole Library, public**. One public repo with all fourteen
   projects (scope/effort estimate needs revisiting at this count). PCL adds friction: third-party SDK dependency, build docs,
   license-compatibility check (PCL Open License vs. whichever license is
   picked in step 1). Estimated 2–4 sessions.

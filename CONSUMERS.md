@@ -56,15 +56,17 @@ No consumer→consumer references. Note: **Catalog does NOT depend on Core** (it
 > Summary level; for member-level `file:line` usage, grep the consumer for the type name.
 
 - **Astronomy.Diagnostics** — *used by BOTH*: `Log` (Init · StartNewSession
-  · Info/Warn/Error · Diag/IsDiagEnabled · UserObservation* · NewObservationScreenshotPath ·
+  · Info/Warn/Error · Diag/IsDiagEnabled ·
   **LogFolderPath** — TP-only, and TP passes it to a *recursive directory delete*, so its meaning
-  must never widen past the app's own log folder), `AppLogIdentity`, `DiagDefault`,
-  `ScreenCapture.ToPng`, and — since 2026-07-24 — `ObservationSession` (`Begin` · `CaptureAsync` ·
+  must never widen past the app's own log folder), `AppLogIdentity`, `DiagDefault`, and — since
+  2026-07-24 — `ObservationSession` (`Begin` · `CaptureAsync` ·
   `CompleteAsync` · `Cancel` · `Id`/`CaptureCount`/`IsTerminated`) + `ObservationCapture`
   (`Path`/`StatusText`/`Succeeded`): the shared observation-dialog orchestration both apps' thin
-  UI shells drive. (`Log.ScreenshotsFolderPath` has no external caller — dead-surface list;
-  `Log.FilePath` gained an in-assembly caller, `ObservationSession`'s status text, so it is no
-  longer freely prunable though still externally uncalled.)
+  UI shells drive. **The session adoption moved three members out of the external pinout the same
+  day it added itself**: `Log.UserObservation*`, `Log.NewObservationScreenshotPath` and
+  `ScreenCapture.ToPng` are now called only *inside* `ObservationSession` — in-assembly
+  composition, not consumer surface (like `Log.FilePath`, which feeds the session's status text).
+  (`Log.ScreenshotsFolderPath` still has no caller at all — dead-surface list.)
 - **Astronomy.Catalog** — *TSM*: `Scan.ImageLibraryScanner.ScanAsync` + `ImageLibraryReport`;
   `Scan.MosaicConvention.PanelLabel`; `Scan.FilterPurpose` + `Scan.FilterPurposeClassifier.Classify`;
   `Build.TargetResolver.Resolve` + `ResolveOptions` +
@@ -163,9 +165,9 @@ or registered in `NotCleanlyTestableAssumptions.cs` with the reason (see *How th
 25. `ObservationSession` logs **exactly one START** (at `Begin`) and **exactly one terminator**
    (END via `CompleteAsync`, or CANCEL via `Cancel`) per id; terminators are idempotent and latch
    `IsTerminated`; post-termination captures/completes are no-ops that never touch the app's
-   delegates. Delegates run on the `Begin` caller's synchronization context — **call from the UI
-   thread**. (Both dialogs wire `Cancel` to their close-X fallback; whichever terminator fires
-   first wins.)
+   delegates. Delegates run on the **`CaptureAsync`/`CompleteAsync` caller's** synchronization
+   context (no context is captured at `Begin`) — **call from the UI thread**. (Both dialogs wire
+   `Cancel` to their close-X fallback; whichever terminator fires first wins.)
 
 ## Fragility flags
 - **Three public `Target` types** — `Core.Targets.Target` (class), `NINA.Target` (class), `Catalog.Schema.Target` (record). Naming-overload hazard; consumers alias around it.

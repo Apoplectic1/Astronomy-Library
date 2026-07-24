@@ -42,6 +42,7 @@ dotnet test  Astronomy.NINA.Tests/Astronomy.NINA.Tests.csproj -p:Platform=x64
 dotnet build Astronomy.Catalog/Astronomy.Catalog.csproj
 dotnet test  Astronomy.Catalog.Tests/Astronomy.Catalog.Tests.csproj -p:Platform=x64
 dotnet build Astronomy.Diagnostics/Astronomy.Diagnostics.csproj
+dotnet test  Astronomy.Diagnostics.Tests/Astronomy.Diagnostics.Tests.csproj -p:Platform=x64
 
 # Contract bench (the CONSUMERS.md pinout) — pure-managed
 dotnet test Astronomy.Contracts.Tests/Astronomy.Contracts.Tests.csproj -p:Platform=x64

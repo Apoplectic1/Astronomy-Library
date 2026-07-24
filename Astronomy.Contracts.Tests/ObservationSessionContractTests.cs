@@ -32,7 +32,8 @@ public sealed class ObservationSessionContractTests
     //   "ObservationSession logs exactly one START (at Begin) and exactly one terminator
     //    (END via CompleteAsync or CANCEL via Cancel) per id; terminators are idempotent
     //    and latch IsTerminated; post-termination captures are no-ops. Delegates run on
-    //    the Begin caller's synchronization context — call from the UI thread."
+    //    the CaptureAsync/CompleteAsync caller's synchronization context — call from
+    //    the UI thread."
     // ---------------------------------------------------------------------------
 
     [Fact]
