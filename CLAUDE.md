@@ -7,16 +7,22 @@
 **Reference docs** (current truth, edited in place — route by name):
 
 - **`ARCHITECTURE.md`** — subsystem mechanics, *how each module works*. Organized one section per buildable project (Astronomy.Core + its API conventions/thread-safety/code-organization, .XISF, .Diagnostics, .Catalog, .NINA, .PCL/.Native + the PCL local-build and interop story). Grep by project name.
-- **`ROADMAP.md`** — forward-looking design + "Recently shipped" digest. Whole-library direction.
+- **`ROADMAP.md`** — forward-looking design (open work, planned direction) + a three-line recently-shipped digest. Whole-library direction. Shipped history is *not* here — it's `CHANGELOG.md`.
 - **`VERIFICATION.md`** — how to **build / test / benchmark** and the build traps. Read before claiming a build or tests pass. The cross-repo contract DRC is `..\build-all.ps1`.
 - **`CONSUMERS.md`** — the Library's de-facto public **contract / datasheet**: what each downstream consumer depends on (the "pinned pinout").
 - **`DOMAIN.md`** — the domain layer's home (science/unit conventions, algorithm provenance, multi-consumer strategy): *why* the library models things this way. Charter'd-thin — routes to where each domain truth currently lives.
 
-**Journal** (dated capture — by convention, not an enumerated list): `docs/YYYY-MM-DD-<slug>.md` for substantial standalone records (reviews, decisions, investigations) — `glob docs/*.md` then grep; and **`NOTEBOOK.md`** for small chronological lab-notebook findings. Standing truths graduate up into the reference docs.
+**Journal** (dated capture — by convention, not an enumerated list). Three homes, by what you're recording:
+
+- **`docs/YYYY-MM-DD-<slug>.md`** — substantial standalone records (reviews, decisions, investigations). `glob docs/*.md` then grep; see `docs/README.md`.
+- **`NOTEBOOK.md`** — small chronological lab-notebook findings from doing the work (a measurement, a surprise, a rejected approach).
+- **`CHANGELOG.md`** — shipped units of work: append-only, dated, newest first. The library's full shipped history.
+
+Standing truths graduate up out of the journal into the reference docs.
 
 **`archive/`** holds completed/superseded records — *not* current truth, kept for history. Includes the PCL interop decision record (`archive/PCL-InterOp.md`: *why* PCL is wrapped Option 3 / Hybrid, P/Invoke not C++/CLI), the 2026-05-18 library review set, the SIMD/FMA investigation, and the parked PCL wrapper-extension plan (`archive/PCL-WrapperRoadmap.md`). See `archive/README.md`.
 
-**Scope-exclusions** — never scaffold/audit docs into these trees: `PCL/` (vendored ~10 GB PixInsight Class Library, gitignored — has its own upstream READMEs), `BenchmarkDotNet.Artifacts/`, `bin`/`obj`, `.vs/`, `.claude/`, `.superpowers/`. `Astronomy.Contracts.Tests` is the (already-charter'd) contract harness behind `CONSUMERS.md`.
+**Scope-exclusions** — never scaffold/audit docs into these trees: `PCL/` (vendored ~10 GB PixInsight Class Library, gitignored — has its own upstream READMEs), `BenchmarkDotNet.Artifacts/`, `bin`/`obj`, `.vs/`, and the tooling trees `.claude/`, `.superpowers/`, `openspec/` (openspec carries its own change/spec records — not this project's docs). `Astronomy.Contracts.Tests` is the (already-charter'd) contract harness behind `CONSUMERS.md`.
 
 ## Load-bearing gotchas (detail in the docs above)
 
