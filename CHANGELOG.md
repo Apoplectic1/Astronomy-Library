@@ -9,6 +9,35 @@ backstop — this is the human-legible layer above it.
 **Entry format:** `## YYYY-MM-DD — <what landed>` (a month-only `YYYY-MM` is fine when the exact day
 wasn't recorded). Newest first; add new entries directly below this charter, never at the bottom.
 
+## 2026-07-24 — UTC contract gate + azimuth `[0, 360)` fold-back
+
+Two defects surfaced by the docs audit, both fixed at the source rather than documented around.
+
+**Azimuth could return exactly `360.0`**, violating the documented half-open `[0, 360)`.
+`TargetGeometry.AzimuthAtHourAngle` clamps `cosAz` to `1.0` (needed for near-pole / near-zenith float
+overshoot); `Acos(1.0)` is exactly `0.0`, and the eastern-half flip then computed `360.0 - 0.0`.
+Nothing downstream renormalized — `AltAz`'s ctor stores verbatim — so the out-of-range value reached
+consumers. Not a pole-only curiosity: a sweep found 9,213 hits, and at Penns Park (40.3°N) **M81 and
+Polaris at upper transit** both returned `360.0`, i.e. any target north of the zenith at its best
+moment. Fixed with a fold-back at the source; pinned by a spot Theory plus a swept invariant test.
+
+**Non-UTC `DateTime` silently produced wrong answers.** `JulianDate.FromUtc` is `ToOADate() + 2415018.5`,
+and `ToOADate()` ignores `Kind` entirely — so a `Local`/`Unspecified` instant was reinterpreted as UTC,
+an error of the caller's UTC offset (~75° of hour angle at EST). `AltAzCalculator.At` and the whole
+`Session/` cluster never normalized; only `AstroUtil`, `MoonEphemeris`, `NightCalculator` and `Sun/*`
+called `TimeKindGuard.AsUtc`. Per the fail-fast rule, `FromUtc` is now the **single central contract
+gate** and throws `ArgumentException` on a non-`Utc` kind — chosen over per-entry-point guards because
+every time-based primitive funnels through it (`SiderealTime.Local` routes there; normalizing callers
+arrive as `FromUtc(AsUtc(x))`), so downstream code needs no guards at all. New
+`TimeKindGuard.RequireUtc` carries the rejection message. A consumer audit confirmed **TP and TSM both
+already satisfied the invariant by construction** (TP funnels through a single `ObservationMoment`; TSM
+through `DateTime.UtcNow`), so this landed as a runtime no-op with no consumer change — it converts a
+latent silent-wrong-answer class into a loud failure. `NightCache.ComputeYearStartDay` preserves `Kind`,
+so a non-UTC seed now fails loudly at first use instead of propagating an offset year-long grid.
+
+780 tests pass across all five projects (+9: azimuth spot/sweep, guard reject/accept/no-convert).
+`CONSUMERS.md` assumption **#16 widened** from "`LunarAge.DaysAt` throws" to the library-wide rule.
+
 ## 2026-07-07 — Contracts.Tests refresh: TS surface pinned (#19–#23), #6/#10 gaps closed
 
 The contract bench caught up with the grown pinout. CONSUMERS.md "Semantic assumptions" extended

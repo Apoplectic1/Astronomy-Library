@@ -4,11 +4,12 @@
 depends on (the "pinned pinout"), the semantic assumptions beyond signatures, and the dependency
 graph. Treat this as the **stable interface** — change it *deliberately* (a pinout revision = update
 consumers + tests in the same breath); the implementation behind it can churn freely. Derived from
-grep-verified real usage (2026-06-28; refreshed 2026-07-07 audit); keep current as the contract evolves.
+grep-verified real usage (2026-06-28; refreshed 2026-07-07, re-audited 2026-07-24); keep current as the contract evolves.
 
 **How this is validated** (docs *describe* the contract; these *verify* it):
 - **Structural — free:** both consumers `ProjectReference` the Library (source), so a breaking API
-  change is a **consumer build break**. The constellation build (`..\build-all`) is that check.
+  change is a **consumer build break**. The cross-repo constellation build is that check — see
+  `VERIFICATION.md` § *Cross-repo contract verification*.
 - **Semantic:** the compiler can't see the assumptions in the last section — those want **contract
   tests** in the Library.
 
@@ -19,7 +20,7 @@ grep-verified real usage (2026-06-28; refreshed 2026-07-07 audit); keep current 
 | Consumer | Host | ProjectRefs (direct) | Actually uses |
 |---|---|---|---|
 | **TargetPlanner (TP)** | WinForms | Core, NINA, Diagnostics | Core (broad), `NINA.Persistence`, XISF (4 members, transitive via NINA), Diagnostics. **Catalog present transitively but unused.** PCL deliberately *not* referenced (avoids `unsafe` in the WinForms host). |
-| **TargetSchedulerManager (TSM)** | WinUI | Catalog, Diagnostics | Catalog (broad), Diagnostics. XISF only *inside* Catalog's scanner. **Core / NINA / PCL not referenced.** |
+| **TargetSchedulerManager (TSM)** | WinUI | Catalog, Diagnostics, **Core** | Catalog (broad), Diagnostics, Core (narrow — `Locations`, `Horizons`, `Night`, `Session`; added 2026-07-23, commit `a48b2fa`). XISF only *inside* Catalog's scanner. **NINA / PCL not referenced.** |
 
 Both consume **by `ProjectReference` (source) — no DLL, no NuGet.** That's the free continuity check.
 
@@ -31,6 +32,7 @@ Both consume **by `ProjectReference` (source) — no DLL, no NuGet.** That's the
 - NINA plugin/source + other Astronomy projects — no Library reference.
 
 So the live constellation is a **3-node graph** (Library → TP, TSM), not the 5-consumer web the docs imply.
+Three nodes, but **six edges** as of 2026-07-23 — TSM's Core adoption added one; see the graph below.
 
 ## Dependency graph
 
@@ -41,7 +43,7 @@ NINA    → Core, XISF, Catalog
 PCL     → Core  (+ native Astronomy.PCL.Native, build-only)
 
 TP  → Core, NINA, Diagnostics      (XISF + Catalog transitive via NINA)
-TSM → Catalog, Diagnostics         (XISF transitive via Catalog)
+TSM → Catalog, Diagnostics, Core   (XISF transitive via Catalog)
 ```
 No consumer→consumer references. Note: **Catalog does NOT depend on Core** (its `Schema.Target` is its own POCO).
 
@@ -49,7 +51,7 @@ No consumer→consumer references. Note: **Catalog does NOT depend on Core** (it
 
 > Summary level; for member-level `file:line` usage, grep the consumer for the type name.
 
-- **Astronomy.Diagnostics** — *used by BOTH* (the only shared assembly): `Log` (Init · StartNewSession
+- **Astronomy.Diagnostics** — *used by BOTH* (shared with `Astronomy.Core` since 2026-07-23): `Log` (Init · StartNewSession
   · Info/Warn/Error · Diag/IsDiagEnabled · UserObservation* · NewObservationScreenshotPath),
   `AppLogIdentity`, `DiagDefault`, `ScreenCapture.ToPng`.
 - **Astronomy.Catalog** — *TSM*: `Scan.ImageLibraryScanner.ScanAsync` + `ImageLibraryReport`;
@@ -61,15 +63,33 @@ No consumer→consumer references. Note: **Catalog does NOT depend on Core** (it
   `.ReadPlanEffectiveExposure`; `TargetScheduler.TsEditableSchema` (`.For`/`.EnumValues`/`.Find`/
   `.IsCadenceBreaking` + `TsField`/`TsFieldType`/`TsCadenceClear`/`TsEnumValue` — TSM's field editors
   are schema-driven off this surface); `TargetScheduler.TargetSchedulerWriter` +
-  `Build.WriteBackPlanner` (TSM write-back shipped 2026-07-06: `TsWriteBackApplier`/`WriteBackStep`).
+  `TargetScheduler.WriteBackPlanner` + the plan DTOs it produces and the writer consumes —
+  `WriteBackPlan`/`PlannedWrite`/`ManualPlan`/`ManualGroup`/`ManualReason`/`ReconcileNote`
+  (`WriteBackPlan` is the *argument type* of `TargetSchedulerWriter.Execute`, so its shape is
+  unavoidably contract surface); `Scan.FilterPurpose`.
+  **`Astronomy.Catalog.Schema`** — TSM binds the row records directly and heavily: `Target`,
+  `Project`, `ExposurePlan`, `ExposureTemplate` (~127 references across 4 files). See the
+  positional-ctor hazard under *Fragility flags*.
+  *(TSM's own `TsWriteBackApplier`/`WriteBackStep` are **consumer-side** types built on
+  `WriteBackPlanner` — not Library surface, listed here previously in error.)*
 - **Astronomy.Core** — *TP* (broad): `Targets.Target`, `Locations.Location`, `Night.*`,
   `Session.{BestSession, SessionAltitude, TransitTime, CoarseVisibility, AltitudeCurve}`,
-  `AltAzCalculator`/`AltAz`, `Astrometry.{SiderealTime, ObserverInfo, AstroUtil, Refraction}`,
+  `Session.SessionSolvers.{LongestDuration, LowestHorizon}` + `Session.TargetOrdering.{ByTransit, ByRise}`
+  (TP's four sort modes — a signature change here is a TP build break),
+  `AltAzCalculator`/`AltAz`, `Astrometry.{ObserverInfo, AstroUtil, Refraction, RiseAndSetEvent}`
+  (`RiseAndSetEvent` is the declared return type of `AstroUtil.GetMoonRiseAndSetForNight`),
+  `Time.{SiderealTime, ObservationMoment}`,
   `TargetGeometry`, `Moon.{MoonSeparation, MoonEphemeris, LunarAge, MoonAvoidanceProfile}`,
-  `Horizons.{IHorizonProfile, ScalarHorizonProfile, PolylineHorizonProfile}`, `Sun.SunPosition`,
-  `Brightness.{Bortle, SkyBrightness}`, `Time.ObservationMoment`.
+  `Horizons.{IHorizonProfile, ScalarHorizonProfile, PolylineHorizonProfile, MaxOfHorizonProfile}`
+  (TP composes the polyline against the scalar floor via `MaxOfHorizonProfile`; its chart cache
+  persists that shape verbatim), `Sun.SunPosition`, `Brightness.{Bortle, SkyBrightness}`.
+  — *TSM* (narrow, since 2026-07-23): `Locations.Location`, `Horizons.*` (incl. `IHorizonProfile`),
+  `Night.*`, `Session.*` (incl. `BestSession`), `Targets.Target`.
 - **Astronomy.XISF** — *TP directly*: `XisfHeaderReader.ReadAsync` + `XisfHeader.{RaDegrees, DecDegrees,
-  ObjectName, ImageType}`. The full typed-accessor surface is used *inside* Catalog's scanner (TSM's path).
+  ObjectName, ImageType}`. Catalog's scanner (TSM's path) uses **12 of the ~34 typed accessors**
+  (`ObjectName`, `RaDegrees`, `DecDegrees`, `DateObsUtc`, `ExposureSec`, `Gain`, `OffsetRaw`,
+  `OffsetNormalized`, `SetTempC`, `XBinning`, `YBinning`, `Instrument`) — not the full surface; the
+  remaining 21 have no caller anywhere (see dead surface).
 - **Astronomy.NINA** — *TP, only `Persistence`*: `NamedSite`, `PlanningPreferencesDto`. (The root
   namespace + `ReportToTargetAdapter` have no external consumer — see dead surface.)
 
@@ -99,7 +119,7 @@ Compiler-invisible expectations consumers bake in. Each is a candidate for an ex
 **Input / path & process-global:**
 14. `Scan.ImageLibraryScanner.ScanAsync(root)` expects `<target>/Captures/<Camera>/<Filter>/`; missing root throws `DirectoryNotFoundException`.
 15. `Horizons.PolylineHorizonProfile(az[], alt[])` — parallel arrays; length/monotonic/dedup preconditions are caller's to honor.
-16. `Moon.LunarAge.DaysAt` throws on non-UTC `DateTimeKind`.
+16. **Non-UTC `DateTimeKind` throws, library-wide** (widened 2026-07-24; was `LunarAge.DaysAt` only). `Time.JulianDate.FromUtc` is the central gate every time-based primitive funnels through, so `AltAzCalculator.At`, the `Session.*` helpers, `MoonSeparation.*` and friends now reject `Local`/`Unspecified` with `ArgumentException` instead of silently reinterpreting the instant as UTC. Converting entry points (`AstroUtil`, `MoonEphemeris`, `NightCalculator`, `Sun.*`) still accept any `Kind` — they call `TimeKindGuard.AsUtc` first. **Both consumers already satisfied this by construction** (TP funnels everything through `ObservationMoment`; TSM through `DateTime.UtcNow`), so the gate was a runtime no-op at introduction.
 17. `Time.ObservationMoment.Zone` must stay in lockstep with `Location.TimeZoneInfo`.
 18. *(retired 2026-07-06)* ~~`TsEditGate`/editor calls `SqliteConnection.ClearAllPools()` after every verified write~~ — TSM's sync-model rework (commit `9e8ec19`) deleted the call: edits now hit a **local working copy** (pull at open / push-as-replay), so the stale-SMB-read concern the call defended against no longer exists. Kept numbered so the assumption list stays stable.
 
@@ -113,7 +133,11 @@ Compiler-invisible expectations consumers bake in. Each is a candidate for an ex
 
 ## Fragility flags
 - **Three public `Target` types** — `Core.Targets.Target` (class), `NINA.Target` (class), `Catalog.Schema.Target` (record). Naming-overload hazard; consumers alias around it.
-- **Positional-ctor coupling** — TSM tests build Library records positionally (`CatalogBuildReport` 11 args, `Schema.Target` 18, …); a same-typed reorder compiles *wrong*.
+- **Positional-ctor coupling (latent, currently defused)** — the wide record ctors are still a
+  same-typed-reorder hazard (`CatalogBuildReport` 10 required + 4 optional; `Schema.Target` 18), but
+  TSM's tests now construct them with **named arguments** almost everywhere, and `Schema.Target`'s two
+  leading positional args (`Id`, `Source`) are differently typed, so a reorder there is a compile error
+  rather than a silent swap. Re-check if a consumer reverts to positional construction.
 - **Transitive load-bearing refs invisible in the consumer `.csproj`** — TP uses XISF via NINA; TSM uses XISF via Catalog. Dropping a transitive edge breaks the consumer far from the cause.
 - **Consumer-local DTOs freeze a Library-type subset** — TP `LocalTargetStore` persists only `Name/RA/Dec/North`; new required `Target` ctor fields silently won't round-trip.
 
@@ -124,8 +148,15 @@ A large fraction of the public API has **no external caller** (only Library test
 Astronomy.Catalog persistence** (`CatalogStore`, `SchemaManager`, `CatalogBuilder`, `Reconciler` —
 `WriteBackPlanner`/`TargetSchedulerWriter` left this list 2026-07-06 when TSM's write-back shipped) ·
 many **Core statics**
-(`Sun.*` beyond `SunPosition`, several `Session.*`, `TwilightCalculator`, …) · **XISF `Compression`** +
-most typed accessors.
+(`Sun.*` beyond `SunPosition` — `SunEvents`, `SunPower`, `SunTracking`, `SunSeparation`,
+`SunHeliographic`; `TwilightCalculator`; and in `Session` exactly **`VisibilityWindows`,
+`IntegratedQuality`, `QualitySamples`, `RiseSet`**) · **XISF `Compression`** + the 21 typed accessors
+Catalog's scanner doesn't read (the weight/quality block, optics/pointing, focuser/rotator,
+`CcdTempC`, `InstrumentDescription`, `KeywordNames`).
+
+> **The `Session` members are named deliberately.** `SessionSolvers` and `TargetOrdering` are **live TP
+> surface** (four call sites, TP's sort modes) and must never be read into this list — an earlier
+> unnamed "several `Session.*`" would have sanctioned pruning them.
 
 → **Decision (2026-06-28): keep — largely intended-future API, not speculative cruft.** Much of this
 unused surface is for the **planned ISP plugin (not yet started)** and XFM's planned Library

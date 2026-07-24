@@ -147,6 +147,12 @@ namespace Astronomy.Core
             if (cosAz < -1.0) cosAz = -1.0;
             double azimuth = Math.Acos(cosAz) * 180.0 / Math.PI;
             if (haRad < Math.PI) azimuth = 360.0 - azimuth;
+
+            // Due north lands on the [0, 360) seam: the clamp above forces cosAz to exactly 1.0
+            // near the pole / zenith, Acos(1.0) is exactly 0.0, and the eastern-half flip then
+            // yields 360.0 - 0.0. Fold it back so the documented half-open range holds.
+            if (azimuth >= 360.0) azimuth = 0.0;
+
             return azimuth;
         }
     }

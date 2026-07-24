@@ -69,5 +69,49 @@ namespace Astronomy.Core.Tests.Tests
             double gmst = SiderealTime.Greenwich(JulianDate.FromUtc(j2000Utc));
             Assert.Equal(gmst, lst, precision: 8);
         }
+
+        // The time contract gate. ToOADate() ignores Kind and reads raw ticks, so a
+        // Local/Unspecified instant would be reinterpreted as UTC and yield an answer
+        // wrong by the caller's UTC offset -- silently. FromUtc is the single choke
+        // point (SiderealTime.Local routes here; normalising callers arrive as
+        // FromUtc(AsUtc(x))), so guarding it covers every time-based primitive.
+        [Theory]
+        [InlineData(DateTimeKind.Local)]
+        [InlineData(DateTimeKind.Unspecified)]
+        public void FromUtc_NonUtcKind_Throws(DateTimeKind kind)
+        {
+            var notUtc = DateTime.SpecifyKind(new DateTime(2026, 7, 24, 22, 0, 0), kind);
+
+            var ex = Assert.Throws<ArgumentException>(() => JulianDate.FromUtc(notUtc));
+            Assert.Equal("utc", ex.ParamName);
+            Assert.Contains(kind.ToString(), ex.Message);
+        }
+
+        [Fact]
+        public void FromUtc_UtcKind_DoesNotThrow()
+        {
+            var utc = new DateTime(2026, 7, 24, 22, 0, 0, DateTimeKind.Utc);
+            double jd = JulianDate.FromUtc(utc);
+            Assert.True(jd > 2_400_000.0, $"expected a modern Julian Date, got {jd}");
+        }
+
+        // The guard must reject, never quietly convert -- AsUtc is the converting
+        // sibling and the two must not be confused. Same wall-clock digits tagged
+        // Utc vs Local are different instants; only the Utc one is accepted.
+        [Fact]
+        public void FromUtc_DoesNotSilentlyConvertLocalToUtc()
+        {
+            var wallClock = new DateTime(2026, 7, 24, 22, 0, 0);
+            var asLocal = DateTime.SpecifyKind(wallClock, DateTimeKind.Local);
+
+            Assert.Throws<ArgumentException>(() => JulianDate.FromUtc(asLocal));
+
+            // ... but the converting path is still available and agrees with the
+            // UTC instant that local time actually denotes.
+            double viaConversion = JulianDate.FromUtc(asLocal.ToUniversalTime());
+            double direct = JulianDate.FromUtc(
+                DateTime.SpecifyKind(asLocal.ToUniversalTime(), DateTimeKind.Utc));
+            Assert.Equal(direct, viaConversion, precision: 12);
+        }
     }
 }

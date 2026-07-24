@@ -35,5 +35,37 @@ namespace Astronomy.Core.Time
                 default:                 return DateTime.SpecifyKind(dt, DateTimeKind.Local).ToUniversalTime();
             }
         }
+
+        /// <summary>
+        /// Assert that <paramref name="dt"/> is already <see cref="DateTimeKind.Utc"/>,
+        /// throwing <see cref="ArgumentException"/> if it is not.
+        /// </summary>
+        /// <remarks>
+        /// The contract gate for time-based math. <see cref="DateTime.ToOADate"/> — which every
+        /// Julian-Date conversion rests on — ignores <see cref="DateTime.Kind"/> entirely and reads
+        /// the raw tick value, so a <see cref="DateTimeKind.Local"/> or
+        /// <see cref="DateTimeKind.Unspecified"/> instant would be silently *reinterpreted* as UTC
+        /// and yield an answer wrong by the caller's UTC offset. Failing loudly at the boundary is
+        /// the whole point: a caller that meant local time has a bug, and a silent wrong altitude
+        /// is far more expensive to find than an exception.
+        /// <para>
+        /// Callers that legitimately hold a local-frame instant convert first with
+        /// <see cref="AsUtc"/>; this method never converts.
+        /// </para>
+        /// </remarks>
+        public static DateTime RequireUtc(DateTime dt, string paramName)
+        {
+            if (dt.Kind != DateTimeKind.Utc)
+            {
+                throw new ArgumentException(
+                    $"Expected DateTimeKind.Utc, got {dt.Kind} ({dt:O}). Library time math " +
+                    "reinterprets a non-UTC instant as UTC and returns a silently wrong result. " +
+                    "Convert at the call site (TimeZoneInfo.ConvertTimeToUtc / .ToUniversalTime, " +
+                    "or DateTime.SpecifyKind when the value is already UTC but untagged).",
+                    paramName);
+            }
+
+            return dt;
+        }
     }
 }
