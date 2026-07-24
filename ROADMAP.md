@@ -15,9 +15,9 @@ The PCL wrapper is a deep but **settled / parked** subsystem; its design records
 
 Latest three only. **Full shipped history: [`CHANGELOG.md`](CHANGELOG.md)** (append-only, dated, newest first).
 
+- **2026-07-24** — K-S Δmag moon gate replaces the Lorentzian (`MoonLimitProfile`; closes the partial-moon-tolerance + refraction-asymmetry items; TP migrates per its in-repo note).
 - **2026-07-24** — PCL linked closure restored to upstream AVX2 (the 4800U imaging machine has no AVX-512).
 - **2026-07-24** — UTC contract gate + azimuth `[0, 360)` fold-back; docs audit remediation.
-- **2026-07-07** — Contracts.Tests refresh: TS surface pinned (#19–#23), #6/#10 gaps closed, exposure-0 divergence adjudicated.
 
 ## Open: parked PCL wrapper-extension plan — premise needs re-checking
 
@@ -243,93 +243,8 @@ condition.
 Caveat documented in `SkyBrightness.cs` class remarks alongside the
 near-moon (separation < ~10°) and narrow-airglow-overlap regimes.
 
-## Open: refraction asymmetry between K-S call and Lorentzian moon gate
-
-Captured 2026-05-24 from cross-component review. Two TP-side paths
-currently apply the moon-altitude horizon at different conventions:
-
-- **K-S Sky chart** (TP `AltitudeSubChart_Sky`, after the 2026-05-24
-  `0c106e0` refraction fix — the "refraction freebie" in the Filter/PlanningPolicy commit): `moonAltApparent = m.MoonAltDeg +
-  Refraction.SaemundssonDeg(m.MoonAltDeg)`, then `SkyBrightness.KsAt`
-  clamps moon contribution at `moonAltApparent > 0`. Cutoff aligns with
-  visually-observed moonset (~34' / ~2 min later than geometric).
-- **Lorentzian placement gate** (`BestSession.MoonClearIntersect` →
-  `MoonAvoidance.RequiredSepWithRelax`): consumes **geometric** moon
-  altitude from `MoonSeparation.ObserveAt` with no refraction. The
-  Relax bounds (`RelaxMinAltDeg`, `RelaxMaxAltDeg`) are in
-  geometric-degrees terms.
-
-Net: K-S sky-brightness compute and Lorentzian placement gate apply
-moon-altitude thresholds offset by ~34'. A target imaged near the
-moonset/moonrise boundary can be K-S-OK while Lorentzian-rejected (or
-vice versa) for ~2 min around the transition.
-
-**Auto-resolves when the K-S Δmag gate replaces the Lorentzian** —
-see "partial-moon-impact tolerance" below. K-S Δmag inherits the
-refraction-aware moon altitude from the K-S call automatically; the
-Lorentzian path becomes legacy at that point and no per-path
-refraction reconciliation is needed.
-
-For interim consistency without waiting for the K-S Δmag work:
-`MoonAvoidance.RequiredSepWithRelax` could refraction-correct its
-`moonAltDeg` parameter (one line; matches K-S convention). Small
-behavioral shift — moon-clear gate would extend ~2 min later at
-moonrise/moonset — but aligns the two consumers.
-
-## Open: partial-moon-impact tolerance in placement primitives
-
-Captured 2026-05-23 (relocated from TP ROADMAP, deferred until much
-later). Allowing a session to span moon-blocked time at a quality
-penalty rather than rejecting outright. The current placement
-primitives are designed so they don't preclude this — the moon profile
-is optional (`MoonAvoidanceProfile? profile = null` on `BestSession.For` /
-`ResolveCandidates`) and mask computation is behind
-`BestSession.MoonClearIntersect` (internal). **Corrected 2026-07-24:** this
-previously also named `VisibilityWindows` as holding a mask seam. It does
-not — `VisibilityWindows` is deliberately **moon-blind** (its only public
-method is `For(Target, Location, NightWindow, IHorizonProfile)`; no moon
-type, no moon parameter, no mask, and its private helpers are
-horizon-profile refinement only). An implementer should expect to add the
-seam there, not find one. Implementation would add a
-quality-weighted penalty path alongside the current hard-reject path,
-chosen by an opt-in parameter so existing callers stay on the current
-behavior.
-
-Not actively scoped — recorded here so the design considerations
-aren't re-derived.
-
-### Design notes (from 2026-05-24 discussion)
-
-The eventual K-S Δmag gate **replaces** the Lorentzian entirely — it
-doesn't just relax it. K-S takes phase angle (moon disc illumination
-intensity), moon altitude (airmass attenuation), target altitude, and
-target-moon separation all as inputs; the Lorentzian crudely
-approximates these dimensions with `SeparationDeg` + `WidthDays` +
-altitude-relax scalars. K-S Δmag becomes "accept this minute if the
-K-S-predicted brightness is within X mag of the moonless baseline."
-One scalar tolerance, full physics.
-
-- **Lorentzian parameterization side question (days vs %illumination):**
-  %illumination is physically more meaningful (tracks moon disc
-  brightness contribution, not synodic-cycle calendar position) and
-  more intuitive ("50% moon" vs "7 days from full"). But this is a
-  placeholder question — K-S Δmag makes it moot. Switching the
-  Lorentzian's parameterization mid-flight before K-S Δmag would be
-  wasted work.
-
-- **TS-style altitude relaxation (`RelaxMinAlt` / `RelaxMaxAlt` /
-  `RelaxScale`):** addresses the moon-below-horizon and moon-near-
-  horizon regimes that K-S handles automatically via airmass
-  attenuation (moon at apparent alt 0 → contribution clamped to 0;
-  moon at alt 1° → tiny contribution from extincted moonlight). K-S
-  Δmag gates inherit this behavior for free.
-
-- **One thing K-S 1991 doesn't model that TS relax can approximate:**
-  the lunar-twilight-glow regime ~10-15 min after moonset (analogous
-  to solar civil twilight). Negligible for amateur planning purposes;
-  a v3 K-S extension if anyone needs it.
-
-- **Refraction asymmetry** (see preceding entry) is the third thing
-  that auto-resolves under K-S Δmag — the gate inherits the K-S
-  call's apparent-altitude moon convention; the Lorentzian's
-  geometric-altitude inconsistency disappears with the Lorentzian.
+**Scope note (2026-07-24):** since the K-S Δmag moon gate shipped, this regime feeds a
+*placement gate*, not just a chart. The overdrive dims the predicted low-altitude sky →
+*under*-states Δmag → the gate is too permissive below ~10° target altitude at high-k
+sites. Consumers' existing low-altitude floors (TP's target floor / `KsLowAltitudeGateDeg`)
+cover the practical range; recorded in the moon-brightness-gate spec as a known limit.

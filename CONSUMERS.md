@@ -79,7 +79,7 @@ No consumer→consumer references. Note: **Catalog does NOT depend on Core** (it
   `AltAzCalculator`/`AltAz`, `Astrometry.{ObserverInfo, AstroUtil, Refraction, RiseAndSetEvent}`
   (`RiseAndSetEvent` is the declared return type of `AstroUtil.GetMoonRiseAndSetForNight`),
   `Time.{SiderealTime, ObservationMoment}`,
-  `TargetGeometry`, `Moon.{MoonSeparation, MoonEphemeris, LunarAge, MoonAvoidanceProfile}`,
+  `TargetGeometry`, `Moon.{MoonSeparation, MoonEphemeris, LunarAge, MoonLimitProfile}`,
   `Horizons.{IHorizonProfile, ScalarHorizonProfile, PolylineHorizonProfile, MaxOfHorizonProfile}`
   (TP composes the polyline against the scalar floor via `MaxOfHorizonProfile`; its chart cache
   persists that shape verbatim), `Sun.SunPosition`, `Brightness.{Bortle, SkyBrightness}`.
@@ -130,6 +130,10 @@ Compiler-invisible expectations consumers bake in. Each is a candidate for an ex
 21. `TsEditableSchema.EnumValues` **codes are the persisted TS ints** (authored from the TS source enums); a renumber compiles but writes wrong values into the TS DB. `For`/`Find` are the exact editable-column set TSM's schema-driven editors are generated from; `exposureplan.exposure` carries the `-1` "template default" sentinel metadata.
 22. `TsEditableSchema.IsCadenceBreaking`/`TsField.Clears` gate cadence handling: a cadence-breaking edit **clears the scoped `filtercadenceitem` rows in the same transaction** as the column write (an unchanged-value edit is a verified no-op — **no clear**); a **target-scope clear refuses** (`RefusalReason.HasOverrideOrder`) when the target has hand-authored override-order rows, leaving the DB untouched.
 23. `TargetSchedulerWriter.Execute` is **update-only**: existing `exposureplan` rows' `acquired`/`accepted` only — never inserts/deletes rows, never alters the journal mode; `desired` **ratchets to `max(old, new)`** (raised, never lowered); `DiskCount = 0` is a **real write**, not a skip.
+
+**K-S moon gate (shipped 2026-07-24; replaced the Lorentzian):**
+
+24. The moon gate (`MoonClearIntersect` behind `BestSession`/`SessionSolvers`) **refraction-corrects moon altitude internally** (Saemundsson, the Sky-chart convention) — #3 still holds: `MoonSeparation.ObserveAt` returns **geometric**; a consumer adding its own refraction before handing altitudes to the gate would double-apply. And `Δmag` (`SkyBrightness.KsMoonDeltaMag`) is **bandwidth-independent by construction** — the profile carries band *center* only; per-filter moon policy differences are expressed through `ToleranceMag`, not band fields. Site inputs (`v0Mag`, band-k) derive from the `Location` passed to the session helpers, never from the profile.
 
 ## Fragility flags
 - **Three public `Target` types** — `Core.Targets.Target` (class), `NINA.Target` (class), `Catalog.Schema.Target` (record). Naming-overload hazard; consumers alias around it.

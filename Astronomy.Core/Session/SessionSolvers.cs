@@ -60,7 +60,7 @@ namespace Astronomy.Core.Session
         /// Optional upper bound on the returned duration. If supplied, must be positive.
         /// </param>
         /// <param name="profile">
-        /// Optional moon-avoidance profile. When non-null and enabled, moon-clear sub-
+        /// Optional K-S moon-gate profile. When non-null and enabled, moon-clear sub-
         /// intervals are intersected with the visibility windows before searching.
         /// </param>
         /// <param name="altitudeQuality">
@@ -80,7 +80,7 @@ namespace Astronomy.Core.Session
         public static (DateTime Start, DateTime End, TimeSpan Duration)? LongestDuration(
             Target target, Location location, NightWindow night, IHorizonProfile horizon,
             TimeSpan? cap = null,
-            MoonAvoidanceProfile? profile = null,
+            MoonLimitProfile? profile = null,
             Func<double, double>? altitudeQuality = null)
         {
             ArgumentNullException.ThrowIfNull(target);
@@ -136,7 +136,7 @@ namespace Astronomy.Core.Session
 
         /// <summary>
         /// Returns the lowest scalar horizon (degrees) at which a <paramref name="duration"/>-long
-        /// session still fits inside the night, optionally subject to a moon-avoidance
+        /// session still fits inside the night, optionally subject to a K-S moon-gate
         /// profile. Bisects between <paramref name="minHorizonDeg"/> and the target's
         /// meridian altitude.
         /// </summary>
@@ -164,7 +164,7 @@ namespace Astronomy.Core.Session
         /// Lower bound on the search (degrees). Defaults to 0.0. Must be in [-90, 90].
         /// </param>
         /// <param name="profile">
-        /// Optional moon-avoidance profile. When non-null and enabled, candidate windows
+        /// Optional K-S moon-gate profile. When non-null and enabled, candidate windows
         /// are intersected with moon-clear sub-intervals at each iteration's trial horizon.
         /// </param>
         /// <param name="altitudeQuality">
@@ -192,7 +192,7 @@ namespace Astronomy.Core.Session
             Target target, Location location, NightWindow night,
             TimeSpan duration,
             double minHorizonDeg = 0.0,
-            MoonAvoidanceProfile? profile = null,
+            MoonLimitProfile? profile = null,
             Func<double, double>? altitudeQuality = null,
             int maxIterations = 20)
         {
@@ -269,7 +269,7 @@ namespace Astronomy.Core.Session
         public static (DateTime Start, DateTime End, TimeSpan Duration)? LongestDurationCentered(
             Target target, Location location, NightWindow night, IHorizonProfile horizon,
             TimeSpan? cap = null,
-            MoonAvoidanceProfile? profile = null)
+            MoonLimitProfile? profile = null)
         {
             ArgumentNullException.ThrowIfNull(target);
             ArgumentNullException.ThrowIfNull(location);
@@ -314,7 +314,7 @@ namespace Astronomy.Core.Session
         /// <summary>
         /// Returns the lowest scalar horizon (degrees) at which a strict transit-centered
         /// <paramref name="duration"/>-long session still fits inside the night, optionally
-        /// subject to a moon-avoidance profile. Companion to <see cref="LowestHorizon"/>
+        /// subject to a K-S moon-gate profile. Companion to <see cref="LowestHorizon"/>
         /// for the Symmetric-curve semantics.
         /// </summary>
         /// <remarks>
@@ -340,7 +340,7 @@ namespace Astronomy.Core.Session
             Target target, Location location, NightWindow night,
             TimeSpan duration,
             double minHorizonDeg = 0.0,
-            MoonAvoidanceProfile? profile = null,
+            MoonLimitProfile? profile = null,
             int maxIterations = 20)
         {
             ArgumentNullException.ThrowIfNull(target);
@@ -407,7 +407,7 @@ namespace Astronomy.Core.Session
         private static bool FitsAt(
             Target target, Location location, NightWindow night,
             double horizonDeg, TimeSpan duration,
-            MoonAvoidanceProfile? profile)
+            MoonLimitProfile? profile)
         {
             var horizonProfile = new ScalarHorizonProfile(horizonDeg);
             var candidates = BestSession.ResolveCandidates(target, location, night, horizonProfile, profile);
@@ -455,7 +455,7 @@ namespace Astronomy.Core.Session
         private static bool FitsCenteredAt(
             Target target, Location location, NightWindow night,
             double horizonDeg, TimeSpan duration,
-            MoonAvoidanceProfile? profile)
+            MoonLimitProfile? profile)
         {
             var horizonProfile = new ScalarHorizonProfile(horizonDeg);
             var candidates = BestSession.ResolveCandidates(target, location, night, horizonProfile, profile);

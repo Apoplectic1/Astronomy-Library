@@ -54,7 +54,7 @@ namespace Astronomy.Core.Tests.Tests
             var disabledResult = BestSession.For(
                 Target.Default, loc, night, horizon,
                 TimeSpan.FromHours(2), TimeSpan.FromHours(4),
-                SinAltQuality, profile: MoonAvoidanceProfile.Disabled);
+                SinAltQuality, profile: MoonLimitProfile.Disabled);
 
             Assert.Equal(nullResult.HasValue, disabledResult.HasValue);
             if (nullResult.HasValue)
@@ -69,8 +69,9 @@ namespace Astronomy.Core.Tests.Tests
         public void For_EnabledProfile_ReturnsResultWhenTargetMoonClear()
         {
             // M31 (RA 0.7h, Dec +41°) sits well off the ecliptic; on a typical mid-cycle
-            // night the target-moon separation stays large enough that even Narrowband's
-            // 60° threshold doesn't reject the entire visibility window. We don't compare
+            // night the target-moon separation stays large enough that the K-S Δmag at
+            // the target sits inside Narrowband's 1.0-mag tolerance for at least part of
+            // the visibility window. We don't compare
             // exact placement against the moon-blind result here because moon-clear
             // sub-interval boundaries can shift by up to 10 minutes via the sweep, so
             // exact-match would be brittle. We only assert "still got a session".
@@ -81,7 +82,7 @@ namespace Astronomy.Core.Tests.Tests
             var result = BestSession.For(
                 Target.Default, loc, night, horizon,
                 TimeSpan.FromHours(2), TimeSpan.FromHours(4),
-                SinAltQuality, profile: MoonAvoidanceProfile.Narrowband);
+                SinAltQuality, profile: MoonLimitProfile.Narrowband);
 
             Assert.NotNull(result);
         }
@@ -96,7 +97,7 @@ namespace Astronomy.Core.Tests.Tests
             Assert.Throws<ArgumentNullException>(() => BestSession.For(
                 null, loc, night, horizon,
                 TimeSpan.FromHours(2), TimeSpan.FromHours(4),
-                SinAltQuality, profile: MoonAvoidanceProfile.Narrowband));
+                SinAltQuality, profile: MoonLimitProfile.Narrowband));
         }
 
         [Fact]
@@ -108,7 +109,7 @@ namespace Astronomy.Core.Tests.Tests
             Assert.Throws<ArgumentNullException>(() => BestSession.For(
                 Target.Default, null, night, horizon,
                 TimeSpan.FromHours(2), TimeSpan.FromHours(4),
-                SinAltQuality, profile: MoonAvoidanceProfile.Narrowband));
+                SinAltQuality, profile: MoonLimitProfile.Narrowband));
         }
 
         [Fact]
@@ -396,7 +397,7 @@ namespace Astronomy.Core.Tests.Tests
             var night = NightCalculator.ComputeNight(loc, MakeSeed());
             var horizon = new ScalarHorizonProfile(20.0);
             var dur = TimeSpan.FromHours(2);
-            var profile = MoonAvoidanceProfile.Narrowband;
+            var profile = MoonLimitProfile.Narrowband;
 
             var fromFor = BestSession.For(
                 Target.Default, loc, night, horizon, dur, dur, SinAltQuality, profile: profile);

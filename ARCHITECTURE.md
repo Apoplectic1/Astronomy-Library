@@ -32,7 +32,7 @@ These are baked into the public API and must be respected when adding code:
 
 ### Thread safety
 
-`Astronomy.Core` is **thread-safe by construction** since the CoordinateSharp removal in commit `e602bdb`. Verified: zero mutable static fields, zero static caches / dictionaries / `Lazy<T>` / singletons; all public APIs take parameters with no hidden state. All inputs are immutable POCOs (`Target`, `Location`, `NightWindow`, `MoonAvoidanceProfile`); all returns are immutable POCOs, small structs (`AltAz`, `RiseSetResult` — note `RiseSet` itself is the static helper class, not the value type), or `IReadOnlyList<T>`. **Consumers may call any helper from any thread without external synchronization.**
+`Astronomy.Core` is **thread-safe by construction** since the CoordinateSharp removal in commit `e602bdb`. Verified: zero mutable static fields, zero static caches / dictionaries / `Lazy<T>` / singletons; all public APIs take parameters with no hidden state. All inputs are immutable POCOs (`Target`, `Location`, `NightWindow`, `MoonLimitProfile`); all returns are immutable POCOs, small structs (`AltAz`, `RiseSetResult` — note `RiseSet` itself is the static helper class, not the value type), or `IReadOnlyList<T>`. **Consumers may call any helper from any thread without external synchronization.**
 
 Two caveats limit that promise:
 
@@ -55,7 +55,7 @@ All ten folders, so the map matches the tree:
 - `Session/` — higher-level analysis built on the primitives: `AltitudeCurve` (uniform-grid sampling via linear LST advance — the speedup over per-sample `AltAzCalculator.At` comes from GMST being linear in UT, so the curve advances LST arithmetically instead of recomputing it; returns `IReadOnlyList<AltAzSample>` with `AltDegGeometric` + `AltDegApparent` + `AzDeg` per sample), `SessionAltitude`, `QualitySamples`, `AltAzSample`, `RiseSet`, `TransitTime`, `VisibilityWindows`, `CoarseVisibility`, `IntegratedQuality`, `BestSession`, `TargetOrdering`, `SessionSolvers`.
 - `Sun/` — `SunPosition`, `SunEvents`, `SunPower`, `SunTracking`, `SunSeparation`, `SunHeliographic`.
 - `Brightness/` — `SkyBrightness` (Krisciunas–Schaefer), `Bortle`, `Twilight`.
-- `Moon/` — `MoonSeparation`, `LunarAge`, `MoonAvoidance`/`MoonAvoidanceProfile`; `MoonEphemeris.Sample(location, startUtc, step, count)` returns `IReadOnlyList<MoonSample>` with topocentric AltAz (geometric + apparent) + `DistanceKm` + `AgeDays` + `PhaseAngleDeg` + `IlluminatedFrac` per `step`. Pure-function per-night sampling primitive consumed by TargetPlanner's `MoonEphemerisEntry` cache axis; designed for the planned IntervalScheduler Plugin (ISP) cache shape.
+- `Moon/` — `MoonSeparation`, `LunarAge`, `MoonLimitProfile` (the K-S Δmag moon gate's parameter POCO — the gate math lives in `Brightness/SkyBrightness.KsMoonDeltaMag`, the walk in `Session/BestSession.MoonClearIntersect`; the gate refracts moon altitude internally while `ObserveAt` stays geometric); `MoonEphemeris.Sample(location, startUtc, step, count)` returns `IReadOnlyList<MoonSample>` with topocentric AltAz (geometric + apparent) + `DistanceKm` + `AgeDays` + `PhaseAngleDeg` + `IlluminatedFrac` per `step`. Pure-function per-night sampling primitive consumed by TargetPlanner's `MoonEphemerisEntry` cache axis; designed for the planned IntervalScheduler Plugin (ISP) cache shape.
 
 ## Astronomy.XISF
 

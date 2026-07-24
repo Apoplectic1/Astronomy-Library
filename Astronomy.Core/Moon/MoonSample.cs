@@ -17,12 +17,12 @@ namespace Astronomy.Core.Moon
     /// Both refracted (apparent) and geometric altitudes are carried:
     /// </para>
     /// <list type="bullet">
-    /// <item><see cref="AltDegGeometric"/> — what
-    /// <see cref="MoonAvoidance.RequiredSepWithRelax"/> consumes (the relaxation
-    /// zone's <c>RelaxMinAltDeg</c> gate uses geometric).</item>
-    /// <item><see cref="AltDegApparent"/> — what
-    /// <see cref="Astronomy.Core.Brightness.SkyBrightness.KsAt"/> consumes
-    /// (apparent-altitude convention).</item>
+    /// <item><see cref="AltDegGeometric"/> — the raw geometric position (what
+    /// <see cref="MoonSeparation.ObserveAt"/> also reports).</item>
+    /// <item><see cref="AltDegApparent"/> — what the K-S evaluations
+    /// (<see cref="Astronomy.Core.Brightness.SkyBrightness.KsAt"/> /
+    /// <see cref="Astronomy.Core.Brightness.SkyBrightness.KsMoonDeltaMag"/>, and
+    /// therefore the moon gate) consume (apparent-altitude convention).</item>
     /// </list>
     /// <para>
     /// <see cref="DistanceKm"/> enables downstream parallax-aware separation
@@ -30,7 +30,8 @@ namespace Astronomy.Core.Moon
     /// the AltAz pair alone.
     /// </para>
     /// <para>
-    /// <see cref="AgeDays"/> drives the Lorentzian moon-avoidance gate;
+    /// <see cref="AgeDays"/> is the cheap per-minute phase axis (see
+    /// <see cref="LunarAge.DaysAt"/>);
     /// <see cref="PhaseAngleDeg"/> drives the K-S <c>iStar</c> term;
     /// <see cref="IlluminatedFrac"/> is for UI labels (and is geocentric — the
     /// topocentric correction is &lt; 0.0001 and intentionally not modeled).

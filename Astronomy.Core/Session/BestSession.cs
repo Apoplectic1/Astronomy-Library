@@ -1,9 +1,12 @@
 using System;
 using System.Collections.Generic;
+using Astronomy.Core.Astrometry;
+using Astronomy.Core.Brightness;
 using Astronomy.Core.Horizons;
 using Astronomy.Core.Locations;
 using Astronomy.Core.Moon;
 using Astronomy.Core.Night;
+using Astronomy.Core.Sun;
 using Astronomy.Core.Targets;
 
 namespace Astronomy.Core.Session
@@ -38,7 +41,7 @@ namespace Astronomy.Core.Session
         /// candidate windows are intersected with moon-clear sub-intervals (per the
         /// ACP/TS Lorentzian, sampled at 1-minute resolution) before placement. When
         /// <paramref name="profile"/> is <see langword="null"/> or
-        /// <see cref="MoonAvoidanceProfile.Disabled"/>, the moon-aware path short-circuits
+        /// <see cref="MoonLimitProfile.Disabled"/>, the moon-aware path short-circuits
         /// and the result is byte-identical to the legacy moon-blind output.
         /// </para>
         /// <para>
@@ -72,10 +75,10 @@ namespace Astronomy.Core.Session
         /// genuinely need a different quality model.
         /// </param>
         /// <param name="profile">
-        /// Optional moon-avoidance profile. <see langword="null"/> or
-        /// <see cref="MoonAvoidanceProfile.Disabled"/> takes the legacy moon-blind
+        /// Optional K-S moon-gate profile. <see langword="null"/> or
+        /// <see cref="MoonLimitProfile.Disabled"/> takes the moon-blind
         /// path; non-null + enabled intersects candidate windows with moon-clear
-        /// sub-intervals before placement.
+        /// sub-intervals (K-S Δmag within tolerance) before placement.
         /// </param>
         /// <exception cref="ArgumentNullException">
         /// Any of <paramref name="target"/>, <paramref name="location"/>, or
@@ -90,7 +93,7 @@ namespace Astronomy.Core.Session
             Target target, Location location, NightWindow night, IHorizonProfile horizon,
             TimeSpan minDuration, TimeSpan maxDuration,
             Func<double, double>? altitudeQuality = null,
-            MoonAvoidanceProfile? profile = null)
+            MoonLimitProfile? profile = null)
         {
             ArgumentNullException.ThrowIfNull(target);
             ArgumentNullException.ThrowIfNull(location);
@@ -149,8 +152,8 @@ namespace Astronomy.Core.Session
         /// <param name="night">Dusk/dawn pair (UTC).</param>
         /// <param name="horizon">Horizon profile. Non-null.</param>
         /// <param name="profile">
-        /// Optional moon-avoidance profile. When non-null and enabled, candidate windows
-        /// are intersected with moon-clear sub-intervals.
+        /// Optional K-S moon-gate profile. When non-null and enabled, candidate windows
+        /// are intersected with moon-clear sub-intervals (K-S Δmag within tolerance).
         /// </param>
         /// <returns>
         /// Candidate windows (UTC), possibly empty. Iteration order matches
@@ -162,7 +165,7 @@ namespace Astronomy.Core.Session
         /// </exception>
         public static IReadOnlyList<(DateTime Start, DateTime End)> ResolveCandidates(
             Target target, Location location, NightWindow night, IHorizonProfile horizon,
-            MoonAvoidanceProfile? profile = null)
+            MoonLimitProfile? profile = null)
         {
             ArgumentNullException.ThrowIfNull(target);
             ArgumentNullException.ThrowIfNull(location);
@@ -393,50 +396,82 @@ namespace Astronomy.Core.Session
             return best;
         }
 
-        // Walks each visibility window at 1-minute resolution, samples (separation,
-        // moonAlt, age), evaluates MoonAvoidance.IsRejected, and emits contiguous
-        // (Start, End) sub-intervals where avoidance accepts. Boundary crossings are
-        // located by linear interpolation on (actualSep - requiredSep), so the result is
-        // accurate to a few seconds regardless of how the threshold itself ramps with
-        // moon altitude inside the relaxation zone.
+        // Walks each visibility window at 1-minute resolution, evaluates the K-S Δmag
+        // gate, and emits contiguous (Start, End) sub-intervals where the moon-driven
+        // sky brightening stays within the profile's tolerance. Boundary crossings are
+        // located by linear interpolation on (ToleranceMag - Δmag), so the result is
+        // accurate to a few seconds.
+        //
+        // Per-sample evaluation: one MoonSeparation.ObserveAt (moon alt/az; the
+        // separation enters through K-S itself, not a threshold), one AltAzCalculator.At
+        // for the target, LunarAge -> phase angle (pure arithmetic), one
+        // SunPosition.AltAzAt for the twilight term, then the decomposed
+        // SkyBrightness.KsMoonDeltaMag. Moon altitude is refraction-lifted
+        // (Saemundsson) before the K-S call -- the Sky-chart apparent-altitude
+        // convention; ObserveAt itself stays geometric (CONSUMERS #3).
         internal static IReadOnlyList<(DateTime Start, DateTime End)> MoonClearIntersect(
             Target target, Location location,
             IReadOnlyList<(DateTime Start, DateTime End)> visibility,
-            MoonAvoidanceProfile profile)
+            MoonLimitProfile profile)
         {
             var result = new List<(DateTime Start, DateTime End)>();
             TimeSpan sampleSize = TimeSpan.FromMinutes(1);
 
+            // Site inputs are per-night constants: zenith dark-sky mag from the Bortle
+            // class, and the site's k(500nm) scaled to the profile's band center.
+            double v0Mag = Bortle.DefaultZenithMag(location.BortleClass);
+            double kBand = SkyBrightness.ScaleK(location.ExtinctionK, profile.CenterNm);
+
+            // ToleranceMag - Δmag at the instant: >= 0 => clear, < 0 => rejected.
+            // A visibility window guarantees the target is above the horizon, so a NaN
+            // Δ (target at/below horizon) is an input-contract violation -- fail fast
+            // rather than silently skipping the minute.
+            double GateMargin(DateTime t)
+            {
+                var (_, moonAltGeo, moonAzDeg) = MoonSeparation.ObserveAt(target, location, t);
+                var targetAA = AltAzCalculator.At(target, location, t);
+
+                double moonAltApparent = moonAltGeo + Refraction.SaemundssonDeg(moonAltGeo);
+                double phaseDeg = SkyBrightness.PhaseAngleDegFromAgeDays(LunarAge.DaysAt(t));
+                double sunAltDeg = SunPosition.AltAzAt(location, t).Altitude;
+
+                double deltaMag = SkyBrightness.KsMoonDeltaMag(
+                    targetAA.Altitude, targetAA.Azimuth,
+                    moonAltApparent, moonAzDeg,
+                    phaseDeg, sunAltDeg, kBand, v0Mag, profile.CenterNm);
+
+                if (double.IsNaN(deltaMag))
+                    throw new InvalidOperationException(
+                        $"Moon gate sampled a target at/below the horizon at {t:O} inside a " +
+                        "visibility window -- the visibility input violates its contract.");
+
+                return profile.ToleranceMag - deltaMag;
+            }
+
             foreach (var win in visibility)
             {
                 DateTime tPrev = win.Start;
-                var (sepPrev, moonAltPrev, _) = MoonSeparation.ObserveAt(target, location, tPrev);
-                double agePrev = LunarAge.DaysAt(tPrev);
-                double reqPrev = MoonAvoidance.RequiredSepWithRelax(agePrev, moonAltPrev, profile);
-                double deltaPrev = sepPrev - reqPrev;       // > 0 => clear, < 0 => rejected
-                bool clearPrev = !(reqPrev > 0.0 && deltaPrev < 0.0);
+                double marginPrev = GateMargin(tPrev);
+                bool clearPrev = marginPrev >= 0.0;
                 DateTime? clearStart = clearPrev ? (DateTime?)tPrev : null;
 
                 DateTime tCur = win.Start.Add(sampleSize);
                 while (tCur <= win.End)
                 {
-                    var (sepCur, moonAltCur, _) = MoonSeparation.ObserveAt(target, location, tCur);
-                    double ageCur = LunarAge.DaysAt(tCur);
-                    double reqCur = MoonAvoidance.RequiredSepWithRelax(ageCur, moonAltCur, profile);
-                    double deltaCur = sepCur - reqCur;
-                    bool clearCur = !(reqCur > 0.0 && deltaCur < 0.0);
+                    double marginCur = GateMargin(tCur);
+                    bool clearCur = marginCur >= 0.0;
 
                     if (clearPrev != clearCur)
                     {
-                        // Linear interpolation on delta to locate the boundary. Falls back
-                        // to the half-step midpoint if the deltas don't straddle zero
-                        // (can happen when one side has reqPrev/Cur == 0 -- avoidance was
-                        // off there -- and the other side flipped on with reqCur > sepCur).
+                        // Linear interpolation on the margin to locate the boundary. Falls
+                        // back to the half-step midpoint if the margins don't straddle zero
+                        // (e.g. an exact-zero margin on the clear side -- the boundary
+                        // sample itself sat exactly at tolerance).
                         DateTime crossing;
-                        double denom = deltaPrev - deltaCur;
-                        if (denom != 0.0 && Math.Sign(deltaPrev) != Math.Sign(deltaCur))
+                        double denom = marginPrev - marginCur;
+                        if (denom != 0.0 && Math.Sign(marginPrev) != Math.Sign(marginCur))
                         {
-                            double frac = deltaPrev / denom;
+                            double frac = marginPrev / denom;
                             crossing = tPrev.AddTicks((long)(frac * (tCur - tPrev).Ticks));
                         }
                         else
@@ -458,11 +493,7 @@ namespace Astronomy.Core.Session
                     }
 
                     tPrev = tCur;
-                    sepPrev = sepCur;
-                    moonAltPrev = moonAltCur;
-                    agePrev = ageCur;
-                    reqPrev = reqCur;
-                    deltaPrev = deltaCur;
+                    marginPrev = marginCur;
                     clearPrev = clearCur;
                     tCur = tCur.Add(sampleSize);
                 }

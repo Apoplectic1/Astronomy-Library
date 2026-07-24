@@ -27,6 +27,8 @@ namespace Astronomy.Contracts.Tests;
 ///   #22 Cadence-clear gating ........... TsEditableSchemaContractTests (classification)
 ///                                        + TsCadenceClearContractTests (DB behavior)
 ///   #23 Writer update-only + ratchet ... TargetSchedulerWriterContractTests
+///   #24 Δmag bandwidth-independent ..... MoonContractTests (deterministic half; the
+///                                        gate-internal refraction half is registered below)
 ///
 /// NOT cleanly unit-testable (placeholders below mirror this list):
 ///
@@ -90,4 +92,7 @@ public sealed class NotCleanlyTestableAssumptions
 
     [Fact(Skip = "#18 RETIRED 2026-07-06 — the ClearAllPools() call was deleted with TSM's local-working-copy sync rework; the number is kept because the assumption list is append-only.")]
     public void Assumption18_Retired_ClearAllPoolsCallDeleted() { }
+
+    [Fact(Skip = "#24 (refraction/site half) — the moon gate's internal Saemundsson correction and Location-derived site params live inside internal MoonClearIntersect; externally observable only as ~2-minute window-boundary shifts against a real ephemeris, which is a brittle assertion. The bandwidth-independence half IS deterministically pinned (MoonContractTests.KsMoonDeltaMag_MatchesKsAtDifference_AtEveryBandwidth); the convention itself is pinned indirectly by #3 (ObserveAt stays geometric) plus the Core-side gate tests.")]
+    public void Assumption24_GateInternalRefraction_ObservableOnlyAsBoundaryShift() { }
 }

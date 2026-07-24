@@ -137,6 +137,76 @@ namespace Astronomy.Core.Brightness
         {
             if (targetAltDeg <= 0.0) return double.NaN;
 
+            var (bDark, bTwilight, bMoon) = KsComponents(
+                targetAltDeg, targetAzDeg, moonAltDeg, moonAzDeg,
+                moonPhaseAngleDeg, sunAltDeg, extinctionKBand, v0Mag, centerNm);
+
+            // Continuum bandwidth scaling: integrated nL brightness in the filter's
+            // passband scales linearly with passband width for continuous-spectrum
+            // sources (dark-sky, twilight scatter, moonlight scatter). Applied once
+            // to the summed nL contribution before the mag conversion.
+            double bandwidthScale = bandwidthNm / BWRefNm;
+            return NanolambertsToMag((bDark + bTwilight + bMoon) * bandwidthScale);
+        }
+
+        /// <summary>
+        /// The moon's brightening of the sky at the target, in mag/arcsec², over the
+        /// moonless (dark + twilight) baseline — the K-S Δmag consumed by the moon gate
+        /// (<see cref="Astronomy.Core.Moon.MoonLimitProfile"/>): a minute is accepted when
+        /// this Δ is within the profile's tolerance.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// Computed from one decomposed K-S evaluation:
+        /// <c>Δmag = mag(bDark + bTwilight) − mag(bDark + bTwilight + bMoon)</c>, always ≥ 0.
+        /// There is deliberately <b>no bandwidth parameter</b> — the continuum bandwidth
+        /// scale multiplies all three components and cancels exactly in the difference.
+        /// Band <i>center</i> is taken: it drives the extinction's wavelength scaling
+        /// (callers pre-scale via <see cref="ScaleK"/>) and the twilight Rayleigh scaling.
+        /// </para>
+        /// <para>
+        /// The twilight term sits in the baseline, so a brighter twilight sky reduces the
+        /// Δ for the same moon geometry — deliberate physics: the moon matters less
+        /// against a sky the sun is already brightening.
+        /// </para>
+        /// </remarks>
+        /// <param name="moonAltDeg">Moon <b>apparent</b> altitude — see <see cref="KsAt"/>'s
+        /// parameter doc; ≤ 0 yields Δ = 0.</param>
+        /// <returns>Δmag ≥ 0; <see cref="double.NaN"/> if the target is at or below the horizon.</returns>
+        public static double KsMoonDeltaMag(
+            double targetAltDeg, double targetAzDeg,
+            double moonAltDeg,   double moonAzDeg,
+            double moonPhaseAngleDeg,
+            double sunAltDeg,
+            double extinctionKBand,
+            double v0Mag,
+            double centerNm)
+        {
+            if (targetAltDeg <= 0.0) return double.NaN;
+
+            var (bDark, bTwilight, bMoon) = KsComponents(
+                targetAltDeg, targetAzDeg, moonAltDeg, moonAzDeg,
+                moonPhaseAngleDeg, sunAltDeg, extinctionKBand, v0Mag, centerNm);
+
+            if (bMoon <= 0.0) return 0.0;
+
+            double baseline = bDark + bTwilight;
+            return NanolambertsToMag(baseline) - NanolambertsToMag(baseline + bMoon);
+        }
+
+        // The three K-S nanolambert components, evaluated once and combined by the
+        // callers (KsAt sums all three; KsMoonDeltaMag differences the moon term against
+        // the dark+twilight baseline). Math is verbatim from the original KsAt body so
+        // the pinned golden value (CONSUMERS #4) is unchanged.
+        private static (double bDark, double bTwilight, double bMoon) KsComponents(
+            double targetAltDeg, double targetAzDeg,
+            double moonAltDeg,   double moonAzDeg,
+            double moonPhaseAngleDeg,
+            double sunAltDeg,
+            double extinctionKBand,
+            double v0Mag,
+            double centerNm)
+        {
             double targetX = Airmass(targetAltDeg);
 
             // Moonless dark sky at target altitude. V₀ at zenith brightens with airmass
@@ -197,12 +267,7 @@ namespace Astronomy.Core.Brightness
                       * (1.0 - Math.Pow(10.0, -0.4 * extinctionKBand * targetX));
             }
 
-            // Continuum bandwidth scaling: integrated nL brightness in the filter's
-            // passband scales linearly with passband width for continuous-spectrum
-            // sources (dark-sky, twilight scatter, moonlight scatter). Applied once
-            // to the summed nL contribution before the mag conversion.
-            double bandwidthScale = bandwidthNm / BWRefNm;
-            return NanolambertsToMag((bDark + bTwilight + bMoon) * bandwidthScale);
+            return (bDark, bTwilight, bMoon);
         }
 
         /// <summary>

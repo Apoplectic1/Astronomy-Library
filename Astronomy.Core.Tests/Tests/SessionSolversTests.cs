@@ -148,7 +148,7 @@ namespace Astronomy.Core.Tests.Tests
 
             var result = SessionSolvers.LongestDuration(
                 Target.Default, loc, night, horizon,
-                profile: MoonAvoidanceProfile.Narrowband);
+                profile: MoonLimitProfile.Narrowband);
 
             Assert.NotNull(result);
             Assert.True(result.Value.Duration > TimeSpan.Zero);

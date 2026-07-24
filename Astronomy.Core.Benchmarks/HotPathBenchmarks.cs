@@ -167,7 +167,7 @@ namespace Astronomy.Core.Benchmarks
             return BestSession.For(
                 _target, _location, _night, _horizon,
                 TimeSpan.FromHours(2), TimeSpan.FromHours(4),
-                SinAltQuality, profile: MoonAvoidanceProfile.Narrowband);
+                SinAltQuality, profile: MoonLimitProfile.Narrowband);
         }
     }
 }

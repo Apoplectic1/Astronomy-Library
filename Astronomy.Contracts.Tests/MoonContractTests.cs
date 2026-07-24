@@ -110,4 +110,36 @@ public sealed class MoonContractTests
         Assert.True(Math.Abs(moonAltDeg - reference.AltDegApparent) > 0.02,
             "ObserveAt MoonAltDeg must not equal the refraction-adjusted (apparent) altitude");
     }
+    // ---------------------------------------------------------------------------
+    // CONSUMERS.md assumption #24 (deterministic half):
+    //   "Dmag (SkyBrightness.KsMoonDeltaMag) is bandwidth-independent by
+    //    construction -- the profile carries band center only."
+    // The decomposed Dmag must equal the difference of two full KsAt evaluations
+    // at ANY bandwidth -- the continuum bandwidth scale is a common factor of all
+    // three nL components and cancels exactly in the ratio. A consumer adding a
+    // bandwidth knob to its moon policy would be encoding a sensitivity that does
+    // not exist; per-filter policy differences belong in ToleranceMag.
+    // (The gate's INTERNAL refraction convention -- the other half of #24 -- is
+    // registered in NotCleanlyTestableAssumptions: MoonClearIntersect is internal
+    // and only observable through ~2-minute window-boundary shifts.)
+    // ---------------------------------------------------------------------------
+
+    [Fact]
+    public void KsMoonDeltaMag_MatchesKsAtDifference_AtEveryBandwidth()
+    {
+        double tAlt = 40.0, tAz = 180.0, mAlt = 35.0, mAz = 100.0;
+        double phase = 30.0, sun = -18.0, k = 0.21, v0 = 20.5, center = 540.0;
+
+        double delta = Astronomy.Core.Brightness.SkyBrightness.KsMoonDeltaMag(
+            tAlt, tAz, mAlt, mAz, phase, sun, k, v0, center);
+
+        foreach (double bw in new[] { 3.0, 35.0, 85.0, 300.0 })
+        {
+            double withMoon = Astronomy.Core.Brightness.SkyBrightness.KsAt(
+                tAlt, tAz, mAlt, mAz, phase, sun, k, v0, bw, center);
+            double noMoon = Astronomy.Core.Brightness.SkyBrightness.KsAt(
+                tAlt, tAz, -5.0, mAz, phase, sun, k, v0, bw, center);
+            Assert.Equal(noMoon - withMoon, delta, precision: 10);
+        }
+    }
 }

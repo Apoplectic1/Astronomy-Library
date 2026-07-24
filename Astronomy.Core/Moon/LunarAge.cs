@@ -9,22 +9,22 @@ namespace Astronomy.Core.Moon
     /// <remarks>
     /// <para>
     /// Closed-form synodic-cycle estimate against a known new-moon reference epoch. The
-    /// synodic period itself drifts ±~6 hours per cycle and the Lorentzian formula
-    /// (<see cref="MoonAvoidance.LorentzianRequiredSep"/>) is insensitive to age error of
-    /// a few hours, so this approximation is well within tolerance for moon-avoidance
-    /// scheduling.
+    /// synodic period itself drifts ±~6 hours per cycle, and the downstream consumer —
+    /// the phase angle feeding the K-S moon gate via
+    /// <see cref="Astronomy.Core.Brightness.SkyBrightness.PhaseAngleDegFromAgeDays"/> —
+    /// is insensitive to age error of a few hours, so this approximation is well within
+    /// tolerance for moon-gate scheduling.
     /// </para>
     /// <para>
     /// For a higher-accuracy lunar phase, call
     /// <see cref="Astronomy.Core.Astrometry.AstroUtil.GetMoonIllumination"/>; this helper
-    /// exists for Lorentzian moon-avoidance scheduling, where lunar age (rather than
-    /// illuminated fraction) is the natural axis of the avoidance formula.
+    /// exists for scheduling, where lunar age is the natural cheap per-minute axis.
     /// </para>
     /// </remarks>
     public static class LunarAge
     {
-        /// <summary>One synodic month, in days. Matches <see cref="MoonAvoidance.DaysInLunarCycle"/>.</summary>
-        public const double SynodicMonthDays = MoonAvoidance.DaysInLunarCycle;
+        /// <summary>One synodic month, in days (matches TS's <c>DAYS_IN_LUNAR_CYCLE</c>).</summary>
+        public const double SynodicMonthDays = 29.5305882;
 
         /// <summary>
         /// Reference Julian Date of the new moon on 2000-01-06 18:14 UT.

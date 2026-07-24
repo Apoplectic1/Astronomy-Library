@@ -9,6 +9,42 @@ backstop — this is the human-legible layer above it.
 **Entry format:** `## YYYY-MM-DD — <what landed>` (a month-only `YYYY-MM` is fine when the exact day
 wasn't recorded). Newest first; add new entries directly below this charter, never at the bottom.
 
+## 2026-07-24 — K-S Δmag moon gate replaces the Lorentzian (`MoonLimitProfile`)
+
+The placement primitives' moon gate is now physics, not curve-fitting: **accept a minute iff the
+K-S-predicted sky brightness at the target is within `ToleranceMag` of the moonless baseline.**
+`Δmag = ln(1 + bMoon/(bDark + bTwilight))/0.92104`, computed by the new decomposed
+`SkyBrightness.KsMoonDeltaMag` (KsAt's three nL components evaluated once; `KsAt` itself untouched
+— the #4 golden survives). `BestSession.MoonClearIntersect` keeps its seam, 1-minute walk and
+boundary interpolation, now on `ToleranceMag − Δmag(t)`. The gate refraction-lifts moon altitude
+internally (Saemundsson — the Sky-chart convention), which **closes the refraction-asymmetry item**
+(~34′/~2 min disagreement between chart and gate); `ObserveAt` stays geometric (#3 unchanged).
+Site inputs derive from `Location` (`Bortle.DefaultZenithMag` + `ScaleK`); the profile is minimal:
+`Enabled` / `ToleranceMag` / `CenterNm`. **No bandwidth field** — the bandwidth scale cancels
+exactly in the Δ (pinned by new assumption **#24**); per-filter moon policy lives in the tolerance.
+
+**Deleted with no shim** (sole consumer, coordinated migration): `MoonAvoidance`
+(`LorentzianRequiredSep`/`RequiredSepWithRelax`/`IsRejected`) and `MoonAvoidanceProfile`
+(SeparationDeg/WidthDays/Relax* — the Relax zone was already off in every shipped TP filter
+default). `DaysInLunarCycle` moved home to `LunarAge.SynodicMonthDays`. Profile type swapped on
+`BestSession.For`/`ResolveCandidates` and four `SessionSolvers` entry points. TP breaks until its
+Phase-2 migration (directed by an in-repo note, committed to TP with this change).
+
+**Calibration (real `KsAt`, Bortle 5, geometry grid over four lunar ages).** The Lorentzian was
+never an iso-quality contour: its implied sky-brightness tolerance wobbled ~10–30× across the
+cycle — crescent boundaries at Δmag ≈ 0.1, full-moon boundaries at ≈ 1.6 (NB, sky ×4.4) and
+≈ 1.7–2.0 (BB, ≈ 5–6× integration cost). Shipped defaults are the **cycle medians**:
+**Narrowband 1.0** (sky ×2.5), **Broadband 0.30** (sky ×1.32) — deliberately stricter than the
+old rule near full moon (moderately NB, strongly BB) and more permissive at half/crescent.
+Per-filter override lives in TP's filter editor. Anchors pinned by calibration tests (NB full-moon
+boundary ≈ 1.63 > shipped 1.0; NB gibbous/median ≈ 1.0; BB half-moon ≈ 0.32). *(A first-cut
+design table mislabeled the NB gibbous cluster as full-moon — a truncated calibration readout; the
+pinning test caught the error before it shipped.)*
+
+Tests: 24 Lorentzian tests deleted; 8 reworked; 16 gate tests added (Δ properties, twilight
+dilution, site derivation, tolerance monotonicity, huge-tolerance ≡ moon-blind, calibration pins,
+#24 contract test + registry entry). Change artifacts: `openspec/changes/ks-dmag-moon-gate/`.
+
 ## 2026-07-24 — PCL linked closure restored to upstream AVX2 (4800U floor)
 
 Follow-through on the audit's AVX-512 finding, decided once the hardware facts were in. The local
