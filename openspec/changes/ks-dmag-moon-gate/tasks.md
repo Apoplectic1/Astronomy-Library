@@ -30,7 +30,7 @@
 
 ## Phase 1.5 — TP direction note (committed to TP before any TP code)
 
-- [ ] 2.1 Write `TargetPlanner/docs/<date>-ks-dmag-migration.md`: Library change summary, Filter
+- [x] 2.1 Write `TargetPlanner/docs/<date>-ks-dmag-migration.md`: Library change summary, Filter
       record new shape (drop 5, add `ToleranceMag`; keep CenterNm/BandwidthNm), builtin defaults
       per family (NB 1.0: H/O/S; BB 0.30: L/R/G/B), UI collapse map (11 controls → enable +
       tolerance spinner + filter strip), EditFiltersForm 9→4 columns, `ToProfile()` sites
@@ -38,7 +38,7 @@
       MoonProfile consumers (:248/:269), delete dead `MoonSweepSample`/`NightCacheEntry.MoonSamples`
       sweep (ChartCacheStore:660-694), `filters.json` delete-and-retune step, expected chart
       behavior shift (BB stricter near full moon — physics, not regression).
-- [ ] 2.2 One-line pointer in TP `CLAUDE.md` open follow-ups; commit to TP.
+- [x] 2.2 One-line pointer in TP `CLAUDE.md` open follow-ups; commit to TP.
 
 ## Phase 2 — TP migration (separate session, guided by the note)
 
