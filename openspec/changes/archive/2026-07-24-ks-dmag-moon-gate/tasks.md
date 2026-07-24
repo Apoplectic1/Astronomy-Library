@@ -49,5 +49,5 @@
       `EditFiltersForm` columns.
 - [x] 3.4 Delete dead moon sweep; fix stale `MoonSample.cs` docstring by deletion.
 - [x] 3.5 TP tests (7 files) onto the new shape; delete `filters.json`; retune.
-- [ ] 3.6 (build-all GREEN + docs done + committed TP 3247bfe-ish; REMAINING: user visual verification of UI + charts) Verify: `..\build-all.ps1` green end-to-end; user visual verification of UI + charts;
+- [x] 3.6 (build-all GREEN; TP committed 2453e17; user visually verified 2026-07-24) Verify: `..\build-all.ps1` green end-to-end; user visual verification of UI + charts;
       TP docs (ARCHITECTURE/CHANGELOG/README mentions) updated; commit.
