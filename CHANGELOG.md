@@ -9,6 +9,26 @@ backstop — this is the human-legible layer above it.
 **Entry format:** `## YYYY-MM-DD — <what landed>` (a month-only `YYYY-MM` is fine when the exact day
 wasn't recorded). Newest first; add new entries directly below this charter, never at the bottom.
 
+## 2026-07-24 — PCL linked closure restored to upstream AVX2 (4800U floor)
+
+Follow-through on the audit's AVX-512 finding, decided once the hardware facts were in. The local
+vc16→vc17/vc18 PCL port had escalated `EnableEnhancedInstructionSet` to `AdvancedVectorExtensions512`
+across the whole linked closure (PCL + all six 3rd-party libs + xisf) while upstream's own projects —
+and the `__PCL_AVX2` source macros — are AVX2. The result was real, not theoretical: **5,635 ungated
+AVX-512 instructions in the Release `Astronomy.PCL.Native.dll`** (Debug: zero, since `/Od` doesn't
+auto-vectorize — meaning no Debug test anywhere could ever have caught it). The dev 7950X (Zen 4)
+executes them fine, but the imaging machine — the 4800U where ISP will run — is **Zen 2: no AVX-512
+at all**, so the first ISP call into the wrapper would have died with an illegal-instruction fault,
+likely masked as "Unknown C++ exception" by the wrapper's `catch (...)`.
+
+Restored `AdvancedVectorExtensions2` in the 8 sln-visible projects (= upstream's configuration; the
+~38 unused module projects were left alone), rebuilt all seven `*-pxi.lib` in both configs + xisf +
+the wrapper DLL. **Verified: `dumpbin` now finds 0 AVX-512 instructions in the Release DLL**; the 7
+PCL round-trip tests pass at Release and the full 478-test Core suite passes at Debug. Note the PCL
+tree is gitignored, so this lives only in the local tree — but a re-snapshot is born correct
+(upstream is already AVX2); the doc caveat now warns against re-escalating during a future toolset
+pass, which is how the drift happened the first time.
+
 ## 2026-07-24 — UTC contract gate + azimuth `[0, 360)` fold-back
 
 Two defects surfaced by the docs audit, both fixed at the source rather than documented around.

@@ -15,9 +15,9 @@ The PCL wrapper is a deep but **settled / parked** subsystem; its design records
 
 Latest three only. **Full shipped history: [`CHANGELOG.md`](CHANGELOG.md)** (append-only, dated, newest first).
 
+- **2026-07-24** — PCL linked closure restored to upstream AVX2 (the 4800U imaging machine has no AVX-512).
 - **2026-07-24** — UTC contract gate + azimuth `[0, 360)` fold-back; docs audit remediation.
 - **2026-07-07** — Contracts.Tests refresh: TS surface pinned (#19–#23), #6/#10 gaps closed, exposure-0 divergence adjudicated.
-- **2026-07-06** — Cadence-safe TS editing: transactional clear + `HasOverrideOrder` refusal.
 
 ## Open: parked PCL wrapper-extension plan — premise needs re-checking
 
