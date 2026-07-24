@@ -24,4 +24,9 @@
     <PackageReference Include="System.Drawing.Common" Version="10.0.9" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- ObservationSession's internal ctor is the unit-test seam (fake capture delegates, no real screen grab). -->
+    <InternalsVisibleTo Include="Astronomy.Diagnostics.Tests" />
+  </ItemGroup>
+
 </Project>

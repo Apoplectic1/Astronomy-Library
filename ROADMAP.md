@@ -15,9 +15,9 @@ The PCL wrapper is a deep but **settled / parked** subsystem; its design records
 
 Latest three only. **Full shipped history: [`CHANGELOG.md`](CHANGELOG.md)** (append-only, dated, newest first).
 
+- **2026-07-24** — `ObservationSession` ships in Astronomy.Diagnostics (TSM's dialog orchestration lifted library-side; new `Astronomy.Diagnostics.Tests`; assumption #25 pinned; consumers adopt next).
 - **2026-07-24** — editor write path hardened: ungated `Set*` setters removed, `TrySetField` is the sole public write (reflection-pinned by the bench; constellation DRC green).
 - **2026-07-24** — contract bench NINA gap closed: `NamedSitePersistenceContractTests` pins the #2 sites-file serialization shape; bench now covers all five managed assemblies.
-- **2026-07-24** — docs audit #2: 65-flag remediation across the reference set (Catalog section restructured; contract-bench covered-or-registered rule surfaced; report-only code concerns handed off).
 
 ## Open: parked PCL wrapper-extension plan — premise needs re-checking
 
@@ -45,14 +45,6 @@ design.** (Moved here from `CHANGELOG.md` on 2026-07-24: forward scope belongs i
 - **Tier 4** — full image write. Image data composition + compression + checksum (SHA-256). Required for XFM's writes and any future image-save pipeline.
 
 When XFM eventually migrates to Astronomy.XISF as its sole reader, the additional `KeywordList` accessors (FocalLength, Camera, EGAIN, MasterFrame metadata, weight keywords, etc.) port over alongside Tier 2.
-
-## Open: `ObservationSession` — collapse the duplicated Diagnostics wiring
-
-Deferred at the `Astronomy.Diagnostics` extraction (2026-06-11) and **now the next consolidation
-there**: both live consumers duplicate the same log/session bootstrap wiring by hand. An
-`ObservationSession` abstraction would own it once. Mechanics of what exists today are in
-`ARCHITECTURE.md` § *Astronomy.Diagnostics*. *(Moved here 2026-07-24 — the plan had been living in
-ARCHITECTURE, which is a mechanics doc, and had no roadmap entry at all.)*
 
 ## Open: Astronomy.NINA Phases C-D
 

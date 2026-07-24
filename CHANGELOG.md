@@ -9,6 +9,28 @@ backstop — this is the human-legible layer above it.
 **Entry format:** `## YYYY-MM-DD — <what landed>` (a month-only `YYYY-MM` is fine when the exact day
 wasn't recorded). Newest first; add new entries directly below this charter, never at the bottom.
 
+## 2026-07-24 — `ObservationSession`: the observation-dialog orchestration moves library-side
+
+Closes the ROADMAP's *Open: ObservationSession* item (deferred at the 2026-06-11 Diagnostics
+extraction). **TSM's `DiagnosticsWindow` was the model**: its behaviors — the 450 ms
+hide-settle (the 2026-06-10 translucent-ghost observation now lives in the XML docs), the 5 s
+delayed capture, the `·` status wording — become the shared defaults. The new
+`Astronomy.Diagnostics.ObservationSession` owns everything app-agnostic: 4-char id minting,
+USER_OBS START/CAP/END/CANCEL sequencing with a structurally-guaranteed single idempotent
+terminator, capture counting, the guarded context-provider call, status text, and the
+hide → settle → grab → reshow choreography over three app-supplied delegates (owner bounds /
+hide / show — the library references neither WinForms nor WinUI). Awaits keep the caller's
+`SynchronizationContext`; post-`Begin` members never throw (each delegate individually guarded).
+`ObservationCapture(Path, StatusText)` is the per-shot result.
+
+New **`Astronomy.Diagnostics.Tests`** project (the assembly's first): 15 tests over the internal
+fake-capture seam — delegate ordering, terminator idempotency, mid-countdown cancel,
+busy-overlap no-ops, END-line escaping — with `Log.Init(RootOverride)` into a temp dir.
+Contract bench gains **#25** (`ObservationSessionContractTests`, 4 pins, no `Log.Init` per the
+bench's one-Log-toucher rule). Contracts: 61 passing. Consumers adopt in their own repos next
+(TSM then TP; TP also picks up the delayed-capture button and TSM's Enter-key semantics —
+decided this session).
+
 ## 2026-07-24 — editor write path hardened: `TrySetField` is the only public write
 
 Closes the audit's ungated-writer finding (breaking, no shim — zero consumer callers, grep-verified

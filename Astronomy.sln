@@ -15,6 +15,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Astronomy.XISF", "Astronomy
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Astronomy.XISF.Tests", "Astronomy.XISF.Tests\Astronomy.XISF.Tests.csproj", "{8D7C5F2B-93A4-4E61-B287-1C5F9D4A6E73}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Astronomy.Diagnostics.Tests", "Astronomy.Diagnostics.Tests\Astronomy.Diagnostics.Tests.csproj", "{A5E9C1D7-4B28-4F63-9E15-7D3A8C2F6B41}"
+EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Astronomy.NINA", "Astronomy.NINA\Astronomy.NINA.csproj", "{C2A5D8E3-7F84-4B92-9D16-3E5A8C9B2D14}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Astronomy.NINA.Tests", "Astronomy.NINA.Tests\Astronomy.NINA.Tests.csproj", "{D3B6F9A4-8C25-4F73-A04E-2F1D9B5E7C83}"
@@ -129,6 +131,18 @@ Global
 		{8D7C5F2B-93A4-4E61-B287-1C5F9D4A6E73}.Release|Any CPU.Build.0 = Release|Any CPU
 		{8D7C5F2B-93A4-4E61-B287-1C5F9D4A6E73}.Release|x86.ActiveCfg = Release|Any CPU
 		{8D7C5F2B-93A4-4E61-B287-1C5F9D4A6E73}.Release|x86.Build.0 = Release|Any CPU
+		{A5E9C1D7-4B28-4F63-9E15-7D3A8C2F6B41}.Debug|x64.ActiveCfg = Debug|x64
+		{A5E9C1D7-4B28-4F63-9E15-7D3A8C2F6B41}.Debug|x64.Build.0 = Debug|x64
+		{A5E9C1D7-4B28-4F63-9E15-7D3A8C2F6B41}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A5E9C1D7-4B28-4F63-9E15-7D3A8C2F6B41}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A5E9C1D7-4B28-4F63-9E15-7D3A8C2F6B41}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{A5E9C1D7-4B28-4F63-9E15-7D3A8C2F6B41}.Debug|x86.Build.0 = Debug|Any CPU
+		{A5E9C1D7-4B28-4F63-9E15-7D3A8C2F6B41}.Release|x64.ActiveCfg = Release|x64
+		{A5E9C1D7-4B28-4F63-9E15-7D3A8C2F6B41}.Release|x64.Build.0 = Release|x64
+		{A5E9C1D7-4B28-4F63-9E15-7D3A8C2F6B41}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A5E9C1D7-4B28-4F63-9E15-7D3A8C2F6B41}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A5E9C1D7-4B28-4F63-9E15-7D3A8C2F6B41}.Release|x86.ActiveCfg = Release|Any CPU
+		{A5E9C1D7-4B28-4F63-9E15-7D3A8C2F6B41}.Release|x86.Build.0 = Release|Any CPU
 		{C2A5D8E3-7F84-4B92-9D16-3E5A8C9B2D14}.Debug|x64.ActiveCfg = Debug|x64
 		{C2A5D8E3-7F84-4B92-9D16-3E5A8C9B2D14}.Debug|x64.Build.0 = Debug|x64
 		{C2A5D8E3-7F84-4B92-9D16-3E5A8C9B2D14}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
