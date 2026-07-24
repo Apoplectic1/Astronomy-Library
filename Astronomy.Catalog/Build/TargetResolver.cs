@@ -38,7 +38,8 @@ public sealed record ResolveOptions(double MatchToleranceDegrees = 0.5, double P
 /// planned-only (goals, 0 actual); disk targets with no TS match become actual-only. TS duplicates that collapse
 /// onto one disk target, name disagreements, ambiguous matches, and un-anchorable TS targets are reported, not
 /// silently dropped — a multi-claim is always a <see cref="DuplicateTsTarget"/> (one TS row per position, no
-/// exceptions; the alias-fold escape was removed 2026-07-08 after it masked an unintentional twin).
+/// exceptions; the alias-fold escape was removed 2026-07-23 — adjudicated 2026-07-08 after it masked an
+/// unintentional twin).
 /// Pure and deterministic (no I/O, no clock) — pass the timestamp and disk/TS data in.
 /// </summary>
 public static class TargetResolver

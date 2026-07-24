@@ -18,9 +18,10 @@ public sealed record WriteBackPlan(
     int IgnoredMissing);
 
 /// <summary>An auto-resolved write: set TS exposure plan <see cref="TsExposurePlanId"/>'s acquired and accepted
-/// to <see cref="DiskCount"/> — the disk frames whose whole-second exposure bucket equals
-/// <see cref="PlanSeconds"/>, the plan's effective sub length (its own value, else its template default).
-/// 0 when no frames match: the plan's spec is unmet regardless of frames at other durations.</summary>
+/// to <see cref="DiskCount"/> (and ratchet its desired up to ≥ that count, never lower) — the disk frames whose
+/// whole-second exposure bucket equals <see cref="PlanSeconds"/>, the plan's effective sub length (its own value,
+/// else its template default). 0 when no frames match: the plan's spec is unmet regardless of frames at other
+/// durations.</summary>
 public sealed record PlannedWrite(
     long TsExposurePlanId,
     Guid TargetId,

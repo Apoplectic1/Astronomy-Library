@@ -44,8 +44,9 @@ public sealed record WriteBackResult(
 /// <see cref="HasOpenSidecar"/> / <see cref="IsReadOnly"/> exposed so the caller can refuse an incompatible or
 /// apparently-open db (validated by <c>exposureplan</c> column presence, not exact <see cref="SchemaUserVersion"/>,
 /// which TS bumps on every nightly migration). Sets only
-/// <c>exposureplan.acquired</c>/<c>accepted</c> (no <c>acquiredimage</c> rows); it never alters the journal mode,
-/// so TS's rollback-journal db is left as-is. Dispose to close. Transitional — retires at the IS/ISP cutover.
+/// <c>exposureplan.acquired</c>/<c>accepted</c> (= disk count) and ratchets <c>exposureplan.desired</c> up to
+/// ≥ that count (never lowered); touches no <c>acquiredimage</c> rows and never alters the journal mode, so TS's
+/// rollback-journal db is left as-is. Dispose to close. Transitional — retires at the IS/ISP cutover.
 /// </summary>
 public sealed class TargetSchedulerWriter : IDisposable
 {

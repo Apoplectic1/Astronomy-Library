@@ -73,8 +73,8 @@ public enum TargetMatchIssues
     /// <summary>Clean match (or unknown directory).</summary>
     None = 0,
 
-    // Value 1 was Alias — the alias-fold mechanism was removed 2026-07-08 (a multi-claim is always a
-    // Duplicate); remaining values keep their bit positions.
+    // Value 1 was Alias — the alias-fold mechanism was removed 2026-07-23 (adjudicated 2026-07-08; a
+    // multi-claim is always a Duplicate); remaining values keep their bit positions.
 
     /// <summary>Two or more TS targets resolved here — a duplicate to clean up in TS.</summary>
     Duplicate = 2,
