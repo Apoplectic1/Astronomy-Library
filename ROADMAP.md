@@ -145,6 +145,11 @@ here so it doesn't drift out of memory.
   > step carving `Tests/PCL/` out into a separate private test project. Add that step (and re-do the
   > 1–2 session estimate), or ship Core + Benchmarks only and leave the Core tests private —
   > which weakens the "here's the code, it's tested" story the spin-out is for.
+  >
+  > **Second blocker (audit 2026-07-24):** none of the three Option-A csproj declares
+  > `TargetFramework` or `LangVersion` — both inherit from the repo-root `Directory.Build.props`.
+  > A spin-out that copies only the csproj files fails restore; the new repo needs its own
+  > `Directory.Build.props` (or the properties inlined per-project).
 - **Option B — whole Library, public**. One public repo with all thirteen
   projects (scope/effort estimate needs revisiting at this count). PCL adds friction: third-party SDK dependency, build docs,
   license-compatibility check (PCL Open License vs. whichever license is
