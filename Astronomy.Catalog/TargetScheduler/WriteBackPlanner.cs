@@ -83,15 +83,6 @@ public static class WriteBackPlanner
             {
                 writes.Add(new PlannedWrite(id, targetId, t.Name, filter, purpose, seconds, disk));
             }
-            else if (!flagged
-                && report.AliasMemberCount(t.DirectoryName) is int members && members > 0
-                && gplans.Count == members && TryParseTsIds(gplans, out List<long> ids))
-            {
-                // One plan per alias member on this cell — the fold explains the multiplicity exactly, so the
-                // disk count goes to every member's plan. Any other count is a genuine same-purpose multi-plan.
-                // (Alias members whose plans differ in sub length grouped separately and auto-write above.)
-                writes.AddRange(ids.Select(pid => new PlannedWrite(pid, targetId, t.Name, filter, purpose, seconds, disk)));
-            }
             else
             {
                 ManualReason reason =
@@ -146,17 +137,6 @@ public static class WriteBackPlanner
     // than throwing mid-plan.
     private static bool TryParseTsId(string? importedFromTsGuid, out long id) =>
         long.TryParse(importedFromTsGuid, NumberStyles.Integer, CultureInfo.InvariantCulture, out id);
-
-    private static bool TryParseTsIds(List<ExposurePlan> plans, out List<long> ids)
-    {
-        ids = new List<long>(plans.Count);
-        foreach (ExposurePlan p in plans)
-        {
-            if (!TryParseTsId(p.ImportedFromTsGuid, out long id)) return false;
-            ids.Add(id);
-        }
-        return true;
-    }
 
     private sealed class KeyComparer : IEqualityComparer<(Guid Target, string Filter, FilterPurpose Purpose, int Seconds)>
     {

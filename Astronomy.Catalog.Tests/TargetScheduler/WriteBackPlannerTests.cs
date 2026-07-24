@@ -118,41 +118,23 @@ public sealed class WriteBackPlannerTests
     }
 
     [Fact]
-    public void AliasFold_WritesDiskCountToEveryMember()
+    public void ExAliasShape_OnePlanPerTwin_IsManualDuplicateFold_NeverAutoWritten()
     {
+        // The shape the retired alias exemption used to auto-write (disk count to every member).
+        // A fold is a defect to consolidate by hand — the cell holds, nothing writes.
         Guid t = Guid.NewGuid(), a = Guid.NewGuid(), b = Guid.NewGuid();
 
         WriteBackPlan plan = WriteBackPlanner.Plan(
             [Both(t, "M27 - Dumbell", dir: "M27 - Dumbell")],
-            [Plan(t, a, tsId: 1, desired: 60), Plan(t, b, tsId: 2, desired: 60)],   // one plan per alias member
+            [Plan(t, a, tsId: 1, desired: 60), Plan(t, b, tsId: 2, desired: 60)],   // one plan per twin
             [Tpl(a, "H", "H"), Tpl(b, "H", "H")],
             [Inv(t, "H", FilterPurpose.Light, 140)],
-            Report(aliases: [new AliasTsTarget("M27 - Dumbell", ["M27", "Dumbell"])]));
-
-        Assert.Empty(plan.Manual);
-        Assert.Equal(2, plan.Writes.Count);                  // same object → disk truth to both TS plans
-        Assert.All(plan.Writes, w => Assert.Equal(140, w.DiskCount));
-        Assert.Contains(plan.Writes, w => w.TsExposurePlanId == 1);
-        Assert.Contains(plan.Writes, w => w.TsExposurePlanId == 2);
-    }
-
-    [Fact]
-    public void AliasFold_UnexpectedPlanCount_IsManual()
-    {
-        Guid t = Guid.NewGuid(), a = Guid.NewGuid(), b = Guid.NewGuid(), c = Guid.NewGuid();
-
-        WriteBackPlan plan = WriteBackPlanner.Plan(
-            [Both(t, "M27 - Dumbell", dir: "M27 - Dumbell")],
-            // Three plans on one cell of a two-member alias: one member has a genuine same-purpose multi-plan.
-            [Plan(t, a, tsId: 1), Plan(t, b, tsId: 2), Plan(t, c, tsId: 3)],
-            [Tpl(a, "H", "H"), Tpl(b, "H", "H"), Tpl(c, "H fast", "H")],
-            [Inv(t, "H", FilterPurpose.Light, 140)],
-            Report(aliases: [new AliasTsTarget("M27 - Dumbell", ["M27", "Dumbell"])]));
+            Report(dups: [new DuplicateTsTarget("M27 - Dumbell", ["M27", "Dumbell"])]));
 
         Assert.Empty(plan.Writes);
         ManualGroup g = Assert.Single(plan.Manual);
-        Assert.Equal(ManualReason.MultiPlan, g.Reason);
-        Assert.Equal(3, g.Plans.Count);
+        Assert.Equal(ManualReason.DuplicateFold, g.Reason);
+        Assert.Equal(2, g.Plans.Count);
     }
 
     [Fact]
@@ -405,19 +387,20 @@ public sealed class WriteBackPlannerTests
     }
 
     [Fact]
-    public void AliasFold_DifferentSeconds_EachMemberWritesItsOwnBucket()
+    public void DuplicateFoldTarget_DifferentSeconds_SinglePlanCellsStillAutoWrite()
     {
         Guid t = Guid.NewGuid(), a = Guid.NewGuid(), b = Guid.NewGuid();
 
-        // Alias members whose plans differ in duration land in separate single-plan groups and auto-write
-        // individually — the member-count fold only applies within one duration.
+        // A duplicate-fold target's plans at different durations land in separate single-plan groups and
+        // auto-write individually — Duplicate flags the fold for hand fix but is not identity-suspect, so
+        // an unambiguous one-plan cell still receives its own bucket's disk truth.
         WriteBackPlan plan = WriteBackPlanner.Plan(
             [Both(t, "M27 - Dumbell", dir: "M27 - Dumbell")],
             [Plan(t, a, tsId: 1), Plan(t, b, tsId: 2)],
             [Tpl(a, "H", "H", defExp: 300.0), Tpl(b, "H", "H", defExp: 600.0)],
             [Inv(t, "H", FilterPurpose.Light, 100, seconds: 300.0),
              Inv(t, "H", FilterPurpose.Light, 20, seconds: 600.0)],
-            Report(aliases: [new AliasTsTarget("M27 - Dumbell", ["M27", "Dumbell"])]));
+            Report(dups: [new DuplicateTsTarget("M27 - Dumbell", ["M27", "Dumbell"])]));
 
         Assert.Empty(plan.Manual);
         Assert.Equal(2, plan.Writes.Count);
@@ -481,11 +464,10 @@ public sealed class WriteBackPlannerTests
         int plannedOnly = 0,
         int actualOnly = 0,
         IReadOnlyList<DuplicateTsTarget>? dups = null,
-        IReadOnlyList<AliasTsTarget>? aliases = null,
         IReadOnlyList<NameMismatch>? mismatches = null,
         IReadOnlyList<AmbiguousMatch>? ambiguous = null,
         IReadOnlyList<UnanchoredTsTarget>? unanchored = null) => new(
         DiskTargetCount: 0, TsTargetCount: 0, BothCount: 0, PlannedOnlyCount: plannedOnly, ActualOnlyCount: actualOnly,
         NameMismatches: mismatches ?? [], AmbiguousMatches: ambiguous ?? [], DuplicateTsTargets: dups ?? [],
-        AliasTsTargets: aliases ?? [], UnanchoredTsTargets: unanchored ?? [], InvalidTsTargets: []);
+        UnanchoredTsTargets: unanchored ?? [], InvalidTsTargets: []);
 }

@@ -87,7 +87,11 @@ disk). A surgical single-target path (`SingleTargetPlanner` + `ImageLibraryScann
 writeback --target`) updates one target — **per panel for a mosaic** — without a catalog rebuild. Driven from TCM
 (since renamed TSM — `E:\Projects\VisualStudio\Astronomy\TargetSchedulerManager`, ROADMAP Phase 4; the CLI verbs
 retired 2026-06-11, engine resurfaces as an app action); operates on a local copy (the live TS
-DB lives on the imaging PC — cross-machine WAL caveat). Open: alias-vs-duplicate handling for `M27`/`Dumbell`.
+DB lives on the imaging PC — cross-machine WAL caveat). ~~Open: alias-vs-duplicate handling for `M27`/`Dumbell`.~~
+**Resolved 2026-07-23:** the alias-fold mechanism was removed in full (`AliasTsTarget` / `AliasMemberCount` /
+`TargetMatchIssues.Alias` / the planner's member-count exemption) — the M27/Dumbell twin it waved through was
+adjudicated unintentional, so a multi-claim is always a flagged `DuplicateTsTarget` and its multi-plan cells hold
+as `ManualGroup(DuplicateFold)`; one TS row per position, no exceptions (TSM `NOTEBOOK.md` 2026-07-08 correction).
 
 ## Recently shipped (2026-06): Astronomy.Catalog — goal-vs-actual reconciliation
 

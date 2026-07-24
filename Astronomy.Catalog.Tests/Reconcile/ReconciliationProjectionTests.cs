@@ -191,7 +191,7 @@ public sealed class ReconciliationProjectionTests
     private static CatalogBuildReport Report(
         IReadOnlyList<NameMismatch>? nameMismatches = null,
         IReadOnlyList<UnanchoredTsTarget>? unanchored = null) =>
-        new(0, 0, 0, 0, 0, nameMismatches ?? [], [], [], [], unanchored ?? [], []);
+        new(0, 0, 0, 0, 0, nameMismatches ?? [], [], [], unanchored ?? [], []);
 
     private static Target T(
         Guid id, string name, TargetSource source, string? dir = null, Guid? parent = null, Guid? projectId = null,

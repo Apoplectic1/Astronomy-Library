@@ -15,7 +15,6 @@ public sealed record CatalogBuildReport(
     IReadOnlyList<NameMismatch> NameMismatches,
     IReadOnlyList<AmbiguousMatch> AmbiguousMatches,
     IReadOnlyList<DuplicateTsTarget> DuplicateTsTargets,
-    IReadOnlyList<AliasTsTarget> AliasTsTargets,
     IReadOnlyList<UnanchoredTsTarget> UnanchoredTsTargets,
     IReadOnlyList<InvalidTsTarget> InvalidTsTargets,
     int MosaicsResolved = 0,
@@ -27,7 +26,6 @@ public sealed record CatalogBuildReport(
     // consumed on one thread; a consumer sharing one instance across threads must index it first. They
     // also sit outside record equality (value semantics cover the positional lists only).
     private Dictionary<string, TargetMatchIssues>? _issuesByDirectory;
-    private Dictionary<string, int>? _aliasMembersByDirectory;
     private HashSet<string>? _unanchoredNames;
 
     /// <summary>
@@ -46,15 +44,6 @@ public sealed record CatalogBuildReport(
     public bool IsIdentityFlagged(string? directoryName) =>
         (IssuesFor(directoryName) & (TargetMatchIssues.NameMismatch | TargetMatchIssues.AmbiguousMatch)) != 0;
 
-    /// <summary>Number of TS names folded onto this directory as aliases (0 when not an alias fold).</summary>
-    public int AliasMemberCount(string? directoryName)
-    {
-        if (directoryName is null) return 0;
-        _aliasMembersByDirectory ??= AliasTsTargets.ToDictionary(
-            a => a.DiskDirectory, a => a.TsTargetNames.Count, StringComparer.OrdinalIgnoreCase);
-        return _aliasMembersByDirectory.GetValueOrDefault(directoryName);
-    }
-
     /// <summary>True when the named TS target could not be anchored (no usable coordinates).</summary>
     public bool IsUnanchoredName(string tsName)
     {
@@ -68,7 +57,6 @@ public sealed record CatalogBuildReport(
         Dictionary<string, TargetMatchIssues> flags = new(StringComparer.OrdinalIgnoreCase);
         void Add(string dir, TargetMatchIssues f) => flags[dir] = flags.GetValueOrDefault(dir) | f;
 
-        foreach (AliasTsTarget a in AliasTsTargets) Add(a.DiskDirectory, TargetMatchIssues.Alias);
         foreach (DuplicateTsTarget d in DuplicateTsTargets) Add(d.DiskDirectory, TargetMatchIssues.Duplicate);
         foreach (NameMismatch m in NameMismatches) Add(m.DiskDirectory, TargetMatchIssues.NameMismatch);
         foreach (AmbiguousMatch a in AmbiguousMatches)
@@ -85,8 +73,8 @@ public enum TargetMatchIssues
     /// <summary>Clean match (or unknown directory).</summary>
     None = 0,
 
-    /// <summary>Member of an alias fold — multiple TS names for the same object; counts write to all.</summary>
-    Alias = 1,
+    // Value 1 was Alias — the alias-fold mechanism was removed 2026-07-08 (a multi-claim is always a
+    // Duplicate); remaining values keep their bit positions.
 
     /// <summary>Two or more TS targets resolved here — a duplicate to clean up in TS.</summary>
     Duplicate = 2,
@@ -106,16 +94,9 @@ public sealed record NameMismatch(
 public sealed record AmbiguousMatch(
     string? TsGuid, string TsName, IReadOnlyList<string> CandidateDirectories, double NearestSeparationDegrees);
 
-/// <summary>One disk target that two or more TS targets resolved onto — a duplicate in TS to clean up.
-/// (When every colliding name exactly matches a disk identity facet, the fold is an <see cref="AliasTsTarget"/> instead.)</summary>
+/// <summary>One disk target that two or more TS targets resolved onto — a duplicate in TS to clean up
+/// (one TS row per position, no exceptions — there is no alias escape).</summary>
 public sealed record DuplicateTsTarget(string DiskDirectory, IReadOnlyList<string> TsTargetNames);
-
-/// <summary>
-/// One disk target that two or more TS targets resolved onto where every TS name exactly equals a disk identity
-/// facet (directory / catalog / common / object name) — aliases naming the same object, not a duplicate to clean
-/// up. Write-back treats the members as one object and writes the disk count to every member's plans.
-/// </summary>
-public sealed record AliasTsTarget(string DiskDirectory, IReadOnlyList<string> TsTargetNames);
 
 /// <summary>A TS target with no usable coordinates; it could not be anchored to disk and became planned-only.</summary>
 public sealed record UnanchoredTsTarget(string? TsGuid, string TsName);

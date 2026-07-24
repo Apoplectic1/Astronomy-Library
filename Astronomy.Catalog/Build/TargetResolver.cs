@@ -37,8 +37,8 @@ public sealed record ResolveOptions(double MatchToleranceDegrees = 0.5, double P
 /// (plate-solved) coordinates win and the TS guid is retained for write-back. TS targets with no disk match become
 /// planned-only (goals, 0 actual); disk targets with no TS match become actual-only. TS duplicates that collapse
 /// onto one disk target, name disagreements, ambiguous matches, and un-anchorable TS targets are reported, not
-/// silently dropped. A fold whose every TS name exactly matches a disk identity facet is reported as an
-/// <see cref="AliasTsTarget"/> (same object under different names) rather than a duplicate.
+/// silently dropped — a multi-claim is always a <see cref="DuplicateTsTarget"/> (one TS row per position, no
+/// exceptions; the alias-fold escape was removed 2026-07-08 after it masked an unintentional twin).
 /// Pure and deterministic (no I/O, no clock) — pass the timestamp and disk/TS data in.
 /// </summary>
 public static class TargetResolver
@@ -269,7 +269,6 @@ public static class TargetResolver
         List<Target> targets = new(diskWorking.Count + plannedTargets.Count);
         List<InventoryFilter> inventory = [];
         List<DuplicateTsTarget> duplicates = [];
-        List<AliasTsTarget> aliases = [];
         int bothCount = 0;
         int actualOnly = 0;
         int panelsMatched = 0;
@@ -316,11 +315,8 @@ public static class TargetResolver
                 if (w.IsPanel) panelsMatched++; else bothCount++;
                 if (w.AssignedTs.Count > 1)
                 {
-                    string[] names = [.. w.AssignedTs.Select(a => a.Ts.Name)];
-                    if (w.AssignedTs.All(a => IsAliasName(a.Ts.Name, w.Disk)))
-                        aliases.Add(new AliasTsTarget(w.CanonicalDir, names));
-                    else
-                        duplicates.Add(new DuplicateTsTarget(w.CanonicalDir, names));
+                    duplicates.Add(new DuplicateTsTarget(
+                        w.CanonicalDir, [.. w.AssignedTs.Select(a => a.Ts.Name)]));
                 }
             }
 
@@ -351,7 +347,7 @@ public static class TargetResolver
             PlannedOnlyCount: plannedTargets.Count(t => t.ParentTargetId is null),
             ActualOnlyCount: actualOnly,
             NameMismatches: nameMismatches, AmbiguousMatches: ambiguousMatches,
-            DuplicateTsTargets: duplicates, AliasTsTargets: aliases,
+            DuplicateTsTargets: duplicates,
             UnanchoredTsTargets: unanchored, InvalidTsTargets: invalidTsTargets,
             MosaicsResolved: mosaicsResolved, PanelsMatched: panelsMatched,
             PanelsPlannedOnly: panelsPlannedOnly, PanelsActualOnly: panelsActualOnly);
@@ -453,26 +449,6 @@ public static class TargetResolver
             {
                 return true;
             }
-        }
-        return false;
-    }
-
-    /// <summary>
-    /// True when the TS name exactly equals one of the disk identity facets (directory / catalog / common /
-    /// object name) after normalization. Strict equality — unlike <see cref="NameAligned"/>'s substring
-    /// tolerance — so an alias (another name for the same object, e.g. <c>"Dumbell"</c> on
-    /// <c>"M27 - Dumbell"</c>) is distinguished from a genuine sub-target variant (e.g. <c>"M42 core"</c> on
-    /// <c>"M42 - Orion"</c>), which stays a duplicate.
-    /// </summary>
-    internal static bool IsAliasName(string tsName, TargetReport disk)
-    {
-        string a = Normalize(tsName);
-        if (a.Length == 0) return false;
-
-        foreach (string? candidate in new[] { disk.DirectoryName, disk.Catalog, disk.CommonName, disk.ObjectName })
-        {
-            string b = Normalize(candidate);
-            if (b.Length > 0 && a == b) return true;
         }
         return false;
     }
