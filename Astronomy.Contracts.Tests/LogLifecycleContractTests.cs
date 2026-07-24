@@ -8,10 +8,15 @@ namespace Astronomy.Contracts.Tests;
 /// <c>Log.StartNewSession</c> must precede any <c>Log.*</c>, else the call is a SILENT NO-OP
 /// (no throw, no file, no path): a consumer that mis-orders startup loses its forensic trail
 /// without any error to notice. <c>Log</c> is process-global static state, so the pre-init and
-/// post-init phases live in ONE test method (deterministic ordering) and this class must remain
-/// the bench's only <c>Log</c> toucher — an <c>Init</c> anywhere else in this process would
-/// invalidate the pre-init phase.
+/// post-init phases live in ONE test method (deterministic ordering), and every bench class that
+/// touches <c>Log</c> AT ALL — even calls that are no-ops pre-Init — must join the
+/// <c>"LogProcessGlobal"</c> collection so it serializes with this one: once phase 2's
+/// <c>Init</c> lands, a parallel class's "no-op" log call becomes a live append into this test's
+/// temp file and its writer handle races <c>File.ReadAllText</c> below (observed 2026-07-24 as an
+/// intermittent <c>IOException</c> from <c>ObservationSessionContractTests</c> running alongside).
+/// An <c>Init</c> anywhere else in this process would invalidate the pre-init phase outright.
 /// </summary>
+[Collection("LogProcessGlobal")]
 public sealed class LogLifecycleContractTests
 {
     [Fact]

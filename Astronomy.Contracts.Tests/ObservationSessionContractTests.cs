@@ -8,12 +8,14 @@ namespace Astronomy.Contracts.Tests;
 /// dialogs (TP DiagnosticsDialog, TSM DiagnosticsWindow) build on: one START per Begin, exactly one
 /// idempotent terminator per id, IsTerminated latches, post-termination calls are no-ops.
 ///
-/// IMPORTANT: this class must NOT call Log.Init — LogLifecycleContractTests is the bench's only Log
-/// toucher (its pre-Init phase asserts Log.FilePath is empty, and cross-class parallelism makes
-/// ordering non-deterministic). Pre-Init Log.* calls are silent no-ops (assumption #6), so the state
-/// machine is fully exercisable here without touching the log. Line-level log assertions live in
-/// Astronomy.Diagnostics.Tests (its own process).
+/// IMPORTANT: this class must NOT call Log.Init — LogLifecycleContractTests is the bench's only
+/// Init-caller. And because ObservationSession members DO call Log.* (silent no-ops only while
+/// pre-Init), this class joins the "LogProcessGlobal" collection to serialize with the lifecycle
+/// test: run in parallel, its phase-2 Init turns these calls into live appends into its temp log
+/// and the writer handle races its File.ReadAllText (observed 2026-07-24 as an intermittent
+/// IOException). Line-level log assertions live in Astronomy.Diagnostics.Tests (its own process).
 /// </summary>
+[Collection("LogProcessGlobal")]
 public sealed class ObservationSessionContractTests
 {
     // Zero-size bounds: ScreenCapture.ToPng's non-positive-size guard returns null BEFORE touching the
