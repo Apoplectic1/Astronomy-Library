@@ -17,10 +17,11 @@ public sealed class TargetSchedulerEditorTests
             Assert.True(editor.HasRequiredColumns);
             Assert.False(editor.HasOpenSidecar);
 
-            TargetEditResult result = editor.SetTargetActive("g-1", active: false);
+            (FieldEditResult? result, RefusalReason refusal) = editor.TrySetField(TsTable.Target, "g-1", "active", 0);
 
-            Assert.True(result.RowFound);
-            Assert.Equal(1, result.OldActive);
+            Assert.Equal(RefusalReason.None, refusal);
+            Assert.True(result!.RowFound);
+            Assert.Equal("1", result.OldValue);
             Assert.True(result.Verified);
             Assert.True(result.Succeeded);
             Assert.Equal(0, ReadActive(db, "g-1"));
@@ -40,10 +41,11 @@ public sealed class TargetSchedulerEditorTests
         try
         {
             using TargetSchedulerEditor editor = new(db);
-            TargetEditResult result = editor.SetTargetActive("1", active: true);
+            (FieldEditResult? result, RefusalReason refusal) = editor.TrySetField(TsTable.Target, "1", "active", 1);
 
-            Assert.True(result.RowFound);
-            Assert.Equal(0, result.OldActive);
+            Assert.Equal(RefusalReason.None, refusal);
+            Assert.True(result!.RowFound);
+            Assert.Equal("0", result.OldValue);
             Assert.True(result.Verified);
             Assert.Equal(1, ReadActiveById(db, 1));
         }
@@ -60,11 +62,12 @@ public sealed class TargetSchedulerEditorTests
         try
         {
             using TargetSchedulerEditor editor = new(db);
-            TargetEditResult result = editor.SetTargetActive("does-not-exist", active: false);
+            (FieldEditResult? result, RefusalReason refusal) = editor.TrySetField(TsTable.Target, "does-not-exist", "active", 0);
 
-            Assert.False(result.RowFound);
+            Assert.Equal(RefusalReason.None, refusal);
+            Assert.False(result!.RowFound);
             Assert.False(result.Succeeded);
-            Assert.Null(result.OldActive);
+            Assert.Null(result.OldValue);
             Assert.Equal(1, ReadActive(db, "g-1"));   // unchanged
         }
         finally
@@ -103,7 +106,7 @@ public sealed class TargetSchedulerEditorTests
         try
         {
             using TargetSchedulerEditor editor = new(db);
-            FieldEditResult r = editor.SetTargetField("tg-1", "priority", 2);
+            FieldEditResult r = editor.SetField(TsTable.Target, "tg-1", "priority", 2);
             Assert.True(r.Succeeded);
             Assert.Equal("-1", r.OldValue);
             Assert.Equal(2L, ReadScalar(db, "SELECT priority FROM target WHERE guid='tg-1'"));
@@ -118,7 +121,7 @@ public sealed class TargetSchedulerEditorTests
         try
         {
             using TargetSchedulerEditor editor = new(db);
-            Assert.True(editor.SetPlanField("ep-1", "desired", 140).Succeeded);
+            Assert.True(editor.SetField(TsTable.ExposurePlan, "ep-1", "desired", 140).Succeeded);
             Assert.Equal(140L, ReadScalar(db, "SELECT desired FROM exposureplan WHERE guid='ep-1'"));
         }
         finally { TestSupport.Cleanup(db); }
@@ -131,7 +134,7 @@ public sealed class TargetSchedulerEditorTests
         try
         {
             using TargetSchedulerEditor editor = new(db);
-            Assert.True(editor.SetProjectField("pr-1", "minimumaltitude", 45.5).Succeeded);
+            Assert.True(editor.SetField(TsTable.Project, "pr-1", "minimumaltitude", 45.5).Succeeded);
             Assert.Equal(45.5, Convert.ToDouble(ReadScalar(db, "SELECT minimumaltitude FROM project WHERE guid='pr-1'")));
         }
         finally { TestSupport.Cleanup(db); }
@@ -144,7 +147,7 @@ public sealed class TargetSchedulerEditorTests
         try
         {
             using TargetSchedulerEditor editor = new(db);
-            Assert.Throws<ArgumentException>(() => editor.SetTargetField("tg-1", "name", "hax"));
+            Assert.Throws<ArgumentException>(() => editor.SetField(TsTable.Target, "tg-1", "name", "hax"));
         }
         finally { TestSupport.Cleanup(db); }
     }

@@ -127,7 +127,7 @@ or registered in `NotCleanlyTestableAssumptions.cs` with the reason (see *How th
 6. `Log.Init` **gates the silent no-op** — before `Init`, every `Log.*` silently does nothing. `StartNewSession` is rotation-only (must follow `Init` and precede logging you want inside the rotated session; skipping it costs the session boundary, not the trail).
 7. `Night.NightCache.ComputeYearStartDay` / `ComputeYearDaysCount` are **pure statics called before the ctor**.
 8. `TargetSchedulerReader`/`Editor` **open the DB in their ctor** — file must exist; reader is single-use.
-9. `TargetSchedulerEditor.HasRequiredColumns` (`Id,guid,active`) **gates all writes through `TrySetField`** (else `RefusalReason.SchemaIncompatible`). ⚠ The raw public `Set*` setters (`SetTargetActive`, `SetField`, `SetTargetField`, `SetPlanField`, `SetProjectField`) bypass every gate — they are **not consumer surface**; flagged 2026-07-24 as a code concern (gate or internalize them).
+9. `TargetSchedulerEditor.HasRequiredColumns` (`Id,guid,active`) **gates ALL writes** (else `RefusalReason.SchemaIncompatible`): `TrySetField` is the editor's **only public write path** (structurally pinned by `EditorWriteSurfaceContractTests`). The formerly-public raw `Set*` setters that bypassed the gates were removed/internalized 2026-07-24 — `SetField` survives only as the internal engine behind `TrySetField`.
 10. Editor write-back **key = `ImportedFromTsGuid`** (GUID string *or* TS int Id as decimal string; disambiguated by `long.TryParse`).
 
 **Performance-coupled:**

@@ -15,9 +15,9 @@ The PCL wrapper is a deep but **settled / parked** subsystem; its design records
 
 Latest three only. **Full shipped history: [`CHANGELOG.md`](CHANGELOG.md)** (append-only, dated, newest first).
 
+- **2026-07-24** — editor write path hardened: ungated `Set*` setters removed, `TrySetField` is the sole public write (reflection-pinned by the bench; constellation DRC green).
 - **2026-07-24** — contract bench NINA gap closed: `NamedSitePersistenceContractTests` pins the #2 sites-file serialization shape; bench now covers all five managed assemblies.
 - **2026-07-24** — docs audit #2: 65-flag remediation across the reference set (Catalog section restructured; contract-bench covered-or-registered rule surfaced; report-only code concerns handed off).
-- **2026-07-24** — K-S Δmag moon gate replaces the Lorentzian (`MoonLimitProfile`; closes the partial-moon-tolerance + refraction-asymmetry items; TP migrates per its in-repo note).
 
 ## Open: parked PCL wrapper-extension plan — premise needs re-checking
 

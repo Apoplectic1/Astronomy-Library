@@ -105,9 +105,10 @@ public sealed class TargetSchedulerContractTests
         try
         {
             using TargetSchedulerEditor editor = new(db);
-            TargetEditResult result = editor.SetTargetActive("7", active: true);
+            (FieldEditResult? result, RefusalReason refusal) = editor.TrySetField(TsTable.Target, "7", "active", 1);
 
-            Assert.True(result.Succeeded);
+            Assert.Equal(RefusalReason.None, refusal);
+            Assert.True(result!.Succeeded);
             Assert.Equal(1L, ReadScalar(db, "SELECT active FROM target WHERE Id = 7"));   // selected by Id
             Assert.Equal(0L, ReadScalar(db, "SELECT active FROM target WHERE Id = 1"));   // digit-guid row untouched
         }
@@ -126,7 +127,9 @@ public sealed class TargetSchedulerContractTests
         try
         {
             using TargetSchedulerEditor editor = new(db);
-            Assert.True(editor.SetTargetActive("g-1", active: true).Succeeded);
+            (FieldEditResult? result, RefusalReason refusal) = editor.TrySetField(TsTable.Target, "g-1", "active", 1);
+            Assert.Equal(RefusalReason.None, refusal);
+            Assert.True(result!.Succeeded);
             Assert.Equal(1L, ReadScalar(db, "SELECT active FROM target WHERE guid = 'g-1'"));
         }
         finally

@@ -9,6 +9,18 @@ backstop — this is the human-legible layer above it.
 **Entry format:** `## YYYY-MM-DD — <what landed>` (a month-only `YYYY-MM` is fine when the exact day
 wasn't recorded). Newest first; add new entries directly below this charter, never at the bottom.
 
+## 2026-07-24 — editor write path hardened: `TrySetField` is the only public write
+
+Closes the audit's ungated-writer finding (breaking, no shim — zero consumer callers, grep-verified
+across TP/TSM). Deleted `SetTargetActive` (+ its `TargetEditResult` record) and the three sugar
+wrappers (`SetTargetField`/`SetPlanField`/`SetProjectField`); `SetField` became the **internal**
+engine behind `TrySetField` (unit tests keep access via the existing `InternalsVisibleTo`).
+`target.active` edits go through `TrySetField(Target, key, "active", 0|1)` — the field was already
+in `TsEditableSchema`, so the redundant bespoke path bought nothing and skipped every gate. New
+`EditorWriteSurfaceContractTests` reflection-pins the surface (no public `Set*`; `TrySetField`
+exists), so a future ungated writer trips the bench. Contract #9's caveat retired the same day it
+was written. Verified: Catalog 171, Contracts 57 (+1), constellation DRC green (TP + TSM compile).
+
 ## 2026-07-24 — contract bench: NINA gap closed (`NamedSitePersistenceContractTests`)
 
 `Astronomy.Contracts.Tests` now references `Astronomy.NINA` (pure-managed, stays

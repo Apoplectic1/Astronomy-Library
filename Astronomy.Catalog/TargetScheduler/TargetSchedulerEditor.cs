@@ -3,14 +3,6 @@ using Microsoft.Data.Sqlite;
 
 namespace Astronomy.Catalog.TargetScheduler;
 
-/// <summary>The outcome of one <c>target</c> field edit: whether the row was found, its prior value, and whether
-/// the read-back matched the requested value.</summary>
-public sealed record TargetEditResult(bool RowFound, int? OldActive, bool Verified)
-{
-    /// <summary>True when the row was found and the read-back confirmed the new value.</summary>
-    public bool Succeeded => RowFound && Verified;
-}
-
 /// <summary>Outcome of one generic field edit: whether the row was found, its prior value (as text, for the
 /// audit trail), and whether the read-back matched the requested value.</summary>
 public sealed record FieldEditResult(bool RowFound, string? OldValue, bool Verified)
@@ -36,9 +28,9 @@ public enum RefusalReason { None, SchemaIncompatible, ReadOnly, OpenSidecar, Col
 /// (TS bumps that every nightly migration). Each write is read-back verified. Transitional, retires at the IS/ISP
 /// cutover.
 /// <para>
-/// The editable surface is the declarative <see cref="TsEditableSchema"/>: <see cref="SetField"/> writes (and
-/// <see cref="ReadField"/> reads) any column in that reference, validated against it — the reference doubles as
-/// the SQL-injection whitelist. At open the editor reflects each table's columns (<c>PRAGMA table_info</c>) so
+/// The editable surface is the declarative <see cref="TsEditableSchema"/>: <see cref="TrySetField"/> — the sole
+/// public write path — writes (and <see cref="ReadField"/> reads) any column in that reference, validated against
+/// it — the reference doubles as the SQL-injection whitelist. At open the editor reflects each table's columns (<c>PRAGMA table_info</c>) so
 /// <see cref="IsFieldAvailable"/> can tell the caller whether a referenced field actually exists on this db
 /// version. Fields with a cadence clear scope (<see cref="TsCadenceClear"/>) delete the
 /// invalidated <c>filtercadenceitem</c> rows in the same transaction as the write (empty is always safe — TS
@@ -101,44 +93,16 @@ public sealed class TargetSchedulerEditor : IDisposable
     public bool HasRequiredColumns { get; }
 
     /// <summary>
-    /// Sets <c>target.active</c> on the row identified by <paramref name="tsTargetKey"/> — the catalog's
-    /// <c>imported_from_ts_guid</c>, which is the TS target's <c>guid</c> or, when it has none, its integer
-    /// <c>Id</c> as a string (a guid never parses as a long, so the key form is self-describing). Reads the prior
-    /// value, updates, and read-back verifies. <see cref="TargetEditResult.RowFound"/> is false for an unknown key.
-    /// </summary>
-    public TargetEditResult SetTargetActive(string tsTargetKey, bool active)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(tsTargetKey);
-
-        bool byId = long.TryParse(tsTargetKey, out long id);
-        string where = byId ? "Id = $key" : "guid = $key";
-        object key = byId ? id : tsTargetKey;
-
-        int? old = ReadActive(where, key);
-        if (old is null)
-            return new TargetEditResult(RowFound: false, OldActive: null, Verified: false);
-
-        int wanted = active ? 1 : 0;
-        using (SqliteCommand cmd = _connection.CreateCommand())
-        {
-            cmd.CommandText = $"UPDATE target SET active = $v WHERE {where};";
-            cmd.Parameters.AddWithValue("$v", wanted);
-            cmd.Parameters.AddWithValue("$key", key);
-            cmd.ExecuteNonQuery();
-        }
-
-        return new TargetEditResult(RowFound: true, OldActive: old, Verified: ReadActive(where, key) == wanted);
-    }
-
-    /// <summary>
-    /// Sets one editable field (per <see cref="TsEditableSchema"/>) on the row of <paramref name="table"/> keyed
+    /// The write engine behind <see cref="TrySetField"/>: sets one editable field (per <see cref="TsEditableSchema"/>) on the row of <paramref name="table"/> keyed
     /// by <paramref name="tsKey"/> — the catalog's <c>imported_from_ts_guid</c> (the TS <c>guid</c>, or the integer
     /// <c>Id</c> as a string when it has none — a guid never parses as a long, so the key form is self-describing).
     /// Reads the prior value, updates the one whitelisted column, and read-back verifies. Throws
     /// <see cref="ArgumentException"/> if <paramref name="column"/> is not an editable field. The reference's column
-    /// spelling (not the caller's casing) is what reaches the SQL.
+    /// spelling (not the caller's casing) is what reaches the SQL. <b>Internal by design</b> — it runs no safety
+    /// predicates; <see cref="TrySetField"/> is the library's only public write path (2026-07-24: the previously
+    /// public raw setters bypassed every gate and had no consumer callers).
     /// </summary>
-    public FieldEditResult SetField(TsTable table, string tsKey, string column, object? value)
+    internal FieldEditResult SetField(TsTable table, string tsKey, string column, object? value)
     {
         TsField field = TsEditableSchema.Find(table, column)
             ?? throw new ArgumentException($"column '{column}' is not an editable {table} field", nameof(column));
@@ -208,18 +172,6 @@ public sealed class TargetSchedulerEditor : IDisposable
         using SqliteDataReader r = cmd.ExecuteReader();
         return r.Read() ? (true, r.IsDBNull(0) ? null : r.GetDouble(0)) : (false, null);
     }
-
-    /// <summary>Sets one editable <c>target</c> column on the row keyed by guid-or-Id (thin wrapper over <see cref="SetField"/>).</summary>
-    public FieldEditResult SetTargetField(string tsTargetKey, string column, object? value) =>
-        SetField(TsTable.Target, tsTargetKey, column, value);
-
-    /// <summary>Sets one editable <c>exposureplan</c> column on the plan keyed by guid-or-Id (wrapper over <see cref="SetField"/>).</summary>
-    public FieldEditResult SetPlanField(string tsPlanKey, string column, object? value) =>
-        SetField(TsTable.ExposurePlan, tsPlanKey, column, value);
-
-    /// <summary>Sets one editable <c>project</c> column on the project keyed by guid-or-Id (wrapper over <see cref="SetField"/>).</summary>
-    public FieldEditResult SetProjectField(string tsProjectKey, string column, object? value) =>
-        SetField(TsTable.Project, tsProjectKey, column, value);
 
     /// <summary>True when <paramref name="column"/> for <paramref name="table"/> is both an editable field (in
     /// <see cref="TsEditableSchema"/>) and physically present in this db — a schema-drift guard, since TS adds
@@ -312,17 +264,6 @@ public sealed class TargetSchedulerEditor : IDisposable
         (a is null && b is null) || (a is not null && b is not null && ToText(a) == ToText(b));
 
     private static string? ToText(object? v) => v is null ? null : Convert.ToString(v, CultureInfo.InvariantCulture);
-
-    private int? ReadActive(string where, object key)
-    {
-        using SqliteCommand cmd = _connection.CreateCommand();
-        cmd.CommandText = $"SELECT active FROM target WHERE {where};";
-        cmd.Parameters.AddWithValue("$key", key);
-        using SqliteDataReader r = cmd.ExecuteReader();
-        if (!r.Read())
-            return null;
-        return r.IsDBNull(0) ? 0 : r.GetInt32(0);
-    }
 
     // The column names present on one table (case-insensitive), or an empty set if the table is absent — PRAGMA
     // on a missing table simply yields no rows. The table name is one of the four reference literals, not input.
