@@ -9,6 +9,16 @@ backstop — this is the human-legible layer above it.
 **Entry format:** `## YYYY-MM-DD — <what landed>` (a month-only `YYYY-MM` is fine when the exact day
 wasn't recorded). Newest first; add new entries directly below this charter, never at the bottom.
 
+## 2026-07-24 — contract bench: NINA gap closed (`NamedSitePersistenceContractTests`)
+
+`Astronomy.Contracts.Tests` now references `Astronomy.NINA` (pure-managed, stays
+`dotnet`-testable) and pins assumption #2's testable half: the `NamedSite` /
+`PlanningPreferencesDto` **serialized JSON property names** (the cross-app sites-file format —
+a rename recompiles TP cleanly but silently zeroes values loading existing files) + lossless
+round-trip + null-`Preferences` survival. The "minutes" *meaning* stays a naming convention;
+the #2 register entry graduated out of `NotCleanlyTestableAssumptions.cs` (6 registered skips
+remain). Bench: 56 passing.
+
 ## 2026-07-24 — docs audit #2: 65-flag remediation across the reference set
 
 Six-round, two-model fan-out audit (placement + currency, judged separately) over the full

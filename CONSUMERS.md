@@ -14,8 +14,8 @@ grep-verified real usage (2026-06-28; refreshed 2026-07-07, re-audited 2026-07-2
   the *Semantic assumptions* section, so the contract bench pins them. **Covered-or-registered
   rule:** every numbered assumption is either covered by a citing test or registered with a reason
   in `NotCleanlyTestableAssumptions.cs`; retired assumptions keep their numbers (normative spec:
-  `openspec/specs/contract-assumption-pinning/`). Known gap: the bench doesn't reference
-  `Astronomy.NINA`, so #2 is unpinnable today — `ROADMAP.md` § *Open: contract bench — NINA gap*.
+  `openspec/specs/contract-assumption-pinning/`). The bench covers all five managed assemblies
+  (NINA added 2026-07-24 — `NamedSitePersistenceContractTests` pins #2's serialization shape).
 
 ---
 

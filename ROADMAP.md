@@ -15,9 +15,9 @@ The PCL wrapper is a deep but **settled / parked** subsystem; its design records
 
 Latest three only. **Full shipped history: [`CHANGELOG.md`](CHANGELOG.md)** (append-only, dated, newest first).
 
+- **2026-07-24** — contract bench NINA gap closed: `NamedSitePersistenceContractTests` pins the #2 sites-file serialization shape; bench now covers all five managed assemblies.
 - **2026-07-24** — docs audit #2: 65-flag remediation across the reference set (Catalog section restructured; contract-bench covered-or-registered rule surfaced; report-only code concerns handed off).
 - **2026-07-24** — K-S Δmag moon gate replaces the Lorentzian (`MoonLimitProfile`; closes the partial-moon-tolerance + refraction-asymmetry items; TP migrates per its in-repo note).
-- **2026-07-24** — PCL linked closure restored to upstream AVX2 (the 4800U imaging machine has no AVX-512).
 
 ## Open: parked PCL wrapper-extension plan — premise needs re-checking
 
@@ -75,14 +75,6 @@ here would just be rebuilt when ISP lands.
 **Revisit a block only if it ends up with no planned consumer.** *(Moved here 2026-07-24 from
 `CONSUMERS.md`: this is a forward-looking commitment, and it was the only library-level record of the
 ISP plan — invisible to anyone following the router's "forward-looking → ROADMAP" rule.)*
-
-## Open: contract bench — NINA gap
-
-Found by the 2026-07-24 docs audit. `Astronomy.Contracts.Tests` covers Core, XISF, Catalog and
-Diagnostics but has **no `Astronomy.NINA` reference**, so `CONSUMERS.md` assumption #2
-(`PlanningPreferencesDto.MinDurationMinutes` is minutes, serialized in `NamedSite`) — a classic
-silent-unit hazard — cannot be pinned. Small lift: add the ProjectReference + one
-serialization-round-trip pin test. Until then the assumption stays register-only.
 
 ## Open: SIMD / FMA deep dive
 

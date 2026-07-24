@@ -10,6 +10,10 @@ namespace Astronomy.Contracts.Tests;
 ///
 /// Covered elsewhere in the bench (for orientation):
 ///   #1  RaDegrees = degrees ............ XisfUnitsContractTests
+///   #2  NamedSite serialization shape .. NamedSitePersistenceContractTests (the JSON
+///                                        property names + lossless round-trip; the
+///                                        "minutes" *meaning* stays a naming convention
+///                                        — that half was registered here until 2026-07-24)
 ///   #3  ObserveAt geometric alt ........ MoonContractTests
 ///   #4  KsAt 10-param order ............. SkyBrightnessContractTests
 ///   #5  CatalogGraph FK/mosaic order ... CatalogGraphOrderingContractTests
@@ -31,12 +35,6 @@ namespace Astronomy.Contracts.Tests;
 ///                                        gate-internal refraction half is registered below)
 ///
 /// NOT cleanly unit-testable (placeholders below mirror this list):
-///
-///   #2  PlanningPreferencesDto.MinDurationMinutes is MINUTES.
-///       — A NAMING CONVENTION on a DTO field, not a behavior. The "minutes" meaning lives
-///         only in the field name + its serialization into NamedSite; nothing in the Library
-///         computes with it. A unit test could only re-assert the name (tautology). Verified
-///         by the TP consumer that reads/writes it and by the `…Minutes` naming discipline.
 ///
 ///   #11 BestSession.PlaceBest(..., altitudeQuality: null) takes the sin(alt) closed-form
 ///       fast path (~25× faster) that TP relies on via the null default.
@@ -75,9 +73,6 @@ namespace Astronomy.Contracts.Tests;
 /// </summary>
 public sealed class NotCleanlyTestableAssumptions
 {
-    [Fact(Skip = "#2 MinDurationMinutes is a DTO naming convention (minutes), not a Library behavior — nothing computes with it; a test would only re-assert the field name.")]
-    public void Assumption02_MinDurationMinutes_NamingConventionOnly() { }
-
     [Fact(Skip = "#11 PlaceBest null-altitudeQuality fast path is a ~25× PERFORMANCE claim — belongs in a BenchmarkDotNet harness, not a pass/fail unit assertion.")]
     public void Assumption11_PlaceBest_FastPath_IsPerformance() { }
 

@@ -25,12 +25,15 @@
 
   <!-- Managed Library assemblies only (no Astronomy.PCL / no native build) so
        `dotnet test` runs with no C++ step. Catalog brings Astronomy.XISF + the
-       Microsoft.Data.Sqlite NuGet (managed runtime assets) transitively. -->
+       Microsoft.Data.Sqlite NuGet (managed runtime assets) transitively; NINA is
+       pure-managed (Core + XISF + Catalog closure) — added 2026-07-24 to pin the
+       NamedSite/PlanningPreferencesDto serialization contract (#2). -->
   <ItemGroup>
     <ProjectReference Include="..\Astronomy.Core\Astronomy.Core.csproj" />
     <ProjectReference Include="..\Astronomy.XISF\Astronomy.XISF.csproj" />
     <ProjectReference Include="..\Astronomy.Catalog\Astronomy.Catalog.csproj" />
     <ProjectReference Include="..\Astronomy.Diagnostics\Astronomy.Diagnostics.csproj" />
+    <ProjectReference Include="..\Astronomy.NINA\Astronomy.NINA.csproj" />
   </ItemGroup>
 
 </Project>
