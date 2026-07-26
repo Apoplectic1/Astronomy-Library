@@ -181,7 +181,9 @@ public static class TsEditableSchema
         new(TsTable.ExposureTemplate, "moonrelaxminaltitude", "Moon relax min alt", TsFieldType.Real, Min: -90, Max: 90, Unit: "°",
             Notes: "Negative is normal (TS ships -15)."),
         new(TsTable.ExposureTemplate, "moondownenabled", "Moon down only", TsFieldType.Bool),
-        new(TsTable.ExposureTemplate, "ditherevery", "Dither every", TsFieldType.Whole, Min: 0, Max: 999),
+        new(TsTable.ExposureTemplate, "ditherevery", "Dither every", TsFieldType.Whole, Min: 0, Max: 999,
+            Sentinel: -1, SentinelLabel: "project default",
+            Notes: "-1 = use the project's dither setting (TS's planner tests >= 0)."),
         new(TsTable.ExposureTemplate, "maximumhumidity", "Max humidity", TsFieldType.Real, Min: 0, Max: 100, Unit: "%",
             Notes: "0 = disabled."),
     ];

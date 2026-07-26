@@ -167,6 +167,9 @@ public sealed class TsEditableSchemaTests
         Assert.Equal(0, humidity.Min);
         Assert.Equal(100, humidity.Max);
         Assert.Equal(180, TsEditableSchema.Find(TsTable.ExposureTemplate, "moonavoidanceseparation")!.Max);
+        TsField dither = TsEditableSchema.Find(TsTable.ExposureTemplate, "ditherevery")!;
+        Assert.Equal(-1, dither.Sentinel);                      // -1 = defer to the project (TS planner tests >= 0)
+        Assert.Equal("project default", dither.SentinelLabel);
     }
 
     [Fact]
