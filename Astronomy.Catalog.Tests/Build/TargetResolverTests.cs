@@ -11,6 +11,22 @@ public sealed class TargetResolverTests
     private const long Now = 1_700_000_000;
 
     [Fact]
+    public void Resolve_ObservesCancellation()
+    {
+        // The token must reach the resolve body, not just the caller's Task.Run scheduling — a resolve that
+        // ignores it turns the parameter into a false affordance.
+        TargetReport[] disk = [Disk("M42 - Orion", "M42", "Orion", 5.590, -5.39, withFilter: true)];
+        TsPlanData ts = Plan(
+            targets: [TsT(1, "M42", 5.591, -5.39, project: 10, guid: "g-m42")],
+            plans: [TsP(100, target: 1, template: 1000)]);
+        using CancellationTokenSource cts = new();
+        cts.Cancel();
+
+        Assert.ThrowsAny<OperationCanceledException>(
+            () => TargetResolver.Resolve(disk, ts, Now, options: null, ct: cts.Token));
+    }
+
+    [Fact]
     public void Resolve_CoordinateMatch_ProducesBoth_WithProvenanceAndInventory()
     {
         TargetReport[] disk = [Disk("M42 - Orion", "M42", "Orion", 5.590, -5.39, withFilter: true)];

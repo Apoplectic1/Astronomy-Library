@@ -66,51 +66,61 @@ public sealed class TargetSchedulerReader : IDisposable
     public bool IsNewerThanTested => SchemaUserVersion > TestedUserVersion;
 
     /// <summary>Reads the whole plan plane (projects, targets, templates, plans) in one pass.</summary>
-    public TsPlanData ReadPlanData() => new(ReadProjects(), ReadTargets(), ReadExposureTemplates(), ReadExposurePlans());
+    /// <param name="ct">Cancellation token, observed per row of each read.</param>
+    public TsPlanData ReadPlanData(CancellationToken ct = default) =>
+        new(ReadProjects(ct), ReadTargets(ct), ReadExposureTemplates(ct), ReadExposurePlans(ct));
 
     /// <summary>Reads all TS projects.</summary>
-    public IReadOnlyList<TsProject> ReadProjects() => Query(
+    /// <param name="ct">Cancellation token, observed per row.</param>
+    public IReadOnlyList<TsProject> ReadProjects(CancellationToken ct = default) => Query(
         "SELECT Id, profileId, name, state, priority, minimumaltitude, isMosaic, guid FROM project;",
         r => new TsProject(
             r.GetInt64("Id"), r.GetString("profileId"), r.GetString("name"), r.GetInt32("state"),
             r.GetInt32("priority"), r.GetDoubleOrNull("minimumaltitude"), r.GetInt32("isMosaic"),
-            r.GetStringOrNull("guid")));
+            r.GetStringOrNull("guid")), ct);
 
     /// <summary>Reads all TS targets.</summary>
-    public IReadOnlyList<TsTarget> ReadTargets() => Query(
+    /// <param name="ct">Cancellation token, observed per row.</param>
+    public IReadOnlyList<TsTarget> ReadTargets(CancellationToken ct = default) => Query(
         "SELECT Id, name, active, ra, dec, epochcode, rotation, roi, projectid, priority, guid FROM target;",
         r => new TsTarget(
             r.GetInt64("Id"), r.GetString("name"), r.GetInt32("active"), r.GetDoubleOrNull("ra"),
             r.GetDoubleOrNull("dec"), r.GetInt32("epochcode"), r.GetDoubleOrNull("rotation"),
             r.GetDoubleOrNull("roi"), r.GetInt64OrNull("projectid"), r.GetInt32("priority"),
-            r.GetStringOrNull("guid")));
+            r.GetStringOrNull("guid")), ct);
 
     /// <summary>Reads all TS exposure plans.</summary>
-    public IReadOnlyList<TsExposurePlan> ReadExposurePlans() => Query(
+    /// <param name="ct">Cancellation token, observed per row.</param>
+    public IReadOnlyList<TsExposurePlan> ReadExposurePlans(CancellationToken ct = default) => Query(
         "SELECT Id, profileId, exposure, desired, acquired, accepted, targetid, exposureTemplateId, enabled FROM exposureplan;",
         r => new TsExposurePlan(
             r.GetInt64("Id"), r.GetString("profileId"), r.GetDouble("exposure"), r.GetInt32("desired"),
             r.GetInt32("acquired"), r.GetInt32("accepted"), r.GetInt64("targetid"), r.GetInt64("exposureTemplateId"),
-            r.GetInt32("enabled") != 0));
+            r.GetInt32("enabled") != 0), ct);
 
     /// <summary>Reads all TS exposure templates.</summary>
-    public IReadOnlyList<TsExposureTemplate> ReadExposureTemplates() => Query(
+    /// <param name="ct">Cancellation token, observed per row.</param>
+    public IReadOnlyList<TsExposureTemplate> ReadExposureTemplates(CancellationToken ct = default) => Query(
         "SELECT Id, profileId, name, filtername, gain, offset, bin, defaultexposure FROM exposuretemplate;",
         r => new TsExposureTemplate(
             r.GetInt64("Id"), r.GetString("profileId"), r.GetString("name"), r.GetString("filtername"),
-            r.GetInt32("gain"), r.GetInt32("offset"), r.GetInt32("bin"), r.GetDouble("defaultexposure")));
+            r.GetInt32("gain"), r.GetInt32("offset"), r.GetInt32("bin"), r.GetDouble("defaultexposure")), ct);
 
     /// <summary>Reads all TS acquired-image history rows (metadata BLOB/JSON columns deliberately omitted).</summary>
-    public IReadOnlyList<TsAcquiredImage> ReadAcquiredImages() => Query(
+    /// <param name="ct">Cancellation token, observed per row.</param>
+    public IReadOnlyList<TsAcquiredImage> ReadAcquiredImages(CancellationToken ct = default) => Query(
         "SELECT Id, projectId, targetId, acquireddate, filtername FROM acquiredimage;",
         r => new TsAcquiredImage(
             r.GetInt64("Id"), r.GetInt64("projectId"), r.GetInt64("targetId"),
-            r.GetInt64("acquireddate"), r.GetString("filtername")));
+            r.GetInt64("acquireddate"), r.GetString("filtername")), ct);
 
     /// <inheritdoc/>
     public void Dispose() => _connection.Dispose();
 
-    private List<T> Query<T>(string sql, Func<SqliteDataReader, T> map)
+    // The one read choke point: every Read* runs through here, so observing the token here is what makes the
+    // whole reader cancellable. Checked per row — a read is a tight loop over an open reader, and a caller
+    // that cancels mid-read wants the connection released promptly, not at the end of the table.
+    private List<T> Query<T>(string sql, Func<SqliteDataReader, T> map, CancellationToken ct)
     {
         using SqliteCommand command = _connection.CreateCommand();
         command.CommandText = sql;
@@ -118,7 +128,10 @@ public sealed class TargetSchedulerReader : IDisposable
         List<T> results = [];
         using SqliteDataReader reader = command.ExecuteReader();
         while (reader.Read())
+        {
+            ct.ThrowIfCancellationRequested();
             results.Add(map(reader));
+        }
         return results;
     }
 }

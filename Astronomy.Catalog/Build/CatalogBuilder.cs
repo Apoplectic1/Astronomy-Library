@@ -21,7 +21,7 @@ public static class CatalogBuilder
     /// <param name="libraryRoot">Image library root to scan, or <see langword="null"/>/empty to skip the disk plane.</param>
     /// <param name="targetSchedulerDbPath">TS <c>schedulerdb.sqlite</c> to import, or <see langword="null"/>/empty to skip the plan plane.</param>
     /// <param name="options">Resolver match tolerance; defaults to <see cref="ResolveOptions.Default"/>.</param>
-    /// <param name="ct">Cancellation token, observed during the disk scan.</param>
+    /// <param name="ct">Cancellation token, observed throughout: the disk scan, the TS read, and the resolve.</param>
     public static async Task<CatalogBuildReport> BuildAsync(
         string catalogPath,
         string? libraryRoot,
@@ -42,11 +42,11 @@ public static class CatalogBuilder
         if (!string.IsNullOrWhiteSpace(targetSchedulerDbPath))
         {
             using TargetSchedulerReader reader = new(targetSchedulerDbPath);
-            ts = reader.ReadPlanData();
+            ts = reader.ReadPlanData(ct);
         }
 
         long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        (CatalogGraph graph, CatalogBuildReport report) = TargetResolver.Resolve(diskTargets, ts, now, options);
+        (CatalogGraph graph, CatalogBuildReport report) = TargetResolver.Resolve(diskTargets, ts, now, options, ct);
 
         using CatalogStore store = CatalogStore.Open(catalogPath);
         store.WriteCatalog(graph);

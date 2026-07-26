@@ -52,11 +52,14 @@ public static class TargetResolver
     /// <param name="ts">The TS plan snapshot (may be <see cref="TsPlanData.Empty"/>).</param>
     /// <param name="createdAtUnix">Build timestamp (UNIX seconds) stamped as created_at/scanned_at.</param>
     /// <param name="options">Match tolerance; defaults to <see cref="ResolveOptions.Default"/>.</param>
+    /// <param name="ct">Cancellation token, observed at each resolve phase and per TS target while anchoring
+    /// (the one super-linear pass). Cancellation throws; no partial graph is returned.</param>
     public static (CatalogGraph Graph, CatalogBuildReport Report) Resolve(
         IReadOnlyList<TargetReport> diskTargets,
         TsPlanData ts,
         long createdAtUnix,
-        ResolveOptions? options = null)
+        ResolveOptions? options = null,
+        CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(diskTargets);
         ArgumentNullException.ThrowIfNull(ts);
@@ -76,6 +79,7 @@ public static class TargetResolver
         List<Profile> profiles = [.. profileIds.Select(kv => new Profile(kv.Value, kv.Key, kv.Key, createdAtUnix))];
 
         // ---- Projects. --------------------------------------------------------------------------------------
+        ct.ThrowIfCancellationRequested();
         Dictionary<long, Guid> projectIds = [];
         List<Project> projects = new(ts.Projects.Count);
         foreach (TsProject p in ts.Projects)
@@ -92,6 +96,7 @@ public static class TargetResolver
         }
 
         // ---- Exposure templates. ----------------------------------------------------------------------------
+        ct.ThrowIfCancellationRequested();
         Dictionary<long, Guid> templateIds = [];
         List<ExposureTemplate> templates = new(ts.Templates.Count);
         foreach (TsExposureTemplate t in ts.Templates)
@@ -111,6 +116,7 @@ public static class TargetResolver
         //      validation, same classification; only the key construction differs. Every unit carries a SCOPE
         //      key: top-level units share the default scope, a panel is in its mosaic's scope, and a mosaic
         //      parent is in no coordinate scope at all (matching by name IS its scope mechanism).
+        ct.ThrowIfCancellationRequested();
         List<WorkingTarget> diskWorking = [];
         foreach (TargetReport d in diskTargets)
         {
@@ -132,6 +138,7 @@ public static class TargetResolver
         }
 
         // ---- Resolve each TS target spatially onto the disk set. --------------------------------------------
+        ct.ThrowIfCancellationRequested();
         Dictionary<long, Guid> tsTargetToCanonical = [];
         List<Target> plannedTargets = [];
         List<NameMismatch> nameMismatches = [];
@@ -167,6 +174,7 @@ public static class TargetResolver
 
         foreach (TsTarget tst in ts.Targets)
         {
+            ct.ThrowIfCancellationRequested();   // each target scans the disk set — the super-linear pass
             if (tst.ProjectId is not long projectId || !projectIds.ContainsKey(projectId))
                 continue; // orphan TS target (no project) — skip
 
@@ -267,6 +275,7 @@ public static class TargetResolver
         //      as normal targets (their builders just carry the composite key and parent link); the mosaic
         //      parent is a grouping node — classified by its project name-match, no plans, and no inventory
         //      unless the report carried no per-panel detail (degradation keeps the aggregate on the parent).
+        ct.ThrowIfCancellationRequested();
         List<Target> targets = new(diskWorking.Count + plannedTargets.Count);
         List<InventoryFilter> inventory = [];
         List<DuplicateTsTarget> duplicates = [];
@@ -328,6 +337,7 @@ public static class TargetResolver
         targets.AddRange(plannedTargets);
 
         // ---- Exposure plans, rewired to the canonical target id. --------------------------------------------
+        ct.ThrowIfCancellationRequested();
         List<ExposurePlan> plans = new(ts.Plans.Count);
         foreach (TsExposurePlan p in ts.Plans)
         {

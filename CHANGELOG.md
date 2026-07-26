@@ -9,6 +9,27 @@ backstop — this is the human-legible layer above it.
 **Entry format:** `## YYYY-MM-DD — <what landed>` (a month-only `YYYY-MM` is fine when the exact day
 wasn't recorded). Newest first; add new entries directly below this charter, never at the bottom.
 
+## 2026-07-26 — the TS read and the resolve observe a `CancellationToken`
+
+`TargetSchedulerReader.ReadPlanData` (and the five `Read*` methods) and `TargetResolver.Resolve` now take
+an optional `CancellationToken` and actually observe it. Previously a caller could only cancel the
+*scheduling* of the work it wrapped — once a resolve started, the token was inert — while
+`ImageLibraryScanner.ScanAsync` had always threaded one, making the gap an asymmetry rather than a
+deliberate choice.
+
+- **Reader:** the token forwards to the private `Query<T>`, the one choke point every read runs through, and
+  is checked **per row** — a caller that cancels mid-read gets the connection released promptly instead of at
+  end-of-table. Threading it in one place is what makes the whole reader cancellable.
+- **Resolver:** checked at each phase boundary (projects · templates · disk working set · spatial anchor ·
+  canonical build · plans) and **per TS target** inside the anchoring pass, which is the one super-linear
+  loop (each target scans the disk working set). Cancellation throws; no partial graph is returned.
+- **`CatalogBuilder.BuildAsync` gained the fix for free** — it already accepted a token and had the identical
+  gap between accepting one and honouring it. Its doc now reads "observed throughout" rather than "during the
+  disk scan".
+
+All parameters are optional, so no call site had to change. Guarded by `Resolve_ObservesCancellation`.
+172 tests.
+
 ## 2026-07-24 — `ObservationSession`: the observation-dialog orchestration moves library-side
 
 Closes the ROADMAP's *Open: ObservationSession* item (deferred at the 2026-06-11 Diagnostics
