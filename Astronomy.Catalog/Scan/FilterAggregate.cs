@@ -1,11 +1,17 @@
 namespace Astronomy.Catalog.Scan;
 
 /// <summary>
-/// Per-filter rollup of a target's imaging history. One instance per
-/// (target, filter directory, purpose, exposure-time bucket) — Light and Stars variants of the same
-/// filter become separate aggregates (<c>"B"</c> Light vs <c>"B"</c> Stars), and so do different sub
-/// lengths of the same filter (<c>"H"</c> 120 s vs <c>"H"</c> 300 s). Within an aggregate the exposure
-/// time is therefore uniform: <see cref="Typical"/>.<c>ExposureSec</c> is the bucket's whole-second value.
+/// Per-configuration rollup of a target's imaging history. One instance per
+/// (target, filter directory, purpose, exposure-time bucket, gain, offset, binning, camera) — the full
+/// <b>capture configuration</b>, being everything that decides whether frames combine into one integration.
+/// Light and Stars variants of the same filter become separate aggregates (<c>"B"</c> Light vs <c>"B"</c>
+/// Stars), as do different sub lengths (<c>"H"</c> 120 s vs <c>"H"</c> 300 s), different gains, different
+/// offsets, different binnings, and different cameras.
+/// <para>
+/// Every configuration field is therefore <b>uniform within an aggregate</b>: <see cref="Typical"/>'s
+/// <c>ExposureSec</c>, <c>Gain</c>, <c>Offset</c> and <c>Binning</c> are the bucket's own values rather than
+/// a mode over mixed frames, and <see cref="Camera"/> is the one camera that took them.
+/// </para>
 /// </summary>
 public sealed class FilterAggregate
 {
@@ -33,10 +39,17 @@ public sealed class FilterAggregate
     /// <summary>Mode-based exposure settings across the aggregate.</summary>
     public TypicalSettings Typical { get; }
 
-    /// <summary>Distinct INSTRUME values observed in this aggregate, sorted. Usually one camera; multi-camera entries indicate target was reshot on different equipment.</summary>
-    public IReadOnlyList<string> CamerasSeen { get; }
+    /// <summary>The camera that captured these frames — the containing capture directory's name, which is
+    /// authoritative (it is known before a file is opened, and every frame beneath it belongs to that camera
+    /// by construction). Part of the aggregate's identity, so this is always exactly one camera.</summary>
+    public string Camera { get; }
 
-    /// <summary>Creates an immutable per-filter aggregate. All counts/totals validated for sanity.</summary>
+    /// <summary>True when at least one frame records a camera identifier disagreeing with
+    /// <see cref="Camera"/> — the frames are filed under the wrong camera. Reported to the caller rather
+    /// than reconciled here.</summary>
+    public bool CameraDisagrees { get; }
+
+    /// <summary>Creates an immutable per-configuration aggregate. All counts/totals validated for sanity.</summary>
     public FilterAggregate(
         string filterName,
         string filterCode,
@@ -46,12 +59,13 @@ public sealed class FilterAggregate
         DateTime firstImagedUtc,
         DateTime lastImagedUtc,
         TypicalSettings typical,
-        IReadOnlyList<string> camerasSeen)
+        string camera,
+        bool cameraDisagrees = false)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(filterName);
         ArgumentException.ThrowIfNullOrWhiteSpace(filterCode);
         ArgumentNullException.ThrowIfNull(typical);
-        ArgumentNullException.ThrowIfNull(camerasSeen);
+        ArgumentException.ThrowIfNullOrWhiteSpace(camera);
 
         if (exposureCount <= 0) throw new ArgumentOutOfRangeException(nameof(exposureCount), "ExposureCount must be > 0; zero-frame aggregates are invalid.");
         if (totalIntegration <= TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(totalIntegration), "TotalIntegration must be > 0.");
@@ -67,6 +81,7 @@ public sealed class FilterAggregate
         FirstImagedUtc = firstImagedUtc;
         LastImagedUtc = lastImagedUtc;
         Typical = typical;
-        CamerasSeen = camerasSeen;
+        Camera = camera;
+        CameraDisagrees = cameraDisagrees;
     }
 }

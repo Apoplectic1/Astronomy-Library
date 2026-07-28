@@ -16,7 +16,9 @@ public sealed class TypicalSettings
     /// <summary>Most-common GAIN value across the frame set.</summary>
     public int Gain { get; }
 
-    /// <summary>Most-common OFFSET value (post per-camera normalization, see <see cref="Astronomy.XISF.XisfHeader.OffsetNormalized"/>).</summary>
+    /// <summary>Most-common OFFSET value, exactly as recorded in the frames — never rescaled per camera
+    /// (see <see cref="Astronomy.XISF.XisfHeader.OffsetRaw"/>), so it is directly comparable to the offset a
+    /// consuming plan expresses.</summary>
     public int Offset { get; }
 
     /// <summary>Most-common SET-TEMP °C.</summary>

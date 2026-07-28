@@ -190,6 +190,127 @@ public class ImageLibraryScannerTests
             () => ImageLibraryScanner.ScanUnitsAsync(@"Q:\definitely\does\not\exist"));
     }
 
+    // ---- capture configuration is the aggregate identity ------------------------------------------------
+    // Frames differing in any dimension that prevents them combining into one integration must land in
+    // separate aggregates; frames sharing every dimension must stay one.
+
+    [Theory]
+    [InlineData("GAIN", "53", "0")]         // the 2024 broadband switch: two eras, two stacks
+    [InlineData("OFFSET", "10", "50")]      // observed scattered through every filter
+    [InlineData("XBINNING", "1", "2")]      // bin 1 and bin 2 frames do not stack
+    public async Task ScanAsync_ConfigurationDifference_SeparatesAggregates(string keyword, string a, string b)
+    {
+        string root = NewRoot();
+        string filterDir = Path.Combine(root, "M81 - Bode", "Captures", "Z183", "H");
+        WriteConfiguredFrame(filterDir, "one.xisf", keyword, a);
+        WriteConfiguredFrame(filterDir, "two.xisf", keyword, b);
+        try
+        {
+            ImageLibraryReport report = await ImageLibraryScanner.ScanAsync(root);
+            IReadOnlyList<FilterAggregate> aggs = report.Targets.Single().Filters;
+
+            Assert.Equal(2, aggs.Count);
+            Assert.All(aggs, agg => Assert.Equal(1, agg.ExposureCount));
+        }
+        finally { Directory.Delete(root, recursive: true); }
+    }
+
+    [Fact]
+    public async Task ScanAsync_DifferentCameras_SeparateAggregates()
+    {
+        string root = NewRoot();
+        string target = Path.Combine(root, "M81 - Bode", "Captures");
+        WriteConfiguredFrame(Path.Combine(target, "Z183", "L"), "one.xisf", "GAIN", "53");
+        WriteConfiguredFrame(Path.Combine(target, "Z533", "L"), "two.xisf", "GAIN", "53");
+        try
+        {
+            ImageLibraryReport report = await ImageLibraryScanner.ScanAsync(root);
+            IReadOnlyList<FilterAggregate> aggs = report.Targets.Single().Filters;
+
+            Assert.Equal(2, aggs.Count);
+            Assert.Equal(["Z183", "Z533"], aggs.Select(a => a.Camera).OrderBy(c => c).ToArray());
+        }
+        finally { Directory.Delete(root, recursive: true); }
+    }
+
+    [Fact]
+    public async Task ScanAsync_IdenticalConfiguration_StaysOneAggregate()
+    {
+        string root = NewRoot();
+        string filterDir = Path.Combine(root, "M81 - Bode", "Captures", "Z183", "H");
+        WriteConfiguredFrame(filterDir, "one.xisf", "GAIN", "111");
+        WriteConfiguredFrame(filterDir, "two.xisf", "GAIN", "111");
+        try
+        {
+            ImageLibraryReport report = await ImageLibraryScanner.ScanAsync(root);
+            FilterAggregate agg = report.Targets.Single().Filters.Single();
+
+            Assert.Equal(2, agg.ExposureCount);
+            Assert.Equal("Z183", agg.Camera);
+            Assert.False(agg.CameraDisagrees);
+        }
+        finally { Directory.Delete(root, recursive: true); }
+    }
+
+    [Fact]
+    public async Task ScanAsync_FrameRecordingAnotherCamera_FlagsTheDisagreement()
+    {
+        string root = NewRoot();
+        string filterDir = Path.Combine(root, "M81 - Bode", "Captures", "Z183", "H");
+        // Filed under Z183 but the frame itself says Z533 — filed under the wrong camera.
+        WriteConfiguredFrame(filterDir, "wrong.xisf", "GAIN", "111", instrume: "Z533");
+        try
+        {
+            ImageLibraryReport report = await ImageLibraryScanner.ScanAsync(root);
+            FilterAggregate agg = report.Targets.Single().Filters.Single();
+
+            Assert.Equal("Z183", agg.Camera);       // the directory stays authoritative
+            Assert.True(agg.CameraDisagrees);       // and the disagreement is reported, not reconciled
+        }
+        finally { Directory.Delete(root, recursive: true); }
+    }
+
+    [Fact]
+    public async Task ScanAsync_OffsetIsReadAsRecorded()
+    {
+        string root = NewRoot();
+        string filterDir = Path.Combine(root, "M81 - Bode", "Captures", "Z183", "H");
+        // A Z183 frame recording offset 10: it must stay 10, not become 2 by a per-camera divisor.
+        WriteConfiguredFrame(filterDir, "one.xisf", "OFFSET", "10");
+        try
+        {
+            ImageLibraryReport report = await ImageLibraryScanner.ScanAsync(root);
+            Assert.Equal(10, report.Targets.Single().Filters.Single().Typical.Offset);
+        }
+        finally { Directory.Delete(root, recursive: true); }
+    }
+
+    private static string NewRoot() =>
+        Path.Combine(Path.GetTempPath(), "tsm_cfg_" + Guid.NewGuid().ToString("N"));
+
+    // A frame with a full, valid capture configuration, with one keyword overridden per call.
+    private static void WriteConfiguredFrame(
+        string filterDir, string file, string keyword, string value, string instrume = "Z183")
+    {
+        Directory.CreateDirectory(filterDir);
+        Dictionary<string, string> kw = new()
+        {
+            ["OBJECT"] = "M81",
+            ["RA"] = "148.9",
+            ["DEC"] = "69.2",
+            ["DATE-OBS"] = "2024-02-18T04:51:28",
+            ["EXPTIME"] = "300.0",
+            ["GAIN"] = "111",
+            ["OFFSET"] = "10",
+            ["XBINNING"] = "1",
+            ["YBINNING"] = "1",
+            ["INSTRUME"] = instrume,
+        };
+        kw[keyword] = value;
+        if (keyword == "XBINNING") kw["YBINNING"] = value;   // binning moves as a pair
+        WriteSyntheticXisf(Path.Combine(filterDir, file), kw);
+    }
+
     private static string Slash(string p) => p.Replace('\\', '/');
 
     // ---- synthetic XISF frame writers (header-only; mirrors Astronomy.XISF.Tests) --------------------------

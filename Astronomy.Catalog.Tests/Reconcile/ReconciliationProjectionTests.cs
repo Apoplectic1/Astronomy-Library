@@ -34,6 +34,79 @@ public sealed class ReconciliationProjectionTests
         Assert.Equal(1, c.PlanCount);
     }
 
+    [Theory]
+    // A plan and captured frames pair only when the whole capture configuration agrees. Each row varies one
+    // dimension of the disk side away from the plan's 100 / 50 / bin 1.
+    [InlineData(53, 50, 1)]    // the 2024 broadband gain switch
+    [InlineData(100, 10, 1)]   // the offset-50 frames scattered through every filter
+    [InlineData(100, 50, 2)]   // bin 2 frames do not stack with bin 1
+    public void PlanAndDisk_ConfigurationDiffers_DoNotPair(int diskGain, int diskOffset, int diskBin)
+    {
+        Guid t = Guid.NewGuid(), tpl = Guid.NewGuid();
+        TargetCells tc = Assert.Single(ReconciliationProjection.Project(
+            Graph([T(t, "M 81", TargetSource.Both, dir: "M 81")],
+                [Plan(t, tpl, desired: 10, seconds: 300.0)], [Tpl(tpl, "H", "H")],
+                [Inv(t, "H", FilterPurpose.Light, 4, 300.0, gain: diskGain, offset: diskOffset, bin: diskBin)]),
+            Report()));
+
+        // Two cells: the plan alone, and the captured frames alone — never one merged row asserting the
+        // frames satisfy the plan.
+        Assert.Equal(2, tc.Cells.Count);
+        ReconciliationCell planOnly = Assert.Single(tc.Cells, c => c.PlanCount == 1);
+        ReconciliationCell diskOnly = Assert.Single(tc.Cells, c => c.PlanCount == 0);
+        Assert.Equal(0, planOnly.Disk);
+        Assert.Equal(10, planOnly.Desired);
+        Assert.Equal(4, diskOnly.Disk);
+        Assert.Equal(0, diskOnly.Desired);
+    }
+
+    [Fact]
+    public void PlanAndDisk_ConfigurationAgrees_PairIntoOneCellCarryingIt()
+    {
+        Guid t = Guid.NewGuid(), tpl = Guid.NewGuid();
+        TargetCells tc = Assert.Single(ReconciliationProjection.Project(
+            Graph([T(t, "M 81", TargetSource.Both, dir: "M 81")],
+                [Plan(t, tpl, desired: 10, seconds: 300.0)], [Tpl(tpl, "H", "H")],
+                [Inv(t, "H", FilterPurpose.Light, 4, 300.0)]),
+            Report()));
+
+        ReconciliationCell c = Assert.Single(tc.Cells);
+        Assert.Equal(1, c.PlanCount);
+        Assert.Equal(4, c.Disk);
+        Assert.Equal(100, c.Gain);
+        Assert.Equal(50, c.Offset);
+        Assert.Equal(1, c.BinningX);
+        Assert.Equal("Z533", c.Camera);
+    }
+
+    [Fact]
+    public void Camera_IsDiskSideOnly_AndNeverPreventsPairing()
+    {
+        Guid t = Guid.NewGuid(), tpl = Guid.NewGuid();
+        // Same configuration, captured on a camera the plan cannot name: still one paired cell.
+        TargetCells tc = Assert.Single(ReconciliationProjection.Project(
+            Graph([T(t, "M 81", TargetSource.Both, dir: "M 81")],
+                [Plan(t, tpl, desired: 10, seconds: 300.0)], [Tpl(tpl, "H", "H")],
+                [Inv(t, "H", FilterPurpose.Light, 4, 300.0, camera: "Z183")]),
+            Report()));
+
+        ReconciliationCell c = Assert.Single(tc.Cells);
+        Assert.Equal(1, c.PlanCount);
+        Assert.Equal("Z183", c.Camera);
+    }
+
+    [Fact]
+    public void PlanWithNoDiskSide_CarriesNoCamera()
+    {
+        Guid t = Guid.NewGuid(), tpl = Guid.NewGuid();
+        TargetCells tc = Assert.Single(ReconciliationProjection.Project(
+            Graph([T(t, "M 81", TargetSource.Planned)],
+                [Plan(t, tpl, desired: 10, seconds: 300.0)], [Tpl(tpl, "H", "H")], []),
+            Report()));
+
+        Assert.Null(Assert.Single(tc.Cells).Camera);
+    }
+
     [Fact]
     public void TwoPlans_SameBucket_SumDesiredAndCountPlans()
     {
@@ -207,8 +280,12 @@ public sealed class ReconciliationProjectionTests
             HorizonOffsetDeg: null, MeridianWindowMinutes: null, IsMosaic: false, EnableGrader: false,
             CreatedAt: 0, ActiveAt: null, InactiveAt: null, ImportedFromTsGuid: null);
 
-    private static ExposureTemplate Tpl(Guid id, string name, string filter, double? defaultSeconds = 300.0) =>
-        new(id, Guid.NewGuid(), name, filter, Gain: null, OffsetAdu: null, Binning: null, ReadoutMode: null,
+    // Gain/offset/binning default to the same configuration Inv() writes, so a plan and a disk aggregate pair
+    // unless a test deliberately varies one — the capture configuration is part of the cell key.
+    private static ExposureTemplate Tpl(
+        Guid id, string name, string filter, double? defaultSeconds = 300.0,
+        int? gain = 100, int? offset = 50, int? bin = 1) =>
+        new(id, Guid.NewGuid(), name, filter, Gain: gain, OffsetAdu: offset, Binning: bin, ReadoutMode: null,
             DefaultExposureSeconds: defaultSeconds, ImportedFromTsGuid: null);
 
     private static ExposurePlan Plan(
@@ -217,8 +294,9 @@ public sealed class ReconciliationProjectionTests
             Enabled: true, ImportedFromTsGuid: null);
 
     private static InventoryFilter Inv(
-        Guid target, string filter, FilterPurpose purpose, int count, double seconds) =>
+        Guid target, string filter, FilterPurpose purpose, int count, double seconds,
+        int gain = 100, int offset = 50, int bin = 1, string camera = "Z533") =>
         new(target, filter, purpose, filter, count, count * seconds, FirstImagedAt: 0, LastImagedAt: 0,
-            TypicalGain: 100, TypicalOffset: 50, TypicalSetTempC: -10.0, TypicalBinningX: 1, TypicalBinningY: 1,
-            ExposureSeconds: seconds, Cameras: "Z533");
+            TypicalGain: gain, TypicalOffset: offset, TypicalSetTempC: -10.0, TypicalBinningX: bin,
+            TypicalBinningY: bin, ExposureSeconds: seconds, Camera: camera);
 }

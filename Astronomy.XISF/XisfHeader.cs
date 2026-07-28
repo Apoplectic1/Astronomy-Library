@@ -73,7 +73,12 @@ public sealed class XisfHeader
     /// <summary>GAIN — integer camera gain setting.</summary>
     public int? Gain => ParseInt(Raw("GAIN"));
 
-    /// <summary>OFFSET — raw integer camera offset, pre per-camera normalization. See <see cref="OffsetNormalized"/> for the XFM-style normalized value.</summary>
+    /// <summary>
+    /// OFFSET — the camera offset exactly as recorded. Writers store the value already in the scale the
+    /// consuming plan expresses (an accompanying "ADU Offset divided by N" comment describes the camera's
+    /// scale; it does not mean the writer divided), so this value is directly comparable and MUST NOT be
+    /// rescaled per camera. Null when the keyword is absent or unparseable.
+    /// </summary>
     public int? OffsetRaw => ParseInt(Raw("OFFSET"));
 
     /// <summary>SET-TEMP — sensor setpoint °C.</summary>
@@ -96,38 +101,6 @@ public sealed class XisfHeader
 
     /// <summary>INSTRUME keyword comment — often carries the full manufacturer name when the value itself is a short code (e.g. value="Z183" / comment="ZWO ASI183MM Pro").</summary>
     public string? InstrumentDescription => Comment("INSTRUME");
-
-    /// <summary>
-    /// OFFSET normalized per-camera following XFM's convention. Null if
-    /// <see cref="OffsetRaw"/> is null OR the camera is on XFM's strip list.
-    /// </summary>
-    /// <remarks>
-    /// Per-camera divisors mirror XFM/KeywordList.cs. Matches against both the
-    /// INSTRUME value and the INSTRUME comment — capture software may write a
-    /// short code (e.g. "Z183") in the value with the full manufacturer name
-    /// ("ZWO ASI183MM Pro") in the comment, or vice versa, or only one.
-    /// <list type="bullet">
-    ///   <item>Z183 / ZWO ASI183 → ÷5</item>
-    ///   <item>Z533 / ZWO ASI533 → ÷40</item>
-    ///   <item>Q178 / QHY178 → ÷18.33</item>
-    ///   <item>A144 → strip (null)</item>
-    /// </list>
-    /// Unrecognized cameras pass through unchanged.
-    /// </remarks>
-    public int? OffsetNormalized
-    {
-        get
-        {
-            if (OffsetRaw is not int raw) return null;
-            // Combine value + comment so a match in either field counts.
-            string cam = (Instrument ?? string.Empty) + " " + (InstrumentDescription ?? string.Empty);
-            if (cam.Contains("Z183", StringComparison.OrdinalIgnoreCase) || cam.Contains("ASI183", StringComparison.OrdinalIgnoreCase)) return raw / 5;
-            if (cam.Contains("Z533", StringComparison.OrdinalIgnoreCase) || cam.Contains("ASI533", StringComparison.OrdinalIgnoreCase)) return raw / 40;
-            if (cam.Contains("Q178", StringComparison.OrdinalIgnoreCase) || cam.Contains("QHY178", StringComparison.OrdinalIgnoreCase)) return (int)Math.Round(raw / 18.33);
-            if (cam.Contains("A144", StringComparison.OrdinalIgnoreCase)) return null;
-            return raw;
-        }
-    }
 
     // ----- Captured but not aggregated in Phase A (for future quality-summary work) -----
 

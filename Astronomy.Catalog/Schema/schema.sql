@@ -144,8 +144,12 @@ CREATE TABLE IF NOT EXISTS inventory_filter (
     typical_binning_x         INTEGER NOT NULL,
     typical_binning_y         INTEGER NOT NULL,
     exposure_seconds          REAL NOT NULL,         -- whole-second sub-length bucket; part of the row identity
-    cameras                   TEXT NOT NULL,         -- CSV of distinct INSTRUME values
-    PRIMARY KEY (target_id, filter_code, frame_purpose_id, exposure_seconds)
+    camera                    TEXT NOT NULL,         -- capture directory name; part of the row identity
+    camera_disagrees          INTEGER NOT NULL DEFAULT 0,  -- 1 = a frame records a camera other than `camera`
+    -- The key is the CAPTURE CONFIGURATION: everything deciding whether frames combine into one integration.
+    -- Gain/offset/binning join it because frames differing in them are separate stacks, not one.
+    PRIMARY KEY (target_id, filter_code, frame_purpose_id, exposure_seconds,
+                 typical_gain, typical_offset, typical_binning_x, typical_binning_y, camera)
 ) WITHOUT ROWID;
 CREATE INDEX IF NOT EXISTS ix_inventory_filter_target ON inventory_filter(target_id);
 CREATE INDEX IF NOT EXISTS ix_inventory_filter_name ON inventory_filter(filter_name, frame_purpose_id);

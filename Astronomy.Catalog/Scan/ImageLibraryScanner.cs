@@ -148,11 +148,23 @@ public static class ImageLibraryScanner
 
     // -----------------------------------------------------------------------
 
+    /// <summary>One frame's scan-relevant facts. <paramref name="CameraDirName"/> is the containing capture
+    /// directory — authoritative for which camera took the frame, known before the file is opened — while the
+    /// header carries the camera identifier the writer recorded inside it. Both are kept so the two can be
+    /// compared: a disagreement means the frame is filed under the wrong camera.</summary>
     private sealed record FrameReading(
         XisfHeader Header,
         string FilterCode,
         FilterPurpose Purpose,
-        string CameraDirName);
+        string CameraDirName)
+    {
+        /// <summary>True when the frame records a camera identifier that disagrees with its containing
+        /// directory. A frame recording nothing is silent, not in disagreement.</summary>
+        public bool CameraDisagrees =>
+            Header.Instrument is string recorded
+            && recorded.Trim().Length > 0
+            && !string.Equals(recorded.Trim(), CameraDirName, StringComparison.OrdinalIgnoreCase);
+    }
 
     private static async Task<TargetReport?> ScanTargetAsync(
         string targetDir,
@@ -240,17 +252,31 @@ public static class ImageLibraryScanner
         string objectName = ConsensusObjectName(readings, catalog);
         (double raHours, double decDegrees) = ConsensusCoordinates(readings);
 
-        // Exposure time is part of the aggregate identity: the same filter+purpose shot at different sub
-        // lengths (e.g. HDR 120 s + 300 s) yields separate aggregates. Bucketing to the nearest second
-        // matches ComputeTypical's clustering, so within a bucket Typical.ExposureSec IS the bucket value.
+        // The aggregate identity is the CAPTURE CONFIGURATION — everything that decides whether frames
+        // combine into one integration: filter, purpose, sub length, gain, offset, binning, and the camera
+        // that took them. Frames differing in any of these are separate aggregates because they are separate
+        // stacks (e.g. HDR 120 s + 300 s, or the 2024 broadband move from gain 53 to gain 0). Bucketing the
+        // exposure to the nearest second matches ComputeTypical's clustering, so within a bucket
+        // Typical.ExposureSec IS the bucket value — and likewise gain/offset/binning are now uniform.
         List<FilterAggregate> aggregates = readings
-            .GroupBy(r => (r.FilterCode, r.Purpose, Seconds: ExposureBucket(r)))
-            .Select(g => BuildAggregate(g.Key.FilterCode, g.Key.Purpose, g.ToList()))
+            .GroupBy(r => (
+                r.FilterCode,
+                r.Purpose,
+                Seconds: ExposureBucket(r),
+                Gain: r.Header.Gain ?? 0,
+                Offset: r.Header.OffsetRaw ?? 0,
+                BinX: Math.Max(1, r.Header.XBinning ?? 1),
+                BinY: Math.Max(1, r.Header.YBinning ?? 1),
+                r.CameraDirName))
+            .Select(g => BuildAggregate(g.Key.FilterCode, g.Key.Purpose, g.Key.CameraDirName, g.ToList()))
             .Where(a => a is not null)
             .Cast<FilterAggregate>()
             .OrderBy(a => a.FilterCode, StringComparer.OrdinalIgnoreCase)
             .ThenBy(a => a.Purpose)
             .ThenBy(a => a.Typical.ExposureSec)
+            .ThenBy(a => a.Typical.Gain)
+            .ThenBy(a => a.Typical.Offset)
+            .ThenBy(a => a.Camera, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
         if (aggregates.Count == 0) return null;
@@ -300,7 +326,7 @@ public static class ImageLibraryScanner
     // -----------------------------------------------------------------------
 
     private static FilterAggregate? BuildAggregate(
-        string filterCode, FilterPurpose purpose, IReadOnlyList<FrameReading> frames)
+        string filterCode, FilterPurpose purpose, string cameraDirName, IReadOnlyList<FrameReading> frames)
     {
         if (frames.Count == 0) return null;
 
@@ -325,11 +351,6 @@ public static class ImageLibraryScanner
         if (dates.Count == 0) return null;
 
         TypicalSettings typical = ComputeTypical(withExp);
-        IReadOnlyList<string> cameras = withExp
-            .Select(f => f.Header.Instrument ?? f.CameraDirName)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(s => s, StringComparer.OrdinalIgnoreCase)
-            .ToList();
 
         return new FilterAggregate(
             filterName: NormalizeFilterName(filterCode),
@@ -340,7 +361,10 @@ public static class ImageLibraryScanner
             firstImagedUtc: dates[0],
             lastImagedUtc: dates[^1],
             typical: typical,
-            camerasSeen: cameras);
+            camera: cameraDirName,
+            // Any frame recording a camera that disagrees with its containing directory means the frame is
+            // filed under the wrong camera — reported, never silently reconciled.
+            cameraDisagrees: withExp.Any(f => f.CameraDisagrees));
     }
 
     // Whole-second exposure bucket for aggregate identity (599.97 and 600.00 share a bucket). Frames without
@@ -350,7 +374,10 @@ public static class ImageLibraryScanner
     private static TypicalSettings ComputeTypical(IReadOnlyList<FrameReading> frames)
     {
         int gain = Mode(frames.Select(f => f.Header.Gain ?? 0));
-        int offset = Mode(frames.Select(f => f.Header.OffsetNormalized ?? f.Header.OffsetRaw ?? 0));
+        // OFFSET is read exactly as recorded. XFM writes the value unchanged (its per-camera "divided by N"
+        // comment is descriptive, not an operation), so a frame's offset is already in the same scale TS's
+        // exposure templates use — any further conversion would produce a number comparable to neither plane.
+        int offset = Mode(frames.Select(f => f.Header.OffsetRaw ?? 0));
         double setTemp = ModeDouble(frames.Select(f => f.Header.SetTempC ?? 0.0));
         int xBin = Mode(frames.Select(f => f.Header.XBinning ?? 1));
         int yBin = Mode(frames.Select(f => f.Header.YBinning ?? 1));

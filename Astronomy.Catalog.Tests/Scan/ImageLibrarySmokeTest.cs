@@ -49,7 +49,7 @@ public class ImageLibrarySmokeTest
             foreach (FilterAggregate f in t.Filters)
             {
                 string p = f.Purpose == FilterPurpose.Stars ? " (Stars)" : "";
-                mOut.WriteLine($"    {f.FilterCode,2} {f.FilterName,-9}{p}  {f.ExposureCount,4}× × {f.Typical.ExposureSec,4:F0}s  = {f.TotalIntegration.TotalHours,5:F1}h  gain {f.Typical.Gain,3}  offset {f.Typical.Offset,3}  {f.Typical.SetTempC,5:F1}°C  bin {f.Typical.Binning.X}x{f.Typical.Binning.Y}  cam: {string.Join(",", f.CamerasSeen)}");
+                mOut.WriteLine($"    {f.FilterCode,2} {f.FilterName,-9}{p}  {f.ExposureCount,4}× × {f.Typical.ExposureSec,4:F0}s  = {f.TotalIntegration.TotalHours,5:F1}h  gain {f.Typical.Gain,3}  offset {f.Typical.Offset,3}  {f.Typical.SetTempC,5:F1}°C  bin {f.Typical.Binning.X}x{f.Typical.Binning.Y}  cam: {f.Camera}{(f.CameraDisagrees ? " (cam≠)" : "")}");
             }
         }
 

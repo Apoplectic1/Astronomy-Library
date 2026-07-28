@@ -35,7 +35,7 @@ public class DirectoryProbeTest
             mOut.WriteLine($"EXPTIME:  {h.ExposureSec}");
             mOut.WriteLine($"FILTER:   {h.Filter}");
             mOut.WriteLine($"GAIN:     {h.Gain}");
-            mOut.WriteLine($"OFFSET:   {h.OffsetRaw} → norm {h.OffsetNormalized}");
+            mOut.WriteLine($"OFFSET:   {h.OffsetRaw}");
             mOut.WriteLine($"SET-TEMP: {h.SetTempC}");
             mOut.WriteLine($"X/YBIN:   {h.XBinning}/{h.YBinning}");
             mOut.WriteLine($"IMAGETYP: {h.ImageType}");

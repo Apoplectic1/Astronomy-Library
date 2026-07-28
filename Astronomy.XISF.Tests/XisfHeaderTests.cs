@@ -124,40 +124,30 @@ public class XisfHeaderTests
     }
 
     [Theory]
-    [InlineData("ZWO ASI183MM Pro", 50, 10)]      // /5 — full manufacturer name
-    [InlineData("Z183", 50, 10)]                  // /5 — XFM short code (observed in Dan's library)
-    [InlineData("ZWO ASI533MC Pro", 200, 5)]      // /40
-    [InlineData("Z533", 200, 5)]                  // /40 — short code
-    [InlineData("Q178", 1833, 100)]               // /18.33
-    [InlineData("Unknown Camera", 30, 30)]        // pass-through
-    public void OffsetNormalized_AppliesPerCameraDivisor(string instrument, int raw, int expected)
+    [InlineData("Z183", 10)]     // as recorded, whatever the camera
+    [InlineData("Z533", 50)]
+    [InlineData("Unknown Camera", 30)]
+    public void OffsetRaw_IsNeverRescaledPerCamera(string instrument, int recorded)
     {
-        var h = Make(("OFFSET", raw.ToString()), ("INSTRUME", instrument));
-        Assert.Equal(expected, h.OffsetNormalized);
+        var h = Make(("OFFSET", recorded.ToString()), ("INSTRUME", instrument));
+        Assert.Equal(recorded, h.OffsetRaw);
     }
 
     [Fact]
-    public void OffsetNormalized_MatchesFullNameInCommentEvenWhenValueIsShortCode()
+    public void OffsetRaw_DescriptiveDividedByCommentDoesNotRescale()
     {
-        // INSTRUME value="Z" (truncated, doesn't match any short code) but
-        // comment="ZWO ASI183MM Pro" — the comment fallback should still pin it as ASI183.
+        // The writer's "ADU Offset divided by 5" comment describes the camera's scale; it does NOT mean
+        // the writer divided. The recorded value must survive untouched.
         var h = MakeWithComments(
-            ("OFFSET", "50", ""),
-            ("INSTRUME", "Z", "ZWO ASI183MM Pro"));
-        Assert.Equal(10, h.OffsetNormalized);  // 50 / 5
+            ("OFFSET", "10", "[#] ADU Offset divided by 5"),
+            ("INSTRUME", "Z183", "ZWO ASI183MM Pro"));
+        Assert.Equal(10, h.OffsetRaw);
     }
 
     [Fact]
-    public void OffsetNormalized_A144_Stripped()
-    {
-        var h = Make(("OFFSET", "100"), ("INSTRUME", "A144"));
-        Assert.Null(h.OffsetNormalized);
-    }
-
-    [Fact]
-    public void OffsetNormalized_MissingRaw_ReturnsNull()
+    public void OffsetRaw_MissingKeyword_ReturnsNull()
     {
         var h = Make();
-        Assert.Null(h.OffsetNormalized);
+        Assert.Null(h.OffsetRaw);
     }
 }

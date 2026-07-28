@@ -97,7 +97,7 @@ public sealed class CatalogGraphOrderingContractTests
     {
         DateTime first = new(2024, 1, 1, 22, 0, 0, DateTimeKind.Utc);
         return new FilterAggregate("H", "H", FilterPurpose.Light, 12, TimeSpan.FromSeconds(3600), first,
-            first.AddHours(2), new TypicalSettings(100, 50, -10.0, (1, 1), 300.0), ["Z533"]);
+            first.AddHours(2), new TypicalSettings(100, 50, -10.0, (1, 1), 300.0), "Z533");
     }
 
     private static TsTarget TsT(long id, string name, double ra, double dec, long project, string guid) =>

@@ -105,4 +105,5 @@ public sealed record InventoryFilter(
     int TypicalBinningX,
     int TypicalBinningY,
     double ExposureSeconds,
-    string Cameras);
+    string Camera,
+    bool CameraDisagrees = false);

@@ -85,8 +85,7 @@ public class XisfHeaderReaderTests : IDisposable
         Assert.Equal(600.0, h.ExposureSec);
         Assert.Equal("H", h.Filter);
         Assert.Equal(111, h.Gain);
-        Assert.Equal(10, h.OffsetRaw);
-        Assert.Equal(2, h.OffsetNormalized);    // 10 / 5 (ASI183)
+        Assert.Equal(10, h.OffsetRaw);          // as recorded — never rescaled per camera
         Assert.Equal(-20.0, h.SetTempC);
         Assert.Equal(1, h.XBinning);
         Assert.Equal("LIGHT", h.ImageType);

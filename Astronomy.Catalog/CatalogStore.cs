@@ -77,15 +77,15 @@ public sealed class CatalogStore : IDisposable
         """
         INSERT INTO inventory_filter (target_id, filter_code, frame_purpose_id, filter_name, exposure_count,
             total_integration_seconds, first_imaged_at, last_imaged_at, typical_gain, typical_offset,
-            typical_set_temp_c, typical_binning_x, typical_binning_y, exposure_seconds, cameras)
+            typical_set_temp_c, typical_binning_x, typical_binning_y, exposure_seconds, camera, camera_disagrees)
         VALUES ($target, $code, $purpose, $name, $count, $integ, $first, $last, $gain, $offset, $temp, $binx, $biny,
-            $exp, $cameras);
+            $exp, $camera, $camdis);
         """,
         ("$target", GuidBlob.ToBlob(f.TargetId)), ("$code", f.FilterCode), ("$purpose", (int)f.Purpose),
         ("$name", f.FilterName), ("$count", f.ExposureCount), ("$integ", f.TotalIntegrationSeconds),
         ("$first", f.FirstImagedAt), ("$last", f.LastImagedAt), ("$gain", f.TypicalGain), ("$offset", f.TypicalOffset),
         ("$temp", f.TypicalSetTempC), ("$binx", f.TypicalBinningX), ("$biny", f.TypicalBinningY),
-        ("$exp", f.ExposureSeconds), ("$cameras", f.Cameras));
+        ("$exp", f.ExposureSeconds), ("$camera", f.Camera), ("$camdis", f.CameraDisagrees ? 1 : 0));
 
     /// <summary>Inserts an <see cref="ExposureTemplate"/> row.</summary>
     public void InsertExposureTemplate(ExposureTemplate t, SqliteTransaction? transaction = null) => Execute(transaction,

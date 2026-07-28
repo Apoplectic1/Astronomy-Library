@@ -30,6 +30,30 @@ public sealed class WriteBackPlannerTests
     }
 
     [Fact]
+    public void FinerDiskBuckets_StillTotalOneAcquiredCount()
+    {
+        // The disk plane now keys on the capture configuration, so one filter/exposure can occupy several
+        // inventory rows (here: the gain-53 era, the gain-0 era, and a stray offset). Write-back keys more
+        // coarsely and SUMS them, so the count written back is unchanged by that finer split.
+        Guid t = Guid.NewGuid(), tpl = Guid.NewGuid();
+
+        WriteBackPlan plan = WriteBackPlanner.Plan(
+            [Both(t, "M1")],
+            [Plan(t, tpl, tsId: 500)],
+            [Tpl(tpl, "H", "H")],
+            [
+                Inv(t, "H", FilterPurpose.Light, 20, gain: 53, offset: 10),
+                Inv(t, "H", FilterPurpose.Light, 15, gain: 0, offset: 10),
+                Inv(t, "H", FilterPurpose.Light, 12, gain: 0, offset: 50, camera: "Z183"),
+            ],
+            Report());
+
+        PlannedWrite w = Assert.Single(plan.Writes);
+        Assert.Equal(47, w.DiskCount);   // 20 + 15 + 12 — identical to the single-bucket case
+        Assert.Empty(plan.Manual);
+    }
+
+    [Fact]
     public void MainAndStars_RouteByPurpose()
     {
         Guid t = Guid.NewGuid(), main = Guid.NewGuid(), stars = Guid.NewGuid();
@@ -455,10 +479,11 @@ public sealed class WriteBackPlannerTests
             Enabled: true, ImportedFromTsGuid: tsId.ToString(CultureInfo.InvariantCulture));
 
     private static InventoryFilter Inv(
-        Guid target, string filter, FilterPurpose purpose, int count, double seconds = 300.0) =>
+        Guid target, string filter, FilterPurpose purpose, int count, double seconds = 300.0,
+        int gain = 100, int offset = 50, string camera = "Z533") =>
         new(target, filter, purpose, filter, count, count * seconds, FirstImagedAt: 0, LastImagedAt: 0,
-            TypicalGain: 100, TypicalOffset: 50, TypicalSetTempC: -10.0, TypicalBinningX: 1, TypicalBinningY: 1,
-            ExposureSeconds: seconds, Cameras: "Z533");
+            TypicalGain: gain, TypicalOffset: offset, TypicalSetTempC: -10.0, TypicalBinningX: 1,
+            TypicalBinningY: 1, ExposureSeconds: seconds, Camera: camera);
 
     private static CatalogBuildReport Report(
         int plannedOnly = 0,

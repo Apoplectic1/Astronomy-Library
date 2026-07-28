@@ -19,8 +19,8 @@ public class ReportToTargetAdapterTests
             totalIntegration: TimeSpan.FromSeconds(count * exptime),
             firstImagedUtc: first,
             lastImagedUtc: last,
-            typical: new TypicalSettings(gain: 111, offset: 2, setTempC: -20.0, binning: (1, 1), exposureSec: exptime),
-            camerasSeen: new[] { "Z183" });
+            typical: new TypicalSettings(gain: 111, offset: 10, setTempC: -20.0, binning: (1, 1), exposureSec: exptime),
+            camera: "Z183");
     }
 
     private static TargetReport MakeReport(string dirName, double raHours, double decDeg, params FilterAggregate[] aggs)
@@ -116,7 +116,7 @@ public class ReportToTargetAdapterTests
         Astronomy.NINA.Target t = r.ToTarget();
         FilterHistory h = t.ImagingHistory[0];
         Assert.Equal(111, h.TypicalSettings.Gain);
-        Assert.Equal(2, h.TypicalSettings.Offset);
+        Assert.Equal(10, h.TypicalSettings.Offset);   // as recorded — never rescaled per camera
         Assert.Equal(-20.0, h.TypicalSettings.SetTempC);
         Assert.Equal((1, 1), h.TypicalSettings.Binning);
         Assert.Equal(600.0, h.TypicalSettings.ExposureSec);

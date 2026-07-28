@@ -201,5 +201,5 @@ public sealed class ReconcilerTests
         Guid target, string filter, FilterPurpose purpose, int count, double seconds = 300.0) =>
         new(target, filter, purpose, filter, count, count * seconds, FirstImagedAt: 0, LastImagedAt: 0,
             TypicalGain: 100, TypicalOffset: 50, TypicalSetTempC: -10.0, TypicalBinningX: 1, TypicalBinningY: 1,
-            ExposureSeconds: seconds, Cameras: "Z533");
+            ExposureSeconds: seconds, Camera: "Z533");
 }

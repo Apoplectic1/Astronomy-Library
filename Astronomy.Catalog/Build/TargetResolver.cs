@@ -426,7 +426,7 @@ public static class TargetResolver
         targetId, f.FilterCode, f.Purpose, f.FilterName, f.ExposureCount, f.TotalIntegration.TotalSeconds,
         new DateTimeOffset(f.FirstImagedUtc).ToUnixTimeSeconds(), new DateTimeOffset(f.LastImagedUtc).ToUnixTimeSeconds(),
         f.Typical.Gain, f.Typical.Offset, f.Typical.SetTempC, f.Typical.Binning.X, f.Typical.Binning.Y,
-        f.Typical.ExposureSec, string.Join(",", f.CamerasSeen));
+        f.Typical.ExposureSec, f.Camera, f.CameraDisagrees);
 
     // ---- Matching helpers -----------------------------------------------------------------------------------
 

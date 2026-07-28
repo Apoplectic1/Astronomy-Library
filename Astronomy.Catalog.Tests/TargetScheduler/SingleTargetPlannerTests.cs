@@ -261,7 +261,7 @@ public sealed class SingleTargetPlannerTests
     {
         DateTime first = new(2024, 1, 1, 22, 0, 0, DateTimeKind.Utc);
         return new FilterAggregate(filter, filter, purpose, count, TimeSpan.FromSeconds(count * seconds),
-            first, first.AddHours(1), new TypicalSettings(100, 50, -10.0, (bin, bin), seconds), ["Z533"]);
+            first, first.AddHours(1), new TypicalSettings(100, 50, -10.0, (bin, bin), seconds), "Z533");
     }
 
     private static TsProject Proj(long id, string name, bool mosaic) =>
