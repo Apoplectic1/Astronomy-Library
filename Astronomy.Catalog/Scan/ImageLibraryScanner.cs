@@ -13,6 +13,7 @@ namespace Astronomy.Catalog.Scan;
 /// Convention assumed (matches Dan's library at <c>E:\Photography\Astro Photography\Processing\</c>):
 /// <code>
 /// LibraryRoot/
+/// ├─ Comet &lt;designation&gt;/                skipped entirely — non-sidereal (see IsNonSiderealDirectory)
 /// └─ &lt;Catalog&gt; - &lt;Common&gt;/              one target per dir; e.g. "M51 - Whirlpool"
 ///    ├─ Captures/                          ONLY this matters for scanning
 ///    │  ├─ Calibration/                    skipped entirely (bias/dark/flat masters)
@@ -172,6 +173,11 @@ public static class ImageLibraryScanner
         CancellationToken ct)
     {
         string dirName = Path.GetFileName(targetDir);
+        // Non-sidereal targets never enter the scan (see IsNonSiderealDirectory). Guarded here rather than at
+        // the walk so both entry points honour it from one place — the bulk ScanAsync and the surgical
+        // ScanUnitsAsync both arrive through this method.
+        if (IsNonSiderealDirectory(dirName)) return null;
+
         string capturesDir = Path.Combine(targetDir, "Captures");
         if (!Directory.Exists(capturesDir)) return null;
 
@@ -301,6 +307,26 @@ public static class ImageLibraryScanner
             : dirName.Trim();
         return (code, purpose);
     }
+
+    /// <summary>
+    /// True when a target directory names a <b>non-sidereal</b> object — one whose coordinates change from
+    /// night to night, so no sidereal plan can describe it and every frame of it is acquired by hand at the
+    /// telescope. Such targets are excluded from the scan entirely, like the calibration tree.
+    /// </summary>
+    /// <remarks>
+    /// The evidence for the fact is the directory-naming convention: a comet directory is prefixed
+    /// <c>"Comet "</c> (e.g. <c>"Comet C2023 A3 - Tsuchinshan"</c>). The trailing space is load-bearing — it
+    /// keeps a sidereal object whose name merely begins with those letters from matching.
+    /// <para>
+    /// Excluding them is not merely tidiness: their capture trees also break the
+    /// <c>Captures/&lt;Camera&gt;/&lt;Filter&gt;/</c> convention, nesting date-named session folders
+    /// (<c>"2024-10-18 - Track Comet"</c>) where a filter directory belongs, so a scan would publish those
+    /// session names as filter codes.
+    /// </para>
+    /// </remarks>
+    public static bool IsNonSiderealDirectory(string directoryName) =>
+        directoryName is not null
+        && directoryName.TrimStart().StartsWith("Comet ", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// Normalize a filter directory-name to canonical form. The canonical set is

@@ -190,6 +190,99 @@ public class ImageLibraryScannerTests
             () => ImageLibraryScanner.ScanUnitsAsync(@"Q:\definitely\does\not\exist"));
     }
 
+    // ---- calibration is excluded from the scan -----------------------------------------------------------
+    // Long-standing behaviour that had no test until the scan's exclusions were specified.
+
+    [Fact]
+    public async Task ScanAsync_CalibrationTree_IsNotReadAsLight()
+    {
+        string root = NewRoot();
+        string captures = Path.Combine(root, "M81 - Bode", "Captures");
+        WriteConfiguredFrame(Path.Combine(captures, "Z183", "H"), "light.xisf", "GAIN", "111");
+        // Masters sit under Captures/Calibration — counting them would inflate every reported count.
+        WriteConfiguredFrame(Path.Combine(captures, "Calibration"), "dark1.xisf", "GAIN", "111");
+        WriteConfiguredFrame(Path.Combine(captures, "Calibration"), "dark2.xisf", "GAIN", "111");
+        try
+        {
+            ImageLibraryReport report = await ImageLibraryScanner.ScanAsync(root);
+
+            FilterAggregate agg = Assert.Single(report.Targets.Single().Filters);
+            Assert.Equal(1, agg.ExposureCount);            // the light only
+            Assert.Equal("Z183", agg.Camera);              // never "Calibration"
+        }
+        finally { Directory.Delete(root, recursive: true); }
+    }
+
+    [Fact]
+    public async Task ScanAsync_TargetWithOnlyCalibration_YieldsNothing()
+    {
+        string root = NewRoot();
+        WriteConfiguredFrame(
+            Path.Combine(root, "M81 - Bode", "Captures", "Calibration"), "dark.xisf", "GAIN", "111");
+        try
+        {
+            Assert.Empty((await ImageLibraryScanner.ScanAsync(root)).Targets);
+        }
+        finally { Directory.Delete(root, recursive: true); }
+    }
+
+    // ---- non-sidereal targets are excluded from the scan -------------------------------------------------
+
+    [Theory]
+    [InlineData("Comet C2023 A3 - Tsuchinshan")]
+    [InlineData("Comet 46P - Wirtanen")]
+    [InlineData("Comet C2022 E3 (ZTF)")]
+    [InlineData("comet c2020 f3 - neowise")]   // case-insensitive
+    public void IsNonSiderealDirectory_MatchesCometNaming(string dirName) =>
+        Assert.True(ImageLibraryScanner.IsNonSiderealDirectory(dirName));
+
+    [Theory]
+    // The trailing space in the prefix is load-bearing: a sidereal object whose name merely begins with
+    // those letters must still be scanned.
+    [InlineData("Cometary Globule CG4")]
+    [InlineData("NGC 2261 - Comet Nebula")]
+    [InlineData("M51 - Whirlpool")]
+    [InlineData("Comet")]
+    [InlineData("")]
+    public void IsNonSiderealDirectory_DoesNotOverMatch(string dirName) =>
+        Assert.False(ImageLibraryScanner.IsNonSiderealDirectory(dirName));
+
+    [Fact]
+    public async Task ScanAsync_CometTarget_IsNotScanned()
+    {
+        string root = NewRoot();
+        // A comet beside a normal target, both validly populated.
+        WriteConfiguredFrame(
+            Path.Combine(root, "Comet C2023 A3 - Tsuchinshan", "Captures", "Z183", "2024-10-18 - Track Comet"),
+            "c.xisf", "GAIN", "111");
+        WriteConfiguredFrame(Path.Combine(root, "M81 - Bode", "Captures", "Z183", "H"), "m.xisf", "GAIN", "111");
+        try
+        {
+            ImageLibraryReport report = await ImageLibraryScanner.ScanAsync(root);
+
+            // The comet is absent entirely — and with it the session-folder-as-filter-code it would publish.
+            TargetReport only = Assert.Single(report.Targets);
+            Assert.Equal("M81 - Bode", only.DirectoryName);
+            Assert.DoesNotContain(only.Filters, f => f.FilterCode.Contains("Track Comet"));
+        }
+        finally { Directory.Delete(root, recursive: true); }
+    }
+
+    [Fact]
+    public async Task ScanUnitsAsync_PointedAtAComet_ReturnsNothing()
+    {
+        string root = NewRoot();
+        string comet = Path.Combine(root, "Comet C2023 A3 - Tsuchinshan");
+        WriteConfiguredFrame(Path.Combine(comet, "Captures", "Z183", "2024-10-18 - Track Comet"),
+            "c.xisf", "GAIN", "111");
+        try
+        {
+            // The surgical entry point honours the exclusion too — both paths funnel through one guard.
+            Assert.Empty(await ImageLibraryScanner.ScanUnitsAsync(comet));
+        }
+        finally { Directory.Delete(root, recursive: true); }
+    }
+
     // ---- capture configuration is the aggregate identity ------------------------------------------------
     // Frames differing in any dimension that prevents them combining into one integration must land in
     // separate aggregates; frames sharing every dimension must stay one.
