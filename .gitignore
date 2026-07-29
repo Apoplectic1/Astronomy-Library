@@ -43,3 +43,6 @@ Desktop.ini
 .\#*
 TAGS
 *.elc
+
+# Claude Code: machine-local permission accretion stays out; commands/skills/settings.json are tracked
+.claude/settings.local.json
