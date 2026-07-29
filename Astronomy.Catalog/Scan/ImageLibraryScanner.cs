@@ -258,23 +258,34 @@ public static class ImageLibraryScanner
         string objectName = ConsensusObjectName(readings, catalog);
         (double raHours, double decDegrees) = ConsensusCoordinates(readings);
 
+        // Framing pre-pass: every frame is assigned its framing cluster BEFORE the configuration grouping,
+        // because a framing is a property of the unit's pointing history, not of one filter's frames —
+        // per-bucket clustering would let the same physical framing get different identities across filters.
+        (IReadOnlyList<FramingCluster> framings, int[] framingOf) =
+            FramingClusterer.Assign([.. readings.Select(r => r.Header)]);
+
         // The aggregate identity is the CAPTURE CONFIGURATION — everything that decides whether frames
-        // combine into one integration: filter, purpose, sub length, gain, offset, binning, and the camera
-        // that took them. Frames differing in any of these are separate aggregates because they are separate
-        // stacks (e.g. HDR 120 s + 300 s, or the 2024 broadband move from gain 53 to gain 0). Bucketing the
-        // exposure to the nearest second matches ComputeTypical's clustering, so within a bucket
-        // Typical.ExposureSec IS the bucket value — and likewise gain/offset/binning are now uniform.
+        // combine into one integration: filter, purpose, sub length, gain, offset, binning, the camera
+        // that took them, and the framing cluster. Frames differing in any of these are separate aggregates
+        // because they are separate stacks (e.g. HDR 120 s + 300 s, the 2024 broadband move from gain 53 to
+        // gain 0, or a re-framed composition). Bucketing the exposure to the nearest second matches
+        // ComputeTypical's clustering, so within a bucket Typical.ExposureSec IS the bucket value — and
+        // likewise gain/offset/binning are now uniform.
         List<FilterAggregate> aggregates = readings
-            .GroupBy(r => (
-                r.FilterCode,
-                r.Purpose,
-                Seconds: ExposureBucket(r),
-                Gain: r.Header.Gain ?? 0,
-                Offset: r.Header.OffsetRaw ?? 0,
-                BinX: Math.Max(1, r.Header.XBinning ?? 1),
-                BinY: Math.Max(1, r.Header.YBinning ?? 1),
-                r.CameraDirName))
-            .Select(g => BuildAggregate(g.Key.FilterCode, g.Key.Purpose, g.Key.CameraDirName, g.ToList()))
+            .Select((r, i) => (Reading: r, Framing: framings[framingOf[i]]))
+            .GroupBy(x => (
+                x.Reading.FilterCode,
+                x.Reading.Purpose,
+                Seconds: ExposureBucket(x.Reading),
+                Gain: x.Reading.Header.Gain ?? 0,
+                Offset: x.Reading.Header.OffsetRaw ?? 0,
+                BinX: Math.Max(1, x.Reading.Header.XBinning ?? 1),
+                BinY: Math.Max(1, x.Reading.Header.YBinning ?? 1),
+                x.Reading.CameraDirName,
+                FramingOrdinal: x.Framing.Ordinal))
+            .Select(g => BuildAggregate(
+                g.Key.FilterCode, g.Key.Purpose, g.Key.CameraDirName, framings[g.Key.FramingOrdinal],
+                [.. g.Select(x => x.Reading)]))
             .Where(a => a is not null)
             .Cast<FilterAggregate>()
             .OrderBy(a => a.FilterCode, StringComparer.OrdinalIgnoreCase)
@@ -283,11 +294,12 @@ public static class ImageLibraryScanner
             .ThenBy(a => a.Typical.Gain)
             .ThenBy(a => a.Typical.Offset)
             .ThenBy(a => a.Camera, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(a => a.Framing.Ordinal)
             .ToList();
 
         if (aggregates.Count == 0) return null;
 
-        return new TargetReport(label, catalog, commonName, objectName, raHours, decDegrees, aggregates, panels);
+        return new TargetReport(label, catalog, commonName, objectName, raHours, decDegrees, aggregates, framings, panels);
     }
 
     // -----------------------------------------------------------------------
@@ -352,7 +364,8 @@ public static class ImageLibraryScanner
     // -----------------------------------------------------------------------
 
     private static FilterAggregate? BuildAggregate(
-        string filterCode, FilterPurpose purpose, string cameraDirName, IReadOnlyList<FrameReading> frames)
+        string filterCode, FilterPurpose purpose, string cameraDirName, FramingCluster framing,
+        IReadOnlyList<FrameReading> frames)
     {
         if (frames.Count == 0) return null;
 
@@ -388,6 +401,7 @@ public static class ImageLibraryScanner
             lastImagedUtc: dates[^1],
             typical: typical,
             camera: cameraDirName,
+            framing: framing,
             // Any frame recording a camera that disagrees with its containing directory means the frame is
             // filed under the wrong camera — reported, never silently reconciled.
             cameraDisagrees: withExp.Any(f => f.CameraDisagrees));

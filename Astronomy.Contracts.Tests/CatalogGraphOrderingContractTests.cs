@@ -77,27 +77,30 @@ public sealed class CatalogGraphOrderingContractTests
 
     // ---- synthetic builders (mirrored from Astronomy.Catalog.Tests/TargetResolverTests) ----
 
+    private static readonly FramingCluster TestFraming =
+        new(0, RotationExpression.Sky, 20.0, null, null, 12);
+
     private static TargetReport Disk(string dir, string cat, string common, double raH, double dec, bool withFilter)
     {
         FilterAggregate[] filters = withFilter ? [SampleFilter()] : [];
-        return new TargetReport(dir, cat, common, cat, raH, dec, filters);
+        return new TargetReport(dir, cat, common, cat, raH, dec, filters, [TestFraming]);
     }
 
     private static TargetReport DiskMosaic(string dir, params (string Label, double RaH, double Dec)[] panels)
     {
         (string cat, string? common) = TargetReport.SplitDirectoryName(dir);
         TargetReport[] subs = [.. panels.Select(p =>
-            new TargetReport(p.Label, p.Label, null, p.Label, p.RaH, p.Dec, new[] { SampleFilter() }))];
+            new TargetReport(p.Label, p.Label, null, p.Label, p.RaH, p.Dec, new[] { SampleFilter() }, [TestFraming]))];
         double ra = panels.Length > 0 ? panels.Average(p => p.RaH) : 20.0;
         double dec = panels.Length > 0 ? panels.Average(p => p.Dec) : 30.0;
-        return new TargetReport(dir, cat, common, cat, ra, dec, [SampleFilter()], subs);
+        return new TargetReport(dir, cat, common, cat, ra, dec, [SampleFilter()], [TestFraming], subs);
     }
 
     private static FilterAggregate SampleFilter()
     {
         DateTime first = new(2024, 1, 1, 22, 0, 0, DateTimeKind.Utc);
         return new FilterAggregate("H", "H", FilterPurpose.Light, 12, TimeSpan.FromSeconds(3600), first,
-            first.AddHours(2), new TypicalSettings(100, 50, -10.0, (1, 1), 300.0), "Z533");
+            first.AddHours(2), new TypicalSettings(100, 50, -10.0, (1, 1), 300.0), "Z533", TestFraming);
     }
 
     private static TsTarget TsT(long id, string name, double ra, double dec, long project, string guid) =>

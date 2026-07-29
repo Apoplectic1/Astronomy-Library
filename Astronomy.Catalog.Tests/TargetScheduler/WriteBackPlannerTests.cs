@@ -483,7 +483,8 @@ public sealed class WriteBackPlannerTests
         int gain = 100, int offset = 50, string camera = "Z533") =>
         new(target, filter, purpose, filter, count, count * seconds, FirstImagedAt: 0, LastImagedAt: 0,
             TypicalGain: gain, TypicalOffset: offset, TypicalSetTempC: -10.0, TypicalBinningX: 1,
-            TypicalBinningY: 1, ExposureSeconds: seconds, Camera: camera);
+            TypicalBinningY: 1, ExposureSeconds: seconds, Camera: camera,
+            FramingOrdinal: 0, RotationExpression: RotationExpression.Sky, RotationFoldDeg: 20.0);
 
     private static CatalogBuildReport Report(
         int plannedOnly = 0,

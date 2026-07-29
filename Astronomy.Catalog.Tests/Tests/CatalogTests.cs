@@ -283,7 +283,8 @@ public sealed class CatalogStoreTests
             targetId, "H", FilterPurpose.Light, "H", ExposureCount: 12, TotalIntegrationSeconds: 3600.0,
             FirstImagedAt: 1_700_000_000, LastImagedAt: 1_700_007_200, TypicalGain: 100, TypicalOffset: 50,
             TypicalSetTempC: -10.0, TypicalBinningX: 1, TypicalBinningY: 1, ExposureSeconds: 300.0,
-            Camera: "Z533");
+            Camera: "Z533",
+            FramingOrdinal: 0, RotationExpression: RotationExpression.Sky, RotationFoldDeg: 20.0);
         return new CatalogGraph([profile], [project], [template], [target], [plan], [inventory]);
     }
 }

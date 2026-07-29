@@ -251,17 +251,20 @@ public sealed class SingleTargetPlannerTests
 
     // ---- synthetic builders -------------------------------------------------
 
+    private static readonly FramingCluster TestFraming =
+        new(0, RotationExpression.Sky, 20.0, null, null, 12);
+
     private static TargetReport Unit(string label, double raHours, double dec, params FilterAggregate[] cells)
     {
         (string cat, string? common) = TargetReport.SplitDirectoryName(label);
-        return new TargetReport(label, cat, common, cat, raHours, dec, cells);
+        return new TargetReport(label, cat, common, cat, raHours, dec, cells, [TestFraming]);
     }
 
     private static FilterAggregate Cell(string filter, FilterPurpose purpose, int count, int bin, double seconds = 300.0)
     {
         DateTime first = new(2024, 1, 1, 22, 0, 0, DateTimeKind.Utc);
         return new FilterAggregate(filter, filter, purpose, count, TimeSpan.FromSeconds(count * seconds),
-            first, first.AddHours(1), new TypicalSettings(100, 50, -10.0, (bin, bin), seconds), "Z533");
+            first, first.AddHours(1), new TypicalSettings(100, 50, -10.0, (bin, bin), seconds), "Z533", TestFraming);
     }
 
     private static TsProject Proj(long id, string name, bool mosaic) =>

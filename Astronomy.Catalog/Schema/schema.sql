@@ -24,6 +24,12 @@ INSERT OR IGNORE INTO epoch (id, name) VALUES (0, 'B1950'), (1, 'JNow'), (2, 'J2
 CREATE TABLE IF NOT EXISTS frame_purpose (id INTEGER PRIMARY KEY, name TEXT NOT NULL UNIQUE) WITHOUT ROWID;
 INSERT OR IGNORE INTO frame_purpose (id, name) VALUES (0, 'Light'), (1, 'Stars');
 
+-- How an inventory row's framing rotation is expressed: a sky angle (comparable to a plan's rotation), a
+-- mechanical rotator position only (real rotation, but the mech-to-sky zero point shifts on remounts so it
+-- is never converted or compared), or nothing recorded.
+CREATE TABLE IF NOT EXISTS rotation_expression (id INTEGER PRIMARY KEY, name TEXT NOT NULL UNIQUE) WITHOUT ROWID;
+INSERT OR IGNORE INTO rotation_expression (id, name) VALUES (0, 'Sky'), (1, 'Mechanical'), (2, 'Unknown');
+
 -- How a target entered the catalog: shot on disk only, planned in TS only, or both (planned AND shot).
 CREATE TABLE IF NOT EXISTS target_source (id INTEGER PRIMARY KEY, name TEXT NOT NULL UNIQUE) WITHOUT ROWID;
 INSERT OR IGNORE INTO target_source (id, name) VALUES (0, 'Actual'), (1, 'Planned'), (2, 'Both');
@@ -145,11 +151,16 @@ CREATE TABLE IF NOT EXISTS inventory_filter (
     typical_binning_y         INTEGER NOT NULL,
     exposure_seconds          REAL NOT NULL,         -- whole-second sub-length bucket; part of the row identity
     camera                    TEXT NOT NULL,         -- capture directory name; part of the row identity
+    framing_ordinal           INTEGER NOT NULL,      -- per-unit framing-cluster index; part of the row identity
+    rotation_expression_id    INTEGER NOT NULL REFERENCES rotation_expression(id),
+    rotation_fold_deg         REAL,                  -- cluster fold-180 angle; NULL iff expression Unknown
     camera_disagrees          INTEGER NOT NULL DEFAULT 0,  -- 1 = a frame records a camera other than `camera`
     -- The key is the CAPTURE CONFIGURATION: everything deciding whether frames combine into one integration.
-    -- Gain/offset/binning join it because frames differing in them are separate stacks, not one.
+    -- Gain/offset/binning join it because frames differing in them are separate stacks, not one; the framing
+    -- ordinal joins it because frames of different framings share no footprint (two clusters can share a fold
+    -- angle and differ only by field center, hence the ordinal rather than the angle).
     PRIMARY KEY (target_id, filter_code, frame_purpose_id, exposure_seconds,
-                 typical_gain, typical_offset, typical_binning_x, typical_binning_y, camera)
+                 typical_gain, typical_offset, typical_binning_x, typical_binning_y, camera, framing_ordinal)
 ) WITHOUT ROWID;
 CREATE INDEX IF NOT EXISTS ix_inventory_filter_target ON inventory_filter(target_id);
 CREATE INDEX IF NOT EXISTS ix_inventory_filter_name ON inventory_filter(filter_name, frame_purpose_id);

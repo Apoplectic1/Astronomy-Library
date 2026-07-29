@@ -7,6 +7,9 @@ namespace Astronomy.NINA.Tests.Xisf;
 
 public class ReportToTargetAdapterTests
 {
+    private static readonly FramingCluster TestFraming =
+        new(0, RotationExpression.Sky, 20.0, null, null, 12);
+
     private static FilterAggregate MakeAgg(string code, FilterPurpose purpose, int count, double exptime)
     {
         DateTime first = new(2024, 2, 18, 4, 0, 0, DateTimeKind.Utc);
@@ -20,7 +23,8 @@ public class ReportToTargetAdapterTests
             firstImagedUtc: first,
             lastImagedUtc: last,
             typical: new TypicalSettings(gain: 111, offset: 10, setTempC: -20.0, binning: (1, 1), exposureSec: exptime),
-            camera: "Z183");
+            camera: "Z183",
+            framing: TestFraming);
     }
 
     private static TargetReport MakeReport(string dirName, double raHours, double decDeg, params FilterAggregate[] aggs)
@@ -33,7 +37,8 @@ public class ReportToTargetAdapterTests
             objectName: catalog,
             raHours: raHours,
             decDegrees: decDeg,
-            filters: aggs);
+            filters: aggs,
+            framings: [TestFraming]);
     }
 
     [Theory]

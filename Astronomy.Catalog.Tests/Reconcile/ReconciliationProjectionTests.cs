@@ -251,6 +251,137 @@ public sealed class ReconciliationProjectionTests
         Assert.Null(stray.TsTargetKey);            // no TS target behind it → no enable checkbox downstream
     }
 
+    // ---- framing (openspec rotation-framing-key → framing-keys) --------------
+
+    [Fact]
+    public void Framing_PlanMatchingCluster_Pairs_WhileLargerClusterSeparates()
+    {
+        // The Barnard 202 shape: plan rotation 50°, disk clusters 50° (28 frames) and 60° (451 frames).
+        // The plan pairs with the agreeing minority; the majority is history that no longer serves it.
+        Guid t = Guid.NewGuid(), tpl = Guid.NewGuid();
+        TargetCells tc = Assert.Single(ReconciliationProjection.Project(
+            Graph([T(t, "Barnard 202", TargetSource.Both, dir: "Barnard 202", rotation: 50.0)],
+                [Plan(t, tpl, desired: 100, seconds: 300.0)], [Tpl(tpl, "H", "H")],
+                [
+                    Inv(t, "H", FilterPurpose.Light, 28, 300.0, framingOrdinal: 1, rotationFold: 50.0),
+                    Inv(t, "H", FilterPurpose.Light, 451, 300.0, framingOrdinal: 0, rotationFold: 60.0),
+                ]),
+            Report()));
+
+        Assert.Equal(2, tc.Cells.Count);
+        ReconciliationCell paired = Assert.Single(tc.Cells, c => c.PlanCount == 1);
+        Assert.Equal(28, paired.Disk);                       // the minority pairs — the plan wins, not the majority
+        Assert.Equal(50.0, paired.DiskRotationFoldDeg!.Value, 3);
+        Assert.False(paired.FramingDisagrees);
+
+        ReconciliationCell separated = Assert.Single(tc.Cells, c => c.PlanCount == 0);
+        Assert.Equal(451, separated.Disk);
+        Assert.True(separated.FramingDisagrees);             // the badge cue: sky rotation failing the plan
+        Assert.Equal(50.0, tc.TargetRotationDeg!.Value, 3);
+    }
+
+    [Fact]
+    public void Framing_FlippedPlan_StillPairs()
+    {
+        // The Bear Claw shape: plan rotation 0°, every frame captured at 180° — fold-180 agreement.
+        Guid t = Guid.NewGuid(), tpl = Guid.NewGuid();
+        TargetCells tc = Assert.Single(ReconciliationProjection.Project(
+            Graph([T(t, "Bear Claw", TargetSource.Both, dir: "Sh2-200 - Bear Claw", rotation: 0.0)],
+                [Plan(t, tpl, desired: 10, seconds: 300.0)], [Tpl(tpl, "H", "H")],
+                [Inv(t, "H", FilterPurpose.Light, 470, 300.0, rotationFold: 179.98)]),
+            Report()));
+
+        // 179.98 folds to within tolerance of 0 across the wrap: one paired cell, no disagreement.
+        ReconciliationCell c = Assert.Single(tc.Cells);
+        Assert.Equal(1, c.PlanCount);
+        Assert.Equal(470, c.Disk);
+        Assert.False(c.FramingDisagrees);
+    }
+
+    [Fact]
+    public void Framing_PlanWithoutRotation_PairsOnRemainingKeys()
+    {
+        Guid t = Guid.NewGuid(), tpl = Guid.NewGuid();
+        TargetCells tc = Assert.Single(ReconciliationProjection.Project(
+            Graph([T(t, "M 81", TargetSource.Both, dir: "M 81")],   // rotation: null
+                [Plan(t, tpl, desired: 10, seconds: 300.0)], [Tpl(tpl, "H", "H")],
+                [Inv(t, "H", FilterPurpose.Light, 4, 300.0, rotationFold: 65.0)]),
+            Report()));
+
+        ReconciliationCell c = Assert.Single(tc.Cells);
+        Assert.Equal(1, c.PlanCount);
+        Assert.Equal(4, c.Disk);
+        Assert.False(c.FramingDisagrees);                    // no rotation on the plan → nothing to disagree with
+    }
+
+    [Fact]
+    public void Framing_MechanicalOnlyCluster_NeverFailsPairingOnRotation()
+    {
+        Guid t = Guid.NewGuid(), tpl = Guid.NewGuid();
+        TargetCells tc = Assert.Single(ReconciliationProjection.Project(
+            Graph([T(t, "Leo Triplet", TargetSource.Both, dir: "Leo Triplet", rotation: 110.0)],
+                [Plan(t, tpl, desired: 10, seconds: 300.0)], [Tpl(tpl, "H", "H")],
+                [Inv(t, "H", FilterPurpose.Light, 265, 300.0,
+                    rotation: RotationExpression.Mechanical, rotationFold: 172.3)]),
+            Report()));
+
+        // Mechanical rotation cannot be compared to the plan's — it never prevents pairing and never
+        // reads as a disagreement.
+        ReconciliationCell c = Assert.Single(tc.Cells);
+        Assert.Equal(1, c.PlanCount);
+        Assert.Equal(265, c.Disk);
+        Assert.Equal(RotationExpression.Mechanical, c.DiskRotation);
+        Assert.False(c.FramingDisagrees);
+    }
+
+    [Fact]
+    public void Framing_ReframedPlan_NoClusterServesIt_PlanStandsAlone()
+    {
+        // The Jellyfish shape: plan re-framed to a rotation neither captured framing matches — the plan
+        // gets its own cell and BOTH disk clusters read as disagreeing.
+        Guid t = Guid.NewGuid(), tpl = Guid.NewGuid();
+        TargetCells tc = Assert.Single(ReconciliationProjection.Project(
+            Graph([T(t, "Jellyfish", TargetSource.Both, dir: "IC 443 - Jellyfish", rotation: 345.43)],
+                [Plan(t, tpl, desired: 10, seconds: 300.0)], [Tpl(tpl, "H", "H")],
+                [
+                    Inv(t, "H", FilterPurpose.Light, 133, 300.0, framingOrdinal: 0, rotationFold: 15.0),
+                    Inv(t, "H", FilterPurpose.Light, 124, 300.0, framingOrdinal: 1, rotationFold: 0.0),
+                ]),
+            Report()));
+
+        Assert.Equal(3, tc.Cells.Count);
+        ReconciliationCell planOnly = Assert.Single(tc.Cells, c => c.PlanCount == 1);
+        Assert.Equal(0, planOnly.Disk);
+        Assert.Null(planOnly.DiskRotation);
+        Assert.All(tc.Cells.Where(c => c.PlanCount == 0), c => Assert.True(c.FramingDisagrees));
+    }
+
+    [Fact]
+    public void Framing_SameFoldDifferentCenters_StayTwoCells()
+    {
+        // The M97 shape: two clusters share a fold angle and differ only by field center — the ordinal
+        // keys them apart, and the plan pairs with exactly one.
+        Guid t = Guid.NewGuid(), tpl = Guid.NewGuid();
+        TargetCells tc = Assert.Single(ReconciliationProjection.Project(
+            Graph([T(t, "M 97", TargetSource.Both, dir: "M97 - Owl", rotation: 125.0)],
+                [Plan(t, tpl, desired: 10, seconds: 300.0)], [Tpl(tpl, "H", "H")],
+                [
+                    Inv(t, "H", FilterPurpose.Light, 211, 300.0, framingOrdinal: 0, rotationFold: 125.0),
+                    Inv(t, "H", FilterPurpose.Light, 1, 300.0, framingOrdinal: 1, rotationFold: 125.0),
+                ]),
+            Report()));
+
+        Assert.Equal(2, tc.Cells.Count);
+        // Equal fold deltas — the larger cluster wins the tie for the plan.
+        ReconciliationCell paired = Assert.Single(tc.Cells, c => c.PlanCount == 1);
+        Assert.Equal(211, paired.Disk);
+        ReconciliationCell stray = Assert.Single(tc.Cells, c => c.PlanCount == 0);
+        Assert.Equal(1, stray.Disk);
+        // The stray's rotation AGREES with the plan (it is a translation stray) — no framing disagreement;
+        // its separation alone tells the story.
+        Assert.False(stray.FramingDisagrees);
+    }
+
     // ---- builders (mirroring the App's BuildRowsTests / ReconcilerTests) -----
 
     private static CatalogGraph Graph(
@@ -268,9 +399,9 @@ public sealed class ReconciliationProjectionTests
 
     private static Target T(
         Guid id, string name, TargetSource source, string? dir = null, Guid? parent = null, Guid? projectId = null,
-        bool enabled = true, string? tsKey = null) =>
+        bool enabled = true, string? tsKey = null, double? rotation = null) =>
         new(id, source, projectId, name, Enabled: enabled, RaHours: null, DecDegreesSigned: null, Epoch.J2000,
-            RotationDeg: null, RoiPercent: null, Priority: null, DirectoryName: dir, Catalog: null,
+            RotationDeg: rotation, RoiPercent: null, Priority: null, DirectoryName: dir, Catalog: null,
             CommonName: null, ObjectName: null, ScannedAt: null, CreatedAt: 0, ImportedFromTsGuid: tsKey,
             ParentTargetId: parent);
 
@@ -295,8 +426,11 @@ public sealed class ReconciliationProjectionTests
 
     private static InventoryFilter Inv(
         Guid target, string filter, FilterPurpose purpose, int count, double seconds,
-        int gain = 100, int offset = 50, int bin = 1, string camera = "Z533") =>
+        int gain = 100, int offset = 50, int bin = 1, string camera = "Z533",
+        int framingOrdinal = 0, RotationExpression rotation = RotationExpression.Sky,
+        double? rotationFold = 20.0) =>
         new(target, filter, purpose, filter, count, count * seconds, FirstImagedAt: 0, LastImagedAt: 0,
             TypicalGain: gain, TypicalOffset: offset, TypicalSetTempC: -10.0, TypicalBinningX: bin,
-            TypicalBinningY: bin, ExposureSeconds: seconds, Camera: camera);
+            TypicalBinningY: bin, ExposureSeconds: seconds, Camera: camera,
+            FramingOrdinal: framingOrdinal, RotationExpression: rotation, RotationFoldDeg: rotationFold);
 }

@@ -2,15 +2,17 @@ namespace Astronomy.Catalog.Scan;
 
 /// <summary>
 /// Per-configuration rollup of a target's imaging history. One instance per
-/// (target, filter directory, purpose, exposure-time bucket, gain, offset, binning, camera) — the full
-/// <b>capture configuration</b>, being everything that decides whether frames combine into one integration.
-/// Light and Stars variants of the same filter become separate aggregates (<c>"B"</c> Light vs <c>"B"</c>
-/// Stars), as do different sub lengths (<c>"H"</c> 120 s vs <c>"H"</c> 300 s), different gains, different
-/// offsets, different binnings, and different cameras.
+/// (target, filter directory, purpose, exposure-time bucket, gain, offset, binning, camera, framing) — the
+/// full <b>capture configuration</b>, being everything that decides whether frames combine into one
+/// integration. Light and Stars variants of the same filter become separate aggregates (<c>"B"</c> Light vs
+/// <c>"B"</c> Stars), as do different sub lengths (<c>"H"</c> 120 s vs <c>"H"</c> 300 s), different gains,
+/// different offsets, different binnings, different cameras, and different framings (see
+/// <see cref="FramingCluster"/>).
 /// <para>
 /// Every configuration field is therefore <b>uniform within an aggregate</b>: <see cref="Typical"/>'s
 /// <c>ExposureSec</c>, <c>Gain</c>, <c>Offset</c> and <c>Binning</c> are the bucket's own values rather than
-/// a mode over mixed frames, and <see cref="Camera"/> is the one camera that took them.
+/// a mode over mixed frames, <see cref="Camera"/> is the one camera that took them, and
+/// <see cref="Framing"/> is the one framing they share.
 /// </para>
 /// </summary>
 public sealed class FilterAggregate
@@ -49,6 +51,10 @@ public sealed class FilterAggregate
     /// than reconciled here.</summary>
     public bool CameraDisagrees { get; }
 
+    /// <summary>The framing cluster these frames share — part of the aggregate's identity, so this is
+    /// always exactly one framing.</summary>
+    public FramingCluster Framing { get; }
+
     /// <summary>Creates an immutable per-configuration aggregate. All counts/totals validated for sanity.</summary>
     public FilterAggregate(
         string filterName,
@@ -60,12 +66,14 @@ public sealed class FilterAggregate
         DateTime lastImagedUtc,
         TypicalSettings typical,
         string camera,
+        FramingCluster framing,
         bool cameraDisagrees = false)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(filterName);
         ArgumentException.ThrowIfNullOrWhiteSpace(filterCode);
         ArgumentNullException.ThrowIfNull(typical);
         ArgumentException.ThrowIfNullOrWhiteSpace(camera);
+        ArgumentNullException.ThrowIfNull(framing);
 
         if (exposureCount <= 0) throw new ArgumentOutOfRangeException(nameof(exposureCount), "ExposureCount must be > 0; zero-frame aggregates are invalid.");
         if (totalIntegration <= TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(totalIntegration), "TotalIntegration must be > 0.");
@@ -82,6 +90,7 @@ public sealed class FilterAggregate
         LastImagedUtc = lastImagedUtc;
         Typical = typical;
         Camera = camera;
+        Framing = framing;
         CameraDisagrees = cameraDisagrees;
     }
 }

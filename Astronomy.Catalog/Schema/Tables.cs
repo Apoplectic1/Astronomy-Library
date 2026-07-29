@@ -89,7 +89,12 @@ public sealed record ExposurePlan(
 
 /// <summary>Per-(target, filter, purpose, exposure) imaging totals/history (from <c>FilterAggregate</c> +
 /// <c>TypicalSettings</c>). <see cref="ExposureSeconds"/> is part of the row identity: the same filter shot
-/// at different sub lengths yields separate rows; consumers wanting per-filter totals sum across them.</summary>
+/// at different sub lengths yields separate rows; consumers wanting per-filter totals sum across them.
+/// <see cref="FramingOrdinal"/>/<see cref="RotationExpression"/>/<see cref="RotationFoldDeg"/> carry the
+/// row's framing cluster (see <see cref="FramingCluster"/>): the ordinal is part of the row identity (two
+/// clusters can share a fold angle and differ only by field center), the fold angle is the display /
+/// comparison value, and it is <see langword="null"/> exactly when the expression is
+/// <see cref="Scan.RotationExpression.Unknown"/>.</summary>
 public sealed record InventoryFilter(
     Guid TargetId,
     string FilterCode,
@@ -106,4 +111,7 @@ public sealed record InventoryFilter(
     int TypicalBinningY,
     double ExposureSeconds,
     string Camera,
+    int FramingOrdinal,
+    RotationExpression RotationExpression,
+    double? RotationFoldDeg,
     bool CameraDisagrees = false);

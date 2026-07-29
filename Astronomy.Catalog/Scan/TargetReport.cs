@@ -29,6 +29,11 @@ public sealed class TargetReport
     /// <summary>Per-filter / per-purpose aggregates. Empty list when no LIGHT frames found in <c>Captures/</c>.</summary>
     public IReadOnlyList<FilterAggregate> Filters { get; }
 
+    /// <summary>The unit's framing clusters (largest first), each with its own plate-solved centroid — a
+    /// unit whose frames span more than one framing reports where each framing actually points, rather
+    /// than only the one blended consensus (<see cref="RaHours"/>/<see cref="DecDegrees"/>).</summary>
+    public IReadOnlyList<FramingCluster> Framings { get; }
+
     /// <summary>
     /// Per-panel sub-reports for a mosaic target, each carrying its own consensus centroid and per-filter
     /// aggregates; empty for a normal target. A panel report's <see cref="DirectoryName"/> is the bare panel
@@ -46,12 +51,14 @@ public sealed class TargetReport
         double raHours,
         double decDegrees,
         IReadOnlyList<FilterAggregate> filters,
+        IReadOnlyList<FramingCluster> framings,
         IReadOnlyList<TargetReport>? panels = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(directoryName);
         ArgumentException.ThrowIfNullOrWhiteSpace(catalog);
         ArgumentException.ThrowIfNullOrWhiteSpace(objectName);
         ArgumentNullException.ThrowIfNull(filters);
+        ArgumentNullException.ThrowIfNull(framings);
 
         if (raHours < 0 || raHours >= 24) throw new ArgumentOutOfRangeException(nameof(raHours), "RaHours must be in [0, 24).");
         if (decDegrees < -90 || decDegrees > 90) throw new ArgumentOutOfRangeException(nameof(decDegrees), "DecDegrees must be in [-90, +90].");
@@ -63,6 +70,7 @@ public sealed class TargetReport
         RaHours = raHours;
         DecDegrees = decDegrees;
         Filters = filters;
+        Framings = framings;
         Panels = panels ?? [];
     }
 
