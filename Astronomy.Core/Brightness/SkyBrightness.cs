@@ -170,8 +170,20 @@ namespace Astronomy.Core.Brightness
         /// against a sky the sun is already brightening.
         /// </para>
         /// </remarks>
+        /// <param name="targetAltDeg">Target altitude (degrees, 0 = horizon, 90 = zenith).</param>
+        /// <param name="targetAzDeg">Target azimuth (degrees from North, clockwise).</param>
         /// <param name="moonAltDeg">Moon <b>apparent</b> altitude — see <see cref="KsAt"/>'s
         /// parameter doc; ≤ 0 yields Δ = 0.</param>
+        /// <param name="moonAzDeg">Moon azimuth (degrees from North, clockwise).</param>
+        /// <param name="moonPhaseAngleDeg">Phase angle (0 = full, 180 = new).</param>
+        /// <param name="sunAltDeg">Sun altitude (degrees). Below −18° contributes zero twilight,
+        /// which leaves the Δ at its darkest-sky maximum for the same moon geometry.</param>
+        /// <param name="extinctionKBand">Atmospheric extinction at the band's wavelength
+        /// (mag/airmass); callers pre-scale via <see cref="ScaleK"/>.</param>
+        /// <param name="v0Mag">Moonless zenith dark-sky brightness (mag/arcsec²), V-band broadband.</param>
+        /// <param name="centerNm">Filter center wavelength (nm), driving the twilight Rayleigh
+        /// scaling — see <see cref="KsAt"/>'s parameter doc. There is deliberately no bandwidth
+        /// parameter (see Remarks).</param>
         /// <returns>Δmag ≥ 0; <see cref="double.NaN"/> if the target is at or below the horizon.</returns>
         public static double KsMoonDeltaMag(
             double targetAltDeg, double targetAzDeg,

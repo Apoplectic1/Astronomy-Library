@@ -13,7 +13,7 @@ namespace Astronomy.Core.Moon
     /// Samples the Moon's per-minute state (topocentric AltAz + distance + age +
     /// phase + illumination) at a uniform time grid as observed from a fixed
     /// site. The shared per-night primitive that drives moon-clear gates
-    /// (<see cref="MoonAvoidance"/>) and sky-brightness walks
+    /// (<see cref="MoonSeparation"/>) and sky-brightness walks
     /// (<see cref="Astronomy.Core.Brightness.SkyBrightness.KsAt"/>) downstream;
     /// memoized by TP's <c>mMoonAxis</c> and ISP's Tier 2 cache.
     /// </summary>
