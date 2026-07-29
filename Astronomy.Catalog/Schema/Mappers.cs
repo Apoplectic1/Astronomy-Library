@@ -158,5 +158,10 @@ public sealed class InventoryFilterMapper : ITableMapper<InventoryFilter>
         reader.GetInt32("framing_ordinal"),
         (RotationExpression)reader.GetInt32("rotation_expression_id"),
         reader.GetDoubleOrNull("rotation_fold_deg"),
-        reader.GetInt32("camera_disagrees") != 0);
+        reader.GetInt32("camera_disagrees") != 0,
+        reader.GetDoubleOrNull("framing_centroid_ra_hours"),
+        reader.GetDoubleOrNull("framing_centroid_dec_deg"),
+        reader.GetDoubleOrNull("framing_field_width_deg"),
+        reader.GetDoubleOrNull("framing_field_height_deg"),
+        reader.GetInt32("framing_spans_sensors") != 0);
 }

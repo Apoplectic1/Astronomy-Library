@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using System.Xml;
 using System.Xml.Linq;
@@ -92,6 +93,17 @@ public static class XisfHeaderReader
             ?? throw new InvalidDataException($"XISF XML has no root element at '{filePath}'.");
         XNamespace ns = root.GetDefaultNamespace();
 
+        // The image's pixel dimensions live on the <Image> element's `geometry` attribute
+        // ("width:height:channels"), NOT in the FITS keyword bag below: NAXIS1/NAXIS2 are optional
+        // duplicates a writer may omit (measured absent on 63 of 18,650 real frames, while geometry was
+        // present on all of them and never disagreed). geometry is mandatory per the XISF spec, so its
+        // absence means a malformed file — the same category as bad XML, and reported the same way.
+        XElement imageEl = doc.Descendants(ns + "Image").FirstOrDefault()
+            ?? throw new InvalidDataException(
+                $"XISF has no <Image> element (expected the mandatory image geometry) at '{filePath}'.");
+
+        (int width, int height) = ParseGeometry(imageEl.Attribute("geometry")?.Value, filePath);
+
         Dictionary<string, XisfHeader.KeywordEntry> raw = new(StringComparer.OrdinalIgnoreCase);
         foreach (XElement kw in doc.Descendants(ns + "FITSKeyword"))
         {
@@ -115,6 +127,30 @@ public static class XisfHeaderReader
             raw[name] = new XisfHeader.KeywordEntry(value, normalizedComment);
         }
 
-        return new XisfHeader(raw);
+        return new XisfHeader(raw, width, height);
+    }
+
+    // "width:height:channels" -> (width, height). Anything else is a malformed XISF: the attribute is
+    // mandatory, so there is nothing to fall back to and no dimensions worth guessing.
+    private static (int Width, int Height) ParseGeometry(string? geometry, string filePath)
+    {
+        if (string.IsNullOrWhiteSpace(geometry))
+        {
+            throw new InvalidDataException(
+                $"XISF <Image> has no 'geometry' attribute (expected \"width:height:channels\") at '{filePath}'.");
+        }
+
+        string[] parts = geometry.Split(':');
+        if (parts.Length < 2
+            || !int.TryParse(parts[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out int width)
+            || !int.TryParse(parts[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out int height)
+            || width <= 0 || height <= 0)
+        {
+            throw new InvalidDataException(
+                $"XISF <Image> geometry '{geometry}' is not \"width:height:channels\" with positive "
+                + $"dimensions at '{filePath}'.");
+        }
+
+        return (width, height);
     }
 }

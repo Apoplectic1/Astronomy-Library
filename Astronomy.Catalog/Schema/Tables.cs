@@ -114,4 +114,9 @@ public sealed record InventoryFilter(
     int FramingOrdinal,
     RotationExpression RotationExpression,
     double? RotationFoldDeg,
-    bool CameraDisagrees = false);
+    bool CameraDisagrees = false,
+    double? FramingCentroidRaHours = null,
+    double? FramingCentroidDecDeg = null,
+    double? FramingFieldWidthDeg = null,
+    double? FramingFieldHeightDeg = null,
+    bool FramingSpansMultipleSensors = false);

@@ -25,14 +25,26 @@ public sealed class XisfHeader
 
     private readonly IReadOnlyDictionary<string, KeywordEntry> mRaw;
 
+    /// <summary>Arcseconds per radian — the small-angle constant converting a pixel's physical size and a
+    /// focal length into an on-sky angle.</summary>
+    private const double ArcsecPerRadian = 206.265;
+
     /// <summary>
     /// Creates a header from a pre-extracted FITS-keyword dictionary. Caller owns
     /// the dictionary; this ctor wraps it as-is (key comparer must be case-insensitive).
     /// </summary>
-    public XisfHeader(IReadOnlyDictionary<string, KeywordEntry> rawKeywords)
+    /// <param name="rawKeywords">The FITS keyword bag.</param>
+    /// <param name="pixelWidth">Image width in pixels, from the file's mandatory geometry declaration.</param>
+    /// <param name="pixelHeight">Image height in pixels, from the same declaration.</param>
+    public XisfHeader(
+        IReadOnlyDictionary<string, KeywordEntry> rawKeywords, int pixelWidth, int pixelHeight)
     {
         ArgumentNullException.ThrowIfNull(rawKeywords);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(pixelWidth);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(pixelHeight);
         mRaw = rawKeywords;
+        PixelWidth = pixelWidth;
+        PixelHeight = pixelHeight;
     }
 
     /// <summary>Raw string value for a FITS keyword (null if absent).</summary>
@@ -154,6 +166,45 @@ public sealed class XisfHeader
 
     /// <summary>OBJCTROT — rotator sky angle (degrees).</summary>
     public double? RotatorSkyAngleDeg => ParseDouble(Raw("OBJCTROT"));
+
+    // ----- Sensor geometry + the field it subtends -----
+
+    /// <summary>Image width in pixels, from the file's mandatory geometry declaration (not from the
+    /// optional <c>NAXIS1</c> keyword, which a writer may omit).</summary>
+    public int PixelWidth { get; }
+
+    /// <summary>Image height in pixels, from the same declaration.</summary>
+    public int PixelHeight { get; }
+
+    /// <summary>
+    /// Arcseconds of sky per pixel, from the recorded pixel size and focal length; null when either keyword
+    /// is absent or unparseable, or the focal length is non-positive.
+    /// </summary>
+    /// <remarks>
+    /// <b>The binning factors take no part in this.</b> Writers record <c>XPIXSZ</c> already scaled for the
+    /// binning in use, so the recorded pixel size and the recorded pixel dimensions are already mutually
+    /// consistent — measured on real frames from one camera and optics: 2.40 μm at 5496×3672 unbinned,
+    /// 4.80 μm at 2744×1836 binned 2×, both subtending the same field. Multiplying by <c>XBINNING</c> as
+    /// well would report a field twice the one actually imaged.
+    /// </remarks>
+    public double? PixelScaleArcsecX => Scale(XPixelSizeUm);
+
+    /// <summary>Arcseconds of sky per pixel in the Y direction; see <see cref="PixelScaleArcsecX"/> for the
+    /// binning note.</summary>
+    public double? PixelScaleArcsecY => Scale(YPixelSizeUm ?? XPixelSizeUm);
+
+    /// <summary>Width of the field this frame subtends, in degrees; null when the scale is unavailable.</summary>
+    public double? FieldWidthDeg =>
+        PixelScaleArcsecX is double s ? s * PixelWidth / 3600.0 : null;
+
+    /// <summary>Height of the field this frame subtends, in degrees; null when the scale is unavailable.</summary>
+    public double? FieldHeightDeg =>
+        PixelScaleArcsecY is double s ? s * PixelHeight / 3600.0 : null;
+
+    private double? Scale(double? pixelSizeUm) =>
+        pixelSizeUm is double px && FocalLengthMm is double fl && fl > 0 && px > 0
+            ? ArcsecPerRadian * px / fl
+            : null;
 
     // ----- Parse helpers -----
 

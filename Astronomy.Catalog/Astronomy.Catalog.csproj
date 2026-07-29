@@ -29,6 +29,10 @@
     <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.3" />
     <!-- The library scanner (Scan/) reads XISF headers via Astronomy.XISF. -->
     <ProjectReference Include="..\Astronomy.XISF\Astronomy.XISF.csproj" />
+    <!-- Framing comparison (Scan/FramingCluster) needs the sky-footprint geometry in Astronomy.Core, so the
+         overlap rule can sit beside the serve/does-not-serve rule it must never drift from. Core is the
+         dependency-free base, so this is acyclic. -->
+    <ProjectReference Include="..\Astronomy.Core\Astronomy.Core.csproj" />
   </ItemGroup>
 
   <ItemGroup>

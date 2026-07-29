@@ -14,7 +14,7 @@ public sealed class XisfUnitsContractTests
     {
         var d = new Dictionary<string, XisfHeader.KeywordEntry>(StringComparer.OrdinalIgnoreCase);
         foreach (var (n, v) in kv) d[n] = new XisfHeader.KeywordEntry(v, null);
-        return new XisfHeader(d);
+        return new XisfHeader(d, 5496, 3672);
     }
 
     // ---------------------------------------------------------------------------

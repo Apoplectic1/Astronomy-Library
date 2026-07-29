@@ -155,6 +155,20 @@ CREATE TABLE IF NOT EXISTS inventory_filter (
     rotation_expression_id    INTEGER NOT NULL REFERENCES rotation_expression(id),
     rotation_fold_deg         REAL,                  -- cluster fold-180 angle; NULL iff expression Unknown
     camera_disagrees          INTEGER NOT NULL DEFAULT 0,  -- 1 = a frame records a camera other than `camera`
+    -- The framing's own footprint on the sky: where it actually points and how much it covers. Together with
+    -- rotation_fold_deg these let a consumer price how far a framing sits from a plan's, not merely that it
+    -- does. Centroid RA is decimal HOURS (library convention), Dec signed degrees; both NULL when no frame of
+    -- the cluster carried coordinates. Field width/height are degrees, derived from the dominant sensor's
+    -- pixel dimensions and the recorded pixel size WITHOUT any binning factor (writers record pixel size
+    -- already scaled for binning); both NULL when the frames cannot express it. Present or absent in pairs.
+    framing_centroid_ra_hours REAL,
+    framing_centroid_dec_deg  REAL,
+    framing_field_width_deg   REAL,
+    framing_field_height_deg  REAL,
+    -- 1 = this framing's frames span more than one sensor geometry, so the field above describes the
+    -- DOMINANT sensor. Camera is not part of the framing key, so one framing can hold two sensors; the
+    -- dimensions are never blended, because an averaged rectangle describes a field never imaged.
+    framing_spans_sensors     INTEGER NOT NULL DEFAULT 0,
     -- The key is the CAPTURE CONFIGURATION: everything deciding whether frames combine into one integration.
     -- Gain/offset/binning join it because frames differing in them are separate stacks, not one; the framing
     -- ordinal joins it because frames of different framings share no footprint (two clusters can share a fold

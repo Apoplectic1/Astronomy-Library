@@ -61,7 +61,9 @@ internal static class FramingClusterer
         {
             (RotationExpression expression, List<int> members, double? fold) = ordered[ord];
             (double? ra, double? dec) = GroupCentroid(headers, members);
-            clusters[ord] = new FramingCluster(ord, expression, fold, ra, dec, members.Count);
+            (double? fieldW, double? fieldH, bool mixedSensor) = GroupFootprint(headers, members);
+            clusters[ord] = new FramingCluster(
+                ord, expression, fold, ra, dec, members.Count, fieldW, fieldH, mixedSensor);
             foreach (int i in members) assignment[i] = ord;
         }
         return (clusters, assignment);
@@ -211,6 +213,34 @@ internal static class FramingClusterer
         double raHours = Median(ras) / 15.0 % 24.0;
         if (raHours < 0) raHours += 24.0;
         return (raHours, Math.Clamp(Median(decs), -90.0, 90.0));
+    }
+
+    // The field this cluster covers, from its DOMINANT sensor geometry — the most numerous
+    // (pixel width, height) among its members — plus whether the members span more than one such geometry.
+    // Camera is not a clustering key, so one framing can hold two sensors (measured: one mechanical cluster
+    // holding 123 frames of 5496x3672 beside 73 of 3008x3008). Dimensions from two sensors are never blended:
+    // an averaged rectangle would describe a field that was never imaged. Absent when no frame of the
+    // dominant sensor carries the focal length and pixel size the derivation needs — absent, never defaulted.
+    private static (double? WidthDeg, double? HeightDeg, bool SpansMultipleSensors) GroupFootprint(
+        IReadOnlyList<XisfHeader> headers, List<int> members)
+    {
+        if (members.Count == 0) return (null, null, false);
+
+        List<IGrouping<(int W, int H), int>> bySensor = [.. members
+            .GroupBy(i => (W: headers[i].PixelWidth, H: headers[i].PixelHeight))
+            .OrderByDescending(g => g.Count())
+            .ThenByDescending(g => (long)g.Key.W * g.Key.H)];
+
+        bool spansMultipleSensors = bySensor.Count > 1;
+
+        // Within the dominant sensor, the first member that can express a field size decides it; they share
+        // optics in practice, so this is a pick, not an average.
+        foreach (int i in bySensor[0])
+        {
+            if (headers[i].FieldWidthDeg is double w && headers[i].FieldHeightDeg is double h && w > 0 && h > 0)
+                return (w, h, spansMultipleSensors);
+        }
+        return (null, null, spansMultipleSensors);
     }
 
     private static double Median(List<double> values)

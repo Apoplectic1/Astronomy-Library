@@ -382,6 +382,231 @@ public sealed class ReconciliationProjectionTests
         Assert.False(stray.FramingDisagrees);
     }
 
+    // ---- overlap fraction (openspec framing-overlap-column → framing-keys) ---
+    //
+    // Field sizes are the real rigs measured over the library: Z183 1.423° × 0.951° (3:2) and
+    // Z533 1.220° × 1.220° (square), both at f=531.
+
+    private const double Z183W = 1.423, Z183H = 0.951;
+    private const double Z533Side = 1.220;
+    private const double TargetRa = 19.5, TargetDec = 10.0;   // hours, degrees
+
+    [Fact]
+    public void Overlap_RotatedStray_IsPriced_WhileTheServingFramingPricesNothing()
+    {
+        // Barnard 202 again, now with geometry: the 60° stray sits on the target's coordinates, so its
+        // shortfall is rotation alone — a 10° turn of a 3:2 field about its own centre.
+        Guid t = Guid.NewGuid(), tpl = Guid.NewGuid();
+        TargetCells tc = Assert.Single(ReconciliationProjection.Project(
+            Graph([T(t, "Barnard 202", TargetSource.Both, dir: "Barnard 202", rotation: 50.0,
+                    raHours: TargetRa, decDeg: TargetDec)],
+                [Plan(t, tpl, desired: 100, seconds: 300.0)], [Tpl(tpl, "H", "H")],
+                [
+                    Inv(t, "H", FilterPurpose.Light, 28, 300.0, framingOrdinal: 1, rotationFold: 50.0,
+                        centroidRaHours: TargetRa, centroidDecDeg: TargetDec,
+                        fieldWidthDeg: Z183W, fieldHeightDeg: Z183H),
+                    Inv(t, "H", FilterPurpose.Light, 451, 300.0, framingOrdinal: 0, rotationFold: 60.0,
+                        centroidRaHours: TargetRa, centroidDecDeg: TargetDec,
+                        fieldWidthDeg: Z183W, fieldHeightDeg: Z183H),
+                ]),
+            Report()));
+
+        ReconciliationCell serving = Assert.Single(tc.Cells, c => c.PlanCount == 1);
+        Assert.Null(serving.FramingOverlapFraction);         // on the plan's framing — nothing to price
+
+        ReconciliationCell stray = Assert.Single(tc.Cells, c => c.PlanCount == 0);
+        Assert.True(stray.FramingDisagrees);
+        Assert.Equal(0.919, stray.FramingOverlapFraction!.Value, 3);
+    }
+
+    [Fact]
+    public void Overlap_AJustOverToleranceStray_IsPricedEvenThoughItsFootprintIsNearlyFull()
+    {
+        // 5.5° past the plan — badged, but 95.2% of its footprint still lands where the plan asked, above
+        // the on-footprint threshold. It reports anyway: the threshold only silences framings that SERVE the
+        // plan, so a badge can never point at a row with nothing to read.
+        Guid t = Guid.NewGuid(), tpl = Guid.NewGuid();
+        TargetCells tc = Assert.Single(ReconciliationProjection.Project(
+            Graph([T(t, "Sh2-174", TargetSource.Both, dir: "Sh2-174", rotation: 50.0,
+                    raHours: TargetRa, decDeg: TargetDec)],
+                [Plan(t, tpl, desired: 10, seconds: 300.0)], [Tpl(tpl, "H", "H")],
+                [Inv(t, "H", FilterPurpose.Light, 28, 300.0, rotationFold: 55.5,
+                    centroidRaHours: TargetRa, centroidDecDeg: TargetDec,
+                    fieldWidthDeg: Z183W, fieldHeightDeg: Z183H)]),
+            Report()));
+
+        ReconciliationCell stray = Assert.Single(tc.Cells, c => c.Disk > 0);
+        Assert.True(stray.FramingDisagrees);
+        Assert.Equal(0.952, stray.FramingOverlapFraction!.Value, 3);
+        Assert.True(stray.FramingOverlapFraction!.Value > FramingCluster.OnFootprintFraction);
+    }
+
+    [Fact]
+    public void Overlap_TranslatedFramingAtThePlansOwnAngle_IsStillPriced()
+    {
+        // Right angle, wrong pointing: 0.15° of declination off a 0.951°-tall field. It SERVES the plan
+        // (rotation is the serve rule) and still prices, because the frames are not where the plan asked.
+        Guid t = Guid.NewGuid(), tpl = Guid.NewGuid();
+        TargetCells tc = Assert.Single(ReconciliationProjection.Project(
+            Graph([T(t, "Markarian's Chain", TargetSource.Both, dir: "Markarian's Chain", rotation: 0.0,
+                    raHours: TargetRa, decDeg: TargetDec)],
+                [Plan(t, tpl, desired: 10, seconds: 300.0)], [Tpl(tpl, "H", "H")],
+                [Inv(t, "H", FilterPurpose.Light, 71, 300.0, rotationFold: 0.0,
+                    centroidRaHours: TargetRa, centroidDecDeg: TargetDec + 0.15,
+                    fieldWidthDeg: Z183W, fieldHeightDeg: Z183H)]),
+            Report()));
+
+        ReconciliationCell c = Assert.Single(tc.Cells);
+        Assert.False(c.FramingDisagrees);                    // no badge — the rotation is right
+        Assert.Equal(0.842, c.FramingOverlapFraction!.Value, 3);
+    }
+
+    [Fact]
+    public void Overlap_ServingFramingOnTheFootprint_PricesNothing()
+    {
+        Guid t = Guid.NewGuid(), tpl = Guid.NewGuid();
+        TargetCells tc = Assert.Single(ReconciliationProjection.Project(
+            Graph([T(t, "M 33", TargetSource.Both, dir: "M 33", rotation: 110.0,
+                    raHours: TargetRa, decDeg: TargetDec)],
+                [Plan(t, tpl, desired: 10, seconds: 300.0)], [Tpl(tpl, "H", "H")],
+                [Inv(t, "H", FilterPurpose.Light, 430, 300.0, rotationFold: 110.0,
+                    centroidRaHours: TargetRa, centroidDecDeg: TargetDec,
+                    fieldWidthDeg: Z183W, fieldHeightDeg: Z183H)]),
+            Report()));
+
+        // A full overlap is not reported as 1.0: an ordinary on-plan row has nothing to say, and restating
+        // 100% on every row would bury the rows that do.
+        Assert.Null(Assert.Single(tc.Cells).FramingOverlapFraction);
+    }
+
+    [Theory]
+    [InlineData(RotationExpression.Mechanical, 172.3, 110.0)]   // mechanical is never placed against a sky angle
+    [InlineData(RotationExpression.Unknown, null, 110.0)]       // no rotation recorded at all
+    [InlineData(RotationExpression.Sky, 65.0, null)]            // the plan asks for no rotation
+    public void Overlap_AnIncomparableRotation_PricesNothing(
+        RotationExpression expression, double? fold, double? planRotation)
+    {
+        Guid t = Guid.NewGuid(), tpl = Guid.NewGuid();
+        TargetCells tc = Assert.Single(ReconciliationProjection.Project(
+            Graph([T(t, "Leo Triplet", TargetSource.Both, dir: "Leo Triplet", rotation: planRotation,
+                    raHours: TargetRa, decDeg: TargetDec)],
+                [Plan(t, tpl, desired: 10, seconds: 300.0)], [Tpl(tpl, "H", "H")],
+                // Displaced far enough that a fabricated orientation WOULD have produced a number.
+                [Inv(t, "H", FilterPurpose.Light, 265, 300.0, rotation: expression, rotationFold: fold,
+                    centroidRaHours: TargetRa, centroidDecDeg: TargetDec + 0.30,
+                    fieldWidthDeg: Z183W, fieldHeightDeg: Z183H)]),
+            Report()));
+
+        Assert.Null(Assert.Single(tc.Cells).FramingOverlapFraction);
+    }
+
+    [Fact]
+    public void Overlap_MissingGeometry_ReadsAsAbsentNotZero()
+    {
+        // The frames disagree, but carry no footprint — the honest answer is "cannot say", not "no overlap".
+        Guid t = Guid.NewGuid(), tpl = Guid.NewGuid();
+        TargetCells tc = Assert.Single(ReconciliationProjection.Project(
+            Graph([T(t, "Tulip", TargetSource.Both, dir: "Tulip", rotation: 160.0,
+                    raHours: TargetRa, decDeg: TargetDec)],
+                [Plan(t, tpl, desired: 10, seconds: 300.0)], [Tpl(tpl, "H", "H")],
+                [Inv(t, "H", FilterPurpose.Light, 199, 300.0, rotationFold: 20.0,
+                    centroidRaHours: TargetRa, centroidDecDeg: TargetDec)]),   // no field size
+            Report()));
+
+        ReconciliationCell c = Assert.Single(tc.Cells, x => x.PlanCount == 0);
+        Assert.True(c.FramingDisagrees);                     // still badged…
+        Assert.Null(c.FramingOverlapFraction);               // …but unpriced, not priced at zero
+    }
+
+    [Fact]
+    public void Overlap_TargetWhoseEveryFramingStrays_PricesAllOfThem()
+    {
+        // The Jellyfish shape: the comparand is the PLAN, so a target with no serving framing left still
+        // prices every one of its strays — the reason the plan is the comparand and not a sibling cluster.
+        Guid t = Guid.NewGuid(), tpl = Guid.NewGuid();
+        TargetCells tc = Assert.Single(ReconciliationProjection.Project(
+            Graph([T(t, "Jellyfish", TargetSource.Both, dir: "IC 443 - Jellyfish", rotation: 345.43,
+                    raHours: TargetRa, decDeg: TargetDec)],
+                [Plan(t, tpl, desired: 10, seconds: 300.0)], [Tpl(tpl, "H", "H")],
+                [
+                    Inv(t, "H", FilterPurpose.Light, 133, 300.0, framingOrdinal: 0, rotationFold: 15.0,
+                        centroidRaHours: TargetRa, centroidDecDeg: TargetDec,
+                        fieldWidthDeg: Z183W, fieldHeightDeg: Z183H),
+                    Inv(t, "H", FilterPurpose.Light, 124, 300.0, framingOrdinal: 1, rotationFold: 0.0,
+                        centroidRaHours: TargetRa, centroidDecDeg: TargetDec,
+                        fieldWidthDeg: Z183W, fieldHeightDeg: Z183H),
+                ]),
+            Report()));
+
+        List<ReconciliationCell> disk = [.. tc.Cells.Where(c => c.Disk > 0)];
+        Assert.Equal(2, disk.Count);
+        Assert.All(disk, c => Assert.NotNull(c.FramingOverlapFraction));
+        // The plan's own cell has no frames to price.
+        Assert.Null(Assert.Single(tc.Cells, c => c.PlanCount == 1).FramingOverlapFraction);
+    }
+
+    [Fact]
+    public void Overlap_IsMeasuredAgainstAFramingsOwnSensor_NotItsNeighbours()
+    {
+        // The M81 shape: a square-sensor stray beside 3:2 ones. Each framing is measured against a plan
+        // rectangle of ITS OWN size, so a target's camera history cannot move any of their numbers — the
+        // property the rejected serving-cluster comparand would have broken.
+        static double? Z533StrayFraction(bool alongsideZ183Framings)
+        {
+            Guid t = Guid.NewGuid(), tpl = Guid.NewGuid();
+            List<InventoryFilter> inv =
+            [
+                Inv(t, "H", FilterPurpose.Light, 30, 300.0, framingOrdinal: 0, rotationFold: 0.0,
+                    camera: "Z533", centroidRaHours: TargetRa, centroidDecDeg: TargetDec,
+                    fieldWidthDeg: Z533Side, fieldHeightDeg: Z533Side),
+            ];
+            if (alongsideZ183Framings)
+            {
+                inv.Add(Inv(t, "H", FilterPurpose.Light, 314, 300.0, framingOrdinal: 1, rotationFold: 65.1,
+                    camera: "Z183", centroidRaHours: TargetRa, centroidDecDeg: TargetDec,
+                    fieldWidthDeg: Z183W, fieldHeightDeg: Z183H));
+                inv.Add(Inv(t, "H", FilterPurpose.Light, 215, 300.0, framingOrdinal: 2, rotationFold: 114.9,
+                    camera: "Z183", centroidRaHours: TargetRa, centroidDecDeg: TargetDec,
+                    fieldWidthDeg: Z183W, fieldHeightDeg: Z183H));
+            }
+            TargetCells tc = Assert.Single(ReconciliationProjection.Project(
+                Graph([T(t, "M 81", TargetSource.Both, dir: "M 81", rotation: 65.11,
+                        raHours: TargetRa, decDeg: TargetDec)],
+                    [Plan(t, tpl, desired: 10, seconds: 300.0)], [Tpl(tpl, "H", "H")], inv),
+                Report()));
+            return Assert.Single(tc.Cells, c => c.Camera == "Z533").FramingOverlapFraction;
+        }
+
+        Assert.Equal(Z533StrayFraction(false)!.Value, Z533StrayFraction(true)!.Value, 12);
+    }
+
+    [Fact]
+    public void Overlap_MixedSensorFraming_IsMarkedOnTheCell()
+    {
+        // IC 405's shape: one framing holding both sensors. The footprint is the dominant sensor's (the
+        // scanner's choice) and the cell says so, so a consumer can qualify the number it shows.
+        Guid t = Guid.NewGuid(), tpl = Guid.NewGuid();
+        TargetCells tc = Assert.Single(ReconciliationProjection.Project(
+            Graph([T(t, "IC 405", TargetSource.Both, dir: "IC 405 - Flaming Star", rotation: 20.0,
+                    raHours: TargetRa, decDeg: TargetDec)],
+                [Plan(t, tpl, desired: 10, seconds: 300.0)], [Tpl(tpl, "H", "H")],
+                [Inv(t, "H", FilterPurpose.Light, 196, 300.0, rotationFold: 99.0,
+                    centroidRaHours: TargetRa, centroidDecDeg: TargetDec,
+                    fieldWidthDeg: Z183W, fieldHeightDeg: Z183H, spansSensors: true)]),
+            Report()));
+
+        ReconciliationCell c = Assert.Single(tc.Cells, x => x.Disk > 0);
+        Assert.True(c.FramingSpansMultipleSensors);
+        Assert.NotNull(c.FramingOverlapFraction);
+    }
+
+    [Fact]
+    public void Overlap_SingleSensorFraming_CarriesNoMarking() =>
+        Assert.False(Assert.Single(ReconciliationProjection.Project(
+            Graph([T(Guid.Empty, "M 33", TargetSource.Actual, dir: "M 33")], [], [],
+                [Inv(Guid.Empty, "H", FilterPurpose.Light, 10, 300.0)]),
+            Report())).Cells.Single().FramingSpansMultipleSensors);
+
     // ---- builders (mirroring the App's BuildRowsTests / ReconcilerTests) -----
 
     private static CatalogGraph Graph(
@@ -399,8 +624,9 @@ public sealed class ReconciliationProjectionTests
 
     private static Target T(
         Guid id, string name, TargetSource source, string? dir = null, Guid? parent = null, Guid? projectId = null,
-        bool enabled = true, string? tsKey = null, double? rotation = null) =>
-        new(id, source, projectId, name, Enabled: enabled, RaHours: null, DecDegreesSigned: null, Epoch.J2000,
+        bool enabled = true, string? tsKey = null, double? rotation = null,
+        double? raHours = null, double? decDeg = null) =>
+        new(id, source, projectId, name, Enabled: enabled, RaHours: raHours, DecDegreesSigned: decDeg, Epoch.J2000,
             RotationDeg: rotation, RoiPercent: null, Priority: null, DirectoryName: dir, Catalog: null,
             CommonName: null, ObjectName: null, ScannedAt: null, CreatedAt: 0, ImportedFromTsGuid: tsKey,
             ParentTargetId: parent);
@@ -424,13 +650,21 @@ public sealed class ReconciliationProjectionTests
         new(Guid.NewGuid(), target, template, seconds, desired, acquired, accepted,
             Enabled: true, ImportedFromTsGuid: null);
 
+    // The framing centroid/footprint default to absent, as they are for a frame that carries no coordinates
+    // or no optics — tests that price an overlap opt in by passing them, so every other test keeps proving
+    // that a missing geometry reads as absent rather than as a fabricated number.
     private static InventoryFilter Inv(
         Guid target, string filter, FilterPurpose purpose, int count, double seconds,
         int gain = 100, int offset = 50, int bin = 1, string camera = "Z533",
         int framingOrdinal = 0, RotationExpression rotation = RotationExpression.Sky,
-        double? rotationFold = 20.0) =>
+        double? rotationFold = 20.0,
+        double? centroidRaHours = null, double? centroidDecDeg = null,
+        double? fieldWidthDeg = null, double? fieldHeightDeg = null, bool spansSensors = false) =>
         new(target, filter, purpose, filter, count, count * seconds, FirstImagedAt: 0, LastImagedAt: 0,
             TypicalGain: gain, TypicalOffset: offset, TypicalSetTempC: -10.0, TypicalBinningX: bin,
             TypicalBinningY: bin, ExposureSeconds: seconds, Camera: camera,
-            FramingOrdinal: framingOrdinal, RotationExpression: rotation, RotationFoldDeg: rotationFold);
+            FramingOrdinal: framingOrdinal, RotationExpression: rotation, RotationFoldDeg: rotationFold,
+            FramingCentroidRaHours: centroidRaHours, FramingCentroidDecDeg: centroidDecDeg,
+            FramingFieldWidthDeg: fieldWidthDeg, FramingFieldHeightDeg: fieldHeightDeg,
+            FramingSpansMultipleSensors: spansSensors);
 }

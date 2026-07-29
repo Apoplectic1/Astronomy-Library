@@ -35,6 +35,15 @@ namespace Astronomy.Catalog.Reconcile;
 /// comparison against the target's rotation — the consumer's cue that these frames do not serve the plan's
 /// framing.
 /// </para>
+/// <para>
+/// <see cref="FramingOverlapFraction"/> prices that disagreement: the share of these frames' own footprint
+/// that falls inside the footprint the target's rotation asked for, in <c>[0, 1]</c>. It is <c>null</c>
+/// whenever there is no disagreement to price (a serving framing, a mechanical/unknown rotation, a target
+/// without a rotation) and whenever the frames or the target cannot express the geometry it needs — absent,
+/// never zero, because "nothing to say" is not the same fact as "no overlap". <b>Diagnostic only:</b> nothing
+/// scales a credited count by it, and <see cref="FramingSpansMultipleSensors"/> says when the footprint
+/// describes the dominant sensor of frames that span more than one.
+/// </para>
 /// </summary>
 public sealed record ReconciliationCell(
     string Filter,
@@ -56,7 +65,9 @@ public sealed record ReconciliationCell(
     bool CameraDisagrees = false,
     RotationExpression? DiskRotation = null,
     double? DiskRotationFoldDeg = null,
-    bool FramingDisagrees = false);
+    bool FramingDisagrees = false,
+    double? FramingOverlapFraction = null,
+    bool FramingSpansMultipleSensors = false);
 
 /// <summary>
 /// One canonical target's reconciliation: its identity + match-state plus its <see cref="Cells"/>, which are
@@ -163,7 +174,9 @@ public static class ReconciliationProjection
             result.Add(new TargetCells(
                 t.Id, t.ParentTargetId, t.Name, t.Source, project, dir, isMosaic,
                 report.IssuesFor(dir), isUnanchored, t.Enabled, t.ImportedFromTsGuid, projectTsKey,
-                [.. cells.Values.Select(c => c.ToCell(t.RotationDeg))],
+                // The target's coordinates are where a plan asked its frames to point — canonical, so on a
+                // Both target they are the plate-solved ones the anchoring framing supplied.
+                [.. cells.Values.Select(c => c.ToCell(t.RotationDeg, t.RaHours, t.DecDegreesSigned))],
                 t.RotationDeg));
         }
         return result;
@@ -243,6 +256,11 @@ public static class ReconciliationProjection
         public int PlanCount;
         public RotationExpression? DiskRotation { get; private set; }
         public double? DiskRotationFoldDeg { get; private set; }
+        private double? _framingCentroidRaHours;
+        private double? _framingCentroidDecDeg;
+        private double? _framingFieldWidthDeg;
+        private double? _framingFieldHeightDeg;
+        private bool _framingSpansSensors;
         private string? _planTsKey;
         private string? _templateTsKey;
         private bool? _planEnabled;
@@ -258,6 +276,13 @@ public static class ReconciliationProjection
             _cameraDisagrees |= f.CameraDisagrees;
             DiskRotation ??= f.RotationExpression;
             DiskRotationFoldDeg ??= f.RotationFoldDeg;
+            // The framing ordinal is part of the cell key, so every aggregate folded in here belongs to the
+            // SAME cluster: its centroid and footprint are one value, not something to average.
+            _framingCentroidRaHours ??= f.FramingCentroidRaHours;
+            _framingCentroidDecDeg ??= f.FramingCentroidDecDeg;
+            _framingFieldWidthDeg ??= f.FramingFieldWidthDeg;
+            _framingFieldHeightDeg ??= f.FramingFieldHeightDeg;
+            _framingSpansSensors |= f.FramingSpansMultipleSensors;
         }
 
         // Fold one plan (and its resolved template) into the bucket; remember the TS keys, which only become a
@@ -273,7 +298,7 @@ public static class ReconciliationProjection
             _planEnabled = p.Enabled;
         }
 
-        public ReconciliationCell ToCell(double? targetRotationDeg) =>
+        public ReconciliationCell ToCell(double? targetRotationDeg, double? targetRaHours, double? targetDecDeg) =>
             new(filter, purpose, seconds, Desired, Acquired, Accepted, Disk, PlanCount,
                 PlanCount == 1 ? _planTsKey : null,
                 PlanCount == 1 ? _templateTsKey : null,
@@ -285,6 +310,17 @@ public static class ReconciliationProjection
                 // stamped counts can never tell different stories). Mechanical/unknown disk rotation or a
                 // rotation-less target never disagrees.
                 FramingDisagrees: DiskRotation is RotationExpression expr
-                    && !FramingCluster.ServesPlanRotation(expr, DiskRotationFoldDeg, targetRotationDeg));
+                    && !FramingCluster.ServesPlanRotation(expr, DiskRotationFoldDeg, targetRotationDeg),
+                // …and how far off it is. Same rule, same comparands — the fraction exists exactly where the
+                // cue is raised and the geometry is expressible, so a badge without a number means the frames
+                // or the target could not state a footprint, never that the overlap was zero.
+                FramingOverlapFraction: DiskRotation is RotationExpression e
+                    ? FramingCluster.OverlapFractionAgainstPlan(
+                        e, DiskRotationFoldDeg,
+                        _framingCentroidRaHours, _framingCentroidDecDeg,
+                        _framingFieldWidthDeg, _framingFieldHeightDeg,
+                        targetRaHours, targetDecDeg, targetRotationDeg)
+                    : null,
+                FramingSpansMultipleSensors: _framingSpansSensors);
     }
 }

@@ -209,12 +209,50 @@ public class FramingClustererTests
         Assert.Equal(94.40 / 15.0, Assert.Single(clusters, c => c.FoldAngleDegrees!.Value > 5).CentroidRaHours!.Value, 6);
     }
 
+    [Fact]
+    public void ClusterFootprint_IsDerivedFromTheFrames_WithNoBinningFactor()
+    {
+        // Z183 at bin 1 and the same camera at bin 2 (half the pixels, double the pixel size) cover the
+        // SAME field. Multiplying by the binning would double it for 15.8% of the library.
+        (IReadOnlyList<FramingCluster> bin1, _) = FramingClusterer.Assign([.. Frames(5, sky: 20.0)]);
+        (IReadOnlyList<FramingCluster> bin2, _) = FramingClusterer.Assign(
+            [.. Frames(5, sky: 20.0, width: 2744, height: 1836, pixelSizeUm: 4.80)]);
+
+        FramingCluster a = Assert.Single(bin1), b = Assert.Single(bin2);
+        Assert.Equal(1.423, a.FieldWidthDeg!.Value, 3);
+        Assert.Equal(0.951, a.FieldHeightDeg!.Value, 3);
+        Assert.Equal(a.FieldWidthDeg!.Value, b.FieldWidthDeg!.Value, 2);
+        Assert.Equal(a.FieldHeightDeg!.Value, b.FieldHeightDeg!.Value, 2);
+        Assert.False(a.SpansMultipleSensors);
+    }
+
+    [Fact]
+    public void MixedSensorCluster_TakesTheDominantSensorsFootprint_AndIsMarked()
+    {
+        // IC 405's real shape: one framing holding 123 Z183 frames beside 73 Z533 ones. Camera is not a
+        // clustering key, so they share a cluster — and the footprint describes the more numerous sensor
+        // rather than an average of two fields, which would describe a field nobody imaged.
+        List<XisfHeader> frames =
+        [
+            .. Frames(123, sky: 99.0),                                                       // Z183 3:2
+            .. Frames(73, sky: 99.0, width: 3008, height: 3008, pixelSizeUm: 3.76),          // Z533 square
+        ];
+
+        FramingCluster c = Assert.Single(FramingClusterer.Assign(frames).Clusters);
+
+        Assert.Equal(196, c.FrameCount);
+        Assert.True(c.SpansMultipleSensors);
+        Assert.Equal(1.423, c.FieldWidthDeg!.Value, 3);       // the Z183 majority's field…
+        Assert.Equal(0.951, c.FieldHeightDeg!.Value, 3);      // …not 1.220 square, and not a blend
+    }
+
     // ---- synthetic headers ---------------------------------------------------
 
     /// <summary>Builds <paramref name="count"/> headers with the given rotation facts; coordinates default
     /// to a fixed field unless overridden (or suppressed with <c>raDeg: null</c>).</summary>
     private static IEnumerable<XisfHeader> Frames(
-        int count, double? sky = null, double? mech = null, double? raDeg = 150.0, double? decDeg = 55.0)
+        int count, double? sky = null, double? mech = null, double? raDeg = 150.0, double? decDeg = 55.0,
+        int width = 5496, int height = 3672, double pixelSizeUm = 2.40)
     {
         for (int i = 0; i < count; i++)
         {
@@ -223,7 +261,10 @@ public class FramingClustererTests
             if (mech is double m) kw["POSANGLE"] = new(m.ToString(CultureInfo.InvariantCulture), null);
             if (raDeg is double ra) kw["RA"] = new(ra.ToString(CultureInfo.InvariantCulture), null);
             if (decDeg is double dec && raDeg is not null) kw["DEC"] = new(dec.ToString(CultureInfo.InvariantCulture), null);
-            yield return new XisfHeader(kw);
+            kw["FOCALLEN"] = new("531", null);
+            kw["XPIXSZ"] = new(pixelSizeUm.ToString(CultureInfo.InvariantCulture), null);
+            kw["YPIXSZ"] = new(pixelSizeUm.ToString(CultureInfo.InvariantCulture), null);
+            yield return new XisfHeader(kw, width, height);
         }
     }
 }

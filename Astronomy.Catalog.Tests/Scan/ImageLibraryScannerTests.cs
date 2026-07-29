@@ -427,13 +427,16 @@ public class ImageLibraryScannerTests
         });
     }
 
-    // Minimal valid XISF: 8-byte signature + 4-byte LE XML length + 4 reserved + UTF-8 XML (no image attachment).
-    private static void WriteSyntheticXisf(string path, IDictionary<string, string> fitsKeywords)
+    // Minimal valid XISF: 8-byte signature + 4-byte LE XML length + 4 reserved + UTF-8 XML (no image
+    // attachment). The geometry attribute is mandatory in the XISF spec and the reader treats it as a
+    // contract, so a fixture without one is a corrupt file and never reaches an aggregate.
+    private static void WriteSyntheticXisf(
+        string path, IDictionary<string, string> fitsKeywords, string geometry = "5496:3672:1")
     {
         StringBuilder xml = new();
         xml.Append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
         xml.Append("<xisf version=\"1.0\" xmlns=\"http://www.pixinsight.com/xisf\">");
-        xml.Append("<Image>");
+        xml.Append($"<Image geometry=\"{geometry}\">");
         foreach (KeyValuePair<string, string> kv in fitsKeywords)
         {
             string val = double.TryParse(kv.Value, NumberStyles.Float, CultureInfo.InvariantCulture, out _)

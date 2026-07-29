@@ -427,7 +427,9 @@ public static class TargetResolver
         new DateTimeOffset(f.FirstImagedUtc).ToUnixTimeSeconds(), new DateTimeOffset(f.LastImagedUtc).ToUnixTimeSeconds(),
         f.Typical.Gain, f.Typical.Offset, f.Typical.SetTempC, f.Typical.Binning.X, f.Typical.Binning.Y,
         f.Typical.ExposureSec, f.Camera, f.Framing.Ordinal, f.Framing.Expression, f.Framing.FoldAngleDegrees,
-        f.CameraDisagrees);
+        f.CameraDisagrees,
+        f.Framing.CentroidRaHours, f.Framing.CentroidDecDegrees,
+        f.Framing.FieldWidthDeg, f.Framing.FieldHeightDeg, f.Framing.SpansMultipleSensors);
 
     // ---- Matching helpers -----------------------------------------------------------------------------------
 

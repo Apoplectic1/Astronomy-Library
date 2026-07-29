@@ -78,9 +78,12 @@ public sealed class CatalogStore : IDisposable
         INSERT INTO inventory_filter (target_id, filter_code, frame_purpose_id, filter_name, exposure_count,
             total_integration_seconds, first_imaged_at, last_imaged_at, typical_gain, typical_offset,
             typical_set_temp_c, typical_binning_x, typical_binning_y, exposure_seconds, camera,
-            framing_ordinal, rotation_expression_id, rotation_fold_deg, camera_disagrees)
+            framing_ordinal, rotation_expression_id, rotation_fold_deg, camera_disagrees,
+            framing_centroid_ra_hours, framing_centroid_dec_deg,
+            framing_field_width_deg, framing_field_height_deg, framing_spans_sensors)
         VALUES ($target, $code, $purpose, $name, $count, $integ, $first, $last, $gain, $offset, $temp, $binx, $biny,
-            $exp, $camera, $framing, $rotexpr, $rotfold, $camdis);
+            $exp, $camera, $framing, $rotexpr, $rotfold, $camdis,
+            $cra, $cdec, $fw, $fh, $spans);
         """,
         ("$target", GuidBlob.ToBlob(f.TargetId)), ("$code", f.FilterCode), ("$purpose", (int)f.Purpose),
         ("$name", f.FilterName), ("$count", f.ExposureCount), ("$integ", f.TotalIntegrationSeconds),
@@ -88,7 +91,10 @@ public sealed class CatalogStore : IDisposable
         ("$temp", f.TypicalSetTempC), ("$binx", f.TypicalBinningX), ("$biny", f.TypicalBinningY),
         ("$exp", f.ExposureSeconds), ("$camera", f.Camera), ("$framing", f.FramingOrdinal),
         ("$rotexpr", (int)f.RotationExpression), ("$rotfold", f.RotationFoldDeg),
-        ("$camdis", f.CameraDisagrees ? 1 : 0));
+        ("$camdis", f.CameraDisagrees ? 1 : 0),
+        ("$cra", f.FramingCentroidRaHours), ("$cdec", f.FramingCentroidDecDeg),
+        ("$fw", f.FramingFieldWidthDeg), ("$fh", f.FramingFieldHeightDeg),
+        ("$spans", f.FramingSpansMultipleSensors ? 1 : 0));
 
     /// <summary>Inserts an <see cref="ExposureTemplate"/> row.</summary>
     public void InsertExposureTemplate(ExposureTemplate t, SqliteTransaction? transaction = null) => Execute(transaction,

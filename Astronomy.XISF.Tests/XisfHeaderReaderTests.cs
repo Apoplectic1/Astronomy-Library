@@ -24,12 +24,18 @@ public class XisfHeaderReaderTests : IDisposable
     /// Format: 8-byte signature + 4-byte LE XML length + 4-byte reserved + UTF-8 XML payload.
     /// No image attachment block — header-only readers don't need one.
     /// </summary>
-    private static void WriteSyntheticXisf(string path, IDictionary<string, string> fitsKeywords, IDictionary<string, string> comments = null)
+    /// <param name="geometry">
+    /// The <c>&lt;Image&gt;</c> element's mandatory <c>geometry</c> attribute ("width:height:channels").
+    /// Pass <see langword="null"/> to omit the attribute entirely — the malformed-file case.
+    /// </param>
+    private static void WriteSyntheticXisf(
+        string path, IDictionary<string, string> fitsKeywords, IDictionary<string, string> comments = null,
+        string geometry = "5496:3672:1")
     {
         var xml = new StringBuilder();
         xml.Append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
         xml.Append("<xisf version=\"1.0\" xmlns=\"http://www.pixinsight.com/xisf\">");
-        xml.Append("<Image>");
+        xml.Append(geometry is null ? "<Image>" : $"<Image geometry=\"{geometry}\">");
         foreach (var kv in fitsKeywords)
         {
             // Strings get FITS-quoted; numerics unquoted.
@@ -149,5 +155,104 @@ public class XisfHeaderReaderTests : IDisposable
     public async Task Read_EmptyPath_Throws()
     {
         await Assert.ThrowsAsync<ArgumentException>(() => XisfHeaderReader.ReadAsync(""));
+    }
+
+    // ---- The mandatory image geometry ----
+    // Dimensions come from <Image geometry>, NOT from NAXIS1/NAXIS2: measured over the live library, geometry
+    // was present on all 18,650 frames while NAXIS was absent on 63, and the two never disagreed.
+
+    [Fact]
+    public async Task Read_Geometry_PopulatesPixelDimensions()
+    {
+        string path = Path.Combine(mTempDir, "geometry.xisf");
+        WriteSyntheticXisf(path, new Dictionary<string, string>(), geometry: "3008:3008:1");
+
+        XisfHeader h = await XisfHeaderReader.ReadAsync(path);
+
+        Assert.Equal(3008, h.PixelWidth);
+        Assert.Equal(3008, h.PixelHeight);
+    }
+
+    [Fact]
+    public async Task Read_Geometry_IsPreferredOverNaxisKeywords()
+    {
+        // A file whose NAXIS keywords disagree with its geometry: geometry wins, because it is the mandatory
+        // declaration and NAXIS is an optional duplicate.
+        string path = Path.Combine(mTempDir, "geometry-wins.xisf");
+        WriteSyntheticXisf(path, new Dictionary<string, string>
+        {
+            ["NAXIS1"] = "999",
+            ["NAXIS2"] = "888",
+        }, geometry: "5496:3672:1");
+
+        XisfHeader h = await XisfHeaderReader.ReadAsync(path);
+
+        Assert.Equal(5496, h.PixelWidth);
+        Assert.Equal(3672, h.PixelHeight);
+    }
+
+    [Fact]
+    public async Task Read_NoNaxisKeywords_StillReadsDimensions()
+    {
+        // 63 real frames carry no NAXIS at all. They must still yield dimensions.
+        string path = Path.Combine(mTempDir, "no-naxis.xisf");
+        WriteSyntheticXisf(path, new Dictionary<string, string> { ["OBJECT"] = "M81" });
+
+        XisfHeader h = await XisfHeaderReader.ReadAsync(path);
+
+        Assert.Equal(5496, h.PixelWidth);
+        Assert.False(h.Has("NAXIS1"));
+    }
+
+    [Fact]
+    public async Task Read_MissingGeometryAttribute_Throws()
+    {
+        string path = Path.Combine(mTempDir, "no-geometry.xisf");
+        WriteSyntheticXisf(path, new Dictionary<string, string>(), geometry: null);
+
+        InvalidDataException ex = await Assert.ThrowsAsync<InvalidDataException>(
+            () => XisfHeaderReader.ReadAsync(path));
+
+        // The message must name the file and what was expected — it is what reaches SkippedFiles.
+        Assert.Contains("geometry", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("no-geometry.xisf", ex.Message);
+    }
+
+    [Theory]
+    [InlineData("not-a-geometry")]
+    [InlineData("5496")]
+    [InlineData("0:3672:1")]
+    [InlineData("-5496:3672:1")]
+    [InlineData("5496:0:1")]
+    [InlineData("")]
+    public async Task Read_MalformedGeometry_Throws(string geometry)
+    {
+        string path = Path.Combine(mTempDir, "bad-geometry.xisf");
+        WriteSyntheticXisf(path, new Dictionary<string, string>(), geometry: geometry);
+
+        await Assert.ThrowsAsync<InvalidDataException>(() => XisfHeaderReader.ReadAsync(path));
+    }
+
+    [Fact]
+    public async Task Read_NoImageElement_Throws()
+    {
+        string path = Path.Combine(mTempDir, "no-image.xisf");
+        byte[] xmlBytes = Encoding.UTF8.GetBytes(
+            "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+            + "<xisf version=\"1.0\" xmlns=\"http://www.pixinsight.com/xisf\"></xisf>");
+        byte[] header = new byte[16];
+        Encoding.ASCII.GetBytes("XISF0100", 0, 8, header, 0);
+        int len = xmlBytes.Length;
+        header[8] = (byte)(len & 0xFF);
+        header[9] = (byte)((len >> 8) & 0xFF);
+        header[10] = (byte)((len >> 16) & 0xFF);
+        header[11] = (byte)((len >> 24) & 0xFF);
+        using (var fs = new FileStream(path, FileMode.Create, FileAccess.Write))
+        {
+            fs.Write(header, 0, 16);
+            fs.Write(xmlBytes, 0, xmlBytes.Length);
+        }
+
+        await Assert.ThrowsAsync<InvalidDataException>(() => XisfHeaderReader.ReadAsync(path));
     }
 }
