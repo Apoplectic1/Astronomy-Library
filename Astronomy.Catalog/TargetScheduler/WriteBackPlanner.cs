@@ -38,10 +38,17 @@ public static class WriteBackPlanner
         Dictionary<Guid, ExposureTemplate> templateById = templates.ToDictionary(t => t.Id);
 
         // Disk actuals summed per (target, filter, purpose, seconds). Filter compared case-insensitively
-        // (matches Reconciler); the scanner's whole-second exposure bucket is part of the key.
+        // (matches Reconciler); the scanner's whole-second exposure bucket is part of the key. Only frames
+        // whose framing SERVES the target's rotation credit the sum (the shared ServesPlanRotation rule):
+        // a re-framed plan must not stay stamped as though the old framing's frames still satisfied it —
+        // TS would then under-schedule the re-shoot. Non-serving frames stay visible in the consumer's grid
+        // as separated, badged rows; here they simply do not count, so the plan stamps to what actually
+        // serves it (possibly 0 — an unmet spec like any other).
         Dictionary<(Guid Target, string Filter, FilterPurpose Purpose, int Seconds), int> diskCount = new(KeyComparer.Instance);
         foreach (InventoryFilter f in inventory)
         {
+            if (!targetById.TryGetValue(f.TargetId, out Target? owner)) continue;
+            if (!FramingCluster.ServesPlanRotation(f.RotationExpression, f.RotationFoldDeg, owner.RotationDeg)) continue;
             (Guid, string, FilterPurpose, int) key = (f.TargetId, f.FilterName, f.Purpose, (int)Math.Round(f.ExposureSeconds));
             diskCount[key] = diskCount.GetValueOrDefault(key) + f.ExposureCount;
         }

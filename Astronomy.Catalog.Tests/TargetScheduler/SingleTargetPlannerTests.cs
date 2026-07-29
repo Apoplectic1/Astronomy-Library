@@ -30,6 +30,34 @@ public sealed class SingleTargetPlannerTests
     }
 
     [Fact]
+    public void NonServingFraming_DoesNotStamp_AndSaysWhy()
+    {
+        // The surgical path honours the shared serving rule (openspec rotation-framing-key): a cell whose
+        // sky framing fails the anchored target's rotation must not credit the plan — it is surfaced as a
+        // FramingMismatch note (a count that visibly did not move deserves its stated reason). A mechanical
+        // cell is not comparable and still stamps.
+        FramingCluster oldFraming = new(1, RotationExpression.Sky, 20.0, null, null, 199);
+        FramingCluster mech = new(2, RotationExpression.Mechanical, 97.3, null, null, 40);
+        TargetReport[] units = [Unit("Sh2-101 - Tulip", 20.0, 35.0,
+            Cell("H", FilterPurpose.Light, 199, bin: 1, framing: oldFraming),
+            Cell("O", FilterPurpose.Light, 40, bin: 1, framing: mech))];
+        TsPlanData ts = new(
+            [Proj(10, "Proj", mosaic: false)],
+            [TsT(1, "Tulip", 20.001, 35.0, project: 10, rotation: 160.01)],
+            [Tpl(1000, "Ha", "H", bin: 1), Tpl(1001, "O3", "O", bin: 1)],
+            [TsP(500, target: 1, template: 1000), TsP(501, target: 1, template: 1001)]);
+
+        WriteBackPlan plan = SingleTargetPlanner.Plan(units, isMosaic: false, "Sh2-101 - Tulip", ts);
+
+        PlannedWrite w = Assert.Single(plan.Writes);           // only the mechanical cell stamps
+        Assert.Equal(501, w.TsExposurePlanId);
+        Assert.Equal(40, w.DiskCount);
+        ReconcileNote note = Assert.Single(plan.NeedsReconciliation);
+        Assert.Equal("FramingMismatch", note.Kind);
+        Assert.Empty(plan.Manual);
+    }
+
+    [Fact]
     public void ExposureSplitCells_RouteToTheirOwnSecondsPlans()
     {
         // Disk: H Light at two sub lengths; TS: one plan per duration. Each cell writes its own plan —
@@ -260,18 +288,21 @@ public sealed class SingleTargetPlannerTests
         return new TargetReport(label, cat, common, cat, raHours, dec, cells, [TestFraming]);
     }
 
-    private static FilterAggregate Cell(string filter, FilterPurpose purpose, int count, int bin, double seconds = 300.0)
+    private static FilterAggregate Cell(
+        string filter, FilterPurpose purpose, int count, int bin, double seconds = 300.0,
+        FramingCluster? framing = null)
     {
         DateTime first = new(2024, 1, 1, 22, 0, 0, DateTimeKind.Utc);
         return new FilterAggregate(filter, filter, purpose, count, TimeSpan.FromSeconds(count * seconds),
-            first, first.AddHours(1), new TypicalSettings(100, 50, -10.0, (bin, bin), seconds), "Z533", TestFraming);
+            first, first.AddHours(1), new TypicalSettings(100, 50, -10.0, (bin, bin), seconds), "Z533",
+            framing ?? TestFraming);
     }
 
     private static TsProject Proj(long id, string name, bool mosaic) =>
         new(id, "profile-1", name, 1, 1, null, mosaic ? 1 : 0, "g-p" + id);
 
-    private static TsTarget TsT(long id, string name, double ra, double dec, long project) =>
-        new(id, name, 1, ra, dec, 2, null, null, project, -1, "g-t" + id);
+    private static TsTarget TsT(long id, string name, double ra, double dec, long project, double? rotation = null) =>
+        new(id, name, 1, ra, dec, 2, rotation, null, project, -1, "g-t" + id);
 
     private static TsExposureTemplate Tpl(long id, string name, string filter, int bin, double defExp = 300.0) =>
         new(id, "profile-1", name, filter, 100, 50, bin, defExp);

@@ -136,6 +136,20 @@ public static class SingleTargetPlanner
     {
         int cellSeconds = (int)Math.Round(cell.Typical.ExposureSec);
 
+        // A cell whose framing does not serve the target's rotation (the shared ServesPlanRotation rule)
+        // must not stamp its count onto the plan — those frames belong to an abandoned framing, and
+        // crediting them would leave TS believing progress that does not exist for the re-framed field.
+        // Surfaced as a note rather than dropped silently: this is the surgical per-target path, and a
+        // count that visibly did not move deserves its stated reason.
+        if (!FramingCluster.ServesPlanRotation(
+                cell.Framing.Expression, cell.Framing.FoldAngleDegrees, matched.Rotation))
+        {
+            needs.Add(new ReconcileNote("FramingMismatch", matched.Name,
+                $"{cell.FilterName} {cell.Purpose} {cell.ExposureCount} frames @{cellSeconds}s at framing " +
+                $"{cell.Framing.FoldAngleDegrees:0.#}° do not serve target rotation {matched.Rotation:0.#}°"));
+            return;
+        }
+
         int PlanSeconds(TsExposurePlan p) => EffectiveExposure.Seconds(p, templateById[p.ExposureTemplateId]);
 
         bool MatchesFilterPurpose(TsExposurePlan p) =>

@@ -54,6 +54,62 @@ public sealed class WriteBackPlannerTests
     }
 
     [Fact]
+    public void OnlyServingFramings_CreditTheAcquiredCount()
+    {
+        // The Tulip shape (openspec rotation-framing-key, user decision 2026-07-29): the target was
+        // re-framed to 50°, its 60°-era frames no longer serve the plan, and write-back must not leave TS
+        // believing 32/80 are done for a framing with zero captured frames. Only the serving cluster sums.
+        Guid t = Guid.NewGuid(), tpl = Guid.NewGuid();
+
+        WriteBackPlan plan = WriteBackPlanner.Plan(
+            [Both(t, "Barnard 202", rotation: 50.0)],
+            [Plan(t, tpl, tsId: 500)],
+            [Tpl(tpl, "H", "H")],
+            [
+                Inv(t, "H", FilterPurpose.Light, 451),                     // fold 60 (builder default 20 → override below)
+                Inv(t, "H", FilterPurpose.Light, 28),
+            ],
+            Report());
+
+        // Both builder rows default to fold 20 — with target rotation 50 that is out of tolerance, so
+        // nothing serves and the plan stamps 0 (an unmet spec like any other).
+        Assert.Equal(0, Assert.Single(plan.Writes).DiskCount);
+
+        // Re-plan with explicit folds: the 50° cluster serves, the 60° cluster does not.
+        plan = WriteBackPlanner.Plan(
+            [Both(t, "Barnard 202", rotation: 50.0)],
+            [Plan(t, tpl, tsId: 500)],
+            [Tpl(tpl, "H", "H")],
+            [
+                Inv(t, "H", FilterPurpose.Light, 451, framingOrdinal: 0, rotationFold: 60.0),
+                Inv(t, "H", FilterPurpose.Light, 28, framingOrdinal: 1, rotationFold: 50.0),
+            ],
+            Report());
+        Assert.Equal(28, Assert.Single(plan.Writes).DiskCount);
+    }
+
+    [Fact]
+    public void MechanicalAndFlippedFramings_StillCredit()
+    {
+        Guid t = Guid.NewGuid(), tpl = Guid.NewGuid();
+
+        // Mechanical rotation is not comparable to the plan's — it never prevents crediting; and a 180°
+        // flip agrees fold-180 (plan 0°, frames at 180° → fold 0-equivalent).
+        WriteBackPlan plan = WriteBackPlanner.Plan(
+            [Both(t, "Bear Claw", rotation: 0.0)],
+            [Plan(t, tpl, tsId: 500)],
+            [Tpl(tpl, "H", "H")],
+            [
+                Inv(t, "H", FilterPurpose.Light, 265,
+                    rotation: RotationExpression.Mechanical, rotationFold: 97.3),
+                Inv(t, "H", FilterPurpose.Light, 216, framingOrdinal: 1, rotationFold: 179.98),
+            ],
+            Report());
+
+        Assert.Equal(481, Assert.Single(plan.Writes).DiskCount);
+    }
+
+    [Fact]
     public void MainAndStars_RouteByPurpose()
     {
         Guid t = Guid.NewGuid(), main = Guid.NewGuid(), stars = Guid.NewGuid();
@@ -458,9 +514,9 @@ public sealed class WriteBackPlannerTests
         Epoch.J2000, RotationDeg: null, RoiPercent: null, Priority: null, DirectoryName: name, Catalog: null,
         CommonName: null, ObjectName: null, ScannedAt: 0, CreatedAt: 0, ImportedFromTsGuid: null);
 
-    private static Target Both(Guid id, string name, string? dir = null) => new(
+    private static Target Both(Guid id, string name, string? dir = null, double? rotation = null) => new(
         id, TargetSource.Both, ProjectId: null, name, Enabled: true, RaHours: null, DecDegreesSigned: null,
-        Epoch.J2000, RotationDeg: null, RoiPercent: null, Priority: null, DirectoryName: dir ?? name, Catalog: null,
+        Epoch.J2000, RotationDeg: rotation, RoiPercent: null, Priority: null, DirectoryName: dir ?? name, Catalog: null,
         CommonName: null, ObjectName: null, ScannedAt: 0, CreatedAt: 0, ImportedFromTsGuid: null);
 
     private static Target Planned(Guid id, string name) => new(
@@ -480,11 +536,13 @@ public sealed class WriteBackPlannerTests
 
     private static InventoryFilter Inv(
         Guid target, string filter, FilterPurpose purpose, int count, double seconds = 300.0,
-        int gain = 100, int offset = 50, string camera = "Z533") =>
+        int gain = 100, int offset = 50, string camera = "Z533",
+        int framingOrdinal = 0, RotationExpression rotation = RotationExpression.Sky,
+        double? rotationFold = 20.0) =>
         new(target, filter, purpose, filter, count, count * seconds, FirstImagedAt: 0, LastImagedAt: 0,
             TypicalGain: gain, TypicalOffset: offset, TypicalSetTempC: -10.0, TypicalBinningX: 1,
             TypicalBinningY: 1, ExposureSeconds: seconds, Camera: camera,
-            FramingOrdinal: 0, RotationExpression: RotationExpression.Sky, RotationFoldDeg: 20.0);
+            FramingOrdinal: framingOrdinal, RotationExpression: rotation, RotationFoldDeg: rotationFold);
 
     private static CatalogBuildReport Report(
         int plannedOnly = 0,

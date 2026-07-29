@@ -280,12 +280,11 @@ public static class ReconciliationProjection
                 PlanCount == 1 ? _planEnabled : null,
                 gain, offset, binX, binY, _camera, _cameraDisagrees,
                 DiskRotation, DiskRotationFoldDeg,
-                // The disagreement cue: the disk side expresses a sky rotation, the target expresses a
-                // rotation, and they fail the fold-180 comparison — these frames do not serve the plan's
-                // framing. Mechanical/unknown disk rotation or a rotation-less target never disagrees.
-                FramingDisagrees: DiskRotation == RotationExpression.Sky
-                    && targetRotationDeg is double rot
-                    && DiskRotationFoldDeg is double fold
-                    && FramingCluster.FoldDelta(fold, rot) > FramingCluster.RotationToleranceDegrees);
+                // The disagreement cue: the disk side's frames do not SERVE the target's rotation (the
+                // shared ServesPlanRotation rule — also what write-back credits by, so the badge and the
+                // stamped counts can never tell different stories). Mechanical/unknown disk rotation or a
+                // rotation-less target never disagrees.
+                FramingDisagrees: DiskRotation is RotationExpression expr
+                    && !FramingCluster.ServesPlanRotation(expr, DiskRotationFoldDeg, targetRotationDeg));
     }
 }

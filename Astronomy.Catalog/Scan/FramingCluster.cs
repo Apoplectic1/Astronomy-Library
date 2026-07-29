@@ -103,4 +103,23 @@ public sealed class FramingCluster
         double d = Math.Abs(aDegrees - bDegrees) % 180.0;
         return Math.Min(d, 180.0 - d);
     }
+
+    /// <summary>
+    /// Whether frames of the given rotation expression <b>serve</b> a plan whose target carries
+    /// <paramref name="planRotationDegrees"/> — THE rotation-participation rule, shared by pairing, the
+    /// disagreement cue, and write-back crediting so they can never drift apart. Rotation participates only
+    /// as expressed by both sides: a mechanical or unknown expression is not comparable and never prevents
+    /// serving, a plan without a rotation asks nothing, and a sky expression serves iff it agrees fold-180
+    /// within <see cref="RotationToleranceDegrees"/>.
+    /// </summary>
+    /// <param name="expression">The frames' rotation expression.</param>
+    /// <param name="foldAngleDegrees">The frames' fold-180 angle (present for Sky/Mechanical, null for Unknown).</param>
+    /// <param name="planRotationDegrees">The plan target's rotation; null when it expresses none.</param>
+    public static bool ServesPlanRotation(
+        RotationExpression expression, double? foldAngleDegrees, double? planRotationDegrees)
+    {
+        if (expression != RotationExpression.Sky) return true;
+        if (planRotationDegrees is not double rot) return true;
+        return FoldDelta(foldAngleDegrees!.Value, rot) <= RotationToleranceDegrees;
+    }
 }
