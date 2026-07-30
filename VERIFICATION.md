@@ -7,6 +7,7 @@
 **Prerequisites.**
 - **VS2026 (build 18.x) `MSBuild.exe`** — not optional and not merely "preferred": `Astronomy.PCL.Native.vcxproj` pins `<PlatformToolset>v145</PlatformToolset>`, and v145 ships only with the VS2026 line, so **VS2022 / 17.x cannot load the vcxproj at all**. Earlier lines can still build the pure-managed projects individually (see below). Locate MSBuild via `vswhere.exe` or use a Developer Command Prompt. On this machine: `C:\Program Files\Microsoft Visual Studio\18\Enterprise\MSBuild\Current\Bin\MSBuild.exe`.
 - **.NET 10 SDK** — `global.json` pins `10.0.203` with `rollForward: latestMajor`, so a newer 10.x (e.g. 10.0.302) resolves fine, but with no .NET 10 SDK installed you get an opaque `global.json` resolution failure rather than a build error.
+- **The Windows TFM must stay OS-version-less.** `net10.0-windows` — never `net10.0-windows10.0.26100.1`. An earlier build pinned the OS version and broke with `NETSDK1229` / `MSB4184`; the TFM is set once centrally in the repo-root `Directory.Build.props`, so re-adding a suffix there re-breaks every project at once. (Derivation: `CHANGELOG.md` § 2026-05-11.)
 - **The vendored `PCL/` tree**, for anything touching `Astronomy.PCL` — see *PCL native prerequisites* below. It is gitignored, so a fresh clone has none of it.
 
 `dotnet build Astronomy.sln` cannot drive the C++ vcxproj — see the trap below.
@@ -102,6 +103,16 @@ relative-path arguments resolve. `Test_GetXisfKeywords..bat` (double-dot name; l
 **Trap to avoid:** `dotnet build Astronomy.sln` errors out on the vcxproj (MSB4278 — dotnet's MSBuild can't load the C++ targets), leaving no native DLL; any test that touches `Astronomy.PCL` then throws `DllNotFoundException`. Always use `msbuild` for the SLN.
 
 **Trap to avoid (xUnit v3):** every test project is xUnit v3 — `OutputType=Exe` + `xunit.v3` + `xunit.runner.visualstudio` 4.0.0-pre + `Microsoft.NET.Test.Sdk` 18.x — and v3 **generates the assembly entry point**, so a test project can't also define its own `Main` (that's why benchmarks live in a separate `Astronomy.Core.Benchmarks` exe). **Never let `xunit.v3` land on a non-test project:** its `mtp-v1` targets force `OutputType=Exe`, and a "Manage NuGet Packages for Solution → all projects" action sprays it silently — the build only breaks later when a version bump enforces the check (this bit four production projects on 2026-06-21). A non-test project that genuinely needs xUnit types references `xunit.v3.extensibility.core` instead.
+
+**Trap to avoid (Debug cannot see native ISA regressions):** `/Od` suppresses auto-vectorization, so an escalated instruction-set flag in the PCL tree emits **nothing** in Debug — the entire Debug test suite is structurally blind to it, and every recipe above defaults to Debug. The AVX2 floor (the 4800U has no AVX-512) can only be verified on a **Release** `Astronomy.PCL.Native.dll` with `dumpbin`. Re-check it after any PCL toolset pass or re-snapshot; a green Debug run proves nothing about it. (Policy + history → `ARCHITECTURE.md` § *PCL local build*.)
+
+**Assert with tolerances, never bit-exact.** `Astronomy.Core`'s polynomial and spherical-trig hot spots are FMA-lowered (`Math.FusedMultiplyAdd`, applied across Meeus / `TargetGeometry` / `SkyBrightness`). Round-once FMA is *strictly more accurate* than separate `mul; add`, so epsilon asserts hold while a bit-exact assert would not — and would break again on any future FMA or vectorization pass. (→ `docs/2026-05-12-fma-benchmark-findings.md`.)
+
+## Parity baseline — the drift envelope
+
+`Astronomy.Core.Tests`' 9-fixture parity suite is the Library's drift envelope. **Do not widen its tolerances.** The four constants (`ParityBaselineTests.cs`: 60 s dusk/dawn, 0.005 illumination, 30″ moon-altitude, 60″ separation) come from the underlying formulas' documented accuracy budgets — tightening catches only float noise, and loosening masks the real regressions the suite exists to catch. They are co-located for legibility, not as an invitation to edit.
+
+After a **deliberate** behaviour change turns the parity cases red, re-baseline rather than re-tolerance: unskip `ParityBaselineTests._DumpBaselinesForRegeneration`, run it, paste the emitted initializers into `ParityFixtures.Baselines`, then re-apply the `Skip`. (Standing prohibition and procedure recorded in `archive/2026-05-18-library-review-recheck.md`; promoting the baseline to an independent NINA-sourced oracle is `ROADMAP.md` § *Open: Library-review residuals* F5.7.)
 
 ## Benchmark findings
 

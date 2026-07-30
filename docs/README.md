@@ -21,4 +21,4 @@ A standing truth that emerges from a note here **graduates up** into the referen
 stays as the record of how it was reached. Records that are no longer current-design-relevant move to
 `archive/`.
 
-_No entries yet — the completed/superseded records that predate this directory live in `archive/`._
+_Completed/superseded records that predate this directory live in `archive/`._

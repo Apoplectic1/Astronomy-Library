@@ -9,6 +9,104 @@ backstop — this is the human-legible layer above it.
 **Entry format:** `## YYYY-MM-DD — <what landed>` (a month-only `YYYY-MM` is fine when the exact day
 wasn't recorded). Newest first; add new entries directly below this charter, never at the bottom.
 
+## 2026-07-29 — a framing off the plan's footprint is priced, not just flagged
+
+The framing badge said a row's frames point somewhere the plan did not ask for; it never said *how far*
+off. The **overlap fraction** prices it: the share of a framing's own footprint landing inside the
+footprint the plan asked for.
+
+- **`Astronomy.XISF`** — `XisfHeaderReader` now reads the mandatory `<Image geometry>` attribute (it
+  harvested only `<FITSKeyword>` before); `XisfHeader` exposes the pixel dimensions and derives the
+  angular field from them + `FOCALLEN` + `XPIXSZ`. **No binning factor anywhere** — `XPIXSZ` is already
+  binning-adjusted, so multiplying would double the field for the 15.8% of the library shot at bin 2.
+- **`Astronomy.Core`** — new `FieldFootprint`: rotated-rectangle overlap on a tangent plane
+  (Sutherland-Hodgman clip + shoelace, exact for convex). RA offsets scale by `cos(dec)`; without it
+  M81's east-west offsets inflate 2.8×.
+- **`Astronomy.Catalog`** — `FramingCluster` carries its footprint and a spans-sensors flag (dominant
+  sensor when frames span two, never a blend); `ReconciliationProjection` computes the fraction against a
+  plan rectangle built from the measured framing's **own** sensor, so no neighbouring framing's sensor
+  shape can move the number.
+
+A number means off-footprint for *any* reason — wrong rotation, wrong pointing, or both. A serving
+framing prices nothing while it stays above `OnFootprintFraction` (0.95); a disagreeing one always
+reports whatever its overlap, so a badge is never left pointing at an empty cell. Measured over the
+18,650-frame library: 52 of 60 serving framings sit at ≥99.5%, and the 11 strays span 57.5–91.9%.
+Crediting is untouched — write-back stays the boolean `ServesPlanRotation`; a partially overlapping frame
+is not a fractional frame. Catalog 236 / XISF 51 / Core 472 / NINA 45 / Contracts 61.
+
+## 2026-07-29 — write-back credits only frames whose framing serves the plan
+
+User decision 2026-07-29, from the Tulip confusion: TS said `acquired=32` while **zero** captured frames
+matched the re-framed 160° plan — and TS would then under-schedule the re-shoot. The rotation-participation
+predicate now lives once as **`FramingCluster.ServesPlanRotation`** with three consumers — the projection's
+pairing/disagree cue, `WriteBackPlanner`'s disk sum, `SingleTargetPlanner`'s cell routing — so the badge and
+the stamped counts can never tell different stories.
+
+- **Bulk:** non-serving inventory rows don't sum, so a re-framed plan stamps its true progress, possibly 0.
+- **Surgical:** a withheld cell emits a `FramingMismatch` note naming the frames, the framing, and the
+  rotation they fail.
+- Mechanical/unknown framing and rotation-less targets always credit; flips agree fold-180.
+
+Verified pure-planner against the live library: Tulip H900 32→0, Barnard L600 credits exactly the serving
+28 of 479, Jellyfish all-0 (TS plans a third framing), Bear Claw's 180° flip still credits 128. Catalog 222.
+
+## 2026-07-29 — framing (fold-180 rotation + cluster centroid) keys the disk plane
+
+A **framing** is a (field-center, sky-rotation) pair — the thing that decides whether frames share a
+footprint and can integrate. New `FramingCluster` + `FramingClusterer` (expression partition
+sky/mechanical/unknown → fold-180 gap clustering at 5° → field-center single-linkage at 0.5°), run per unit
+**before** the aggregate grouping, so a pier flip merges (identical footprint) while a translated stray at
+an unchanged angle separates — the centroid guard as ordering, not a special rule. The cluster joins the
+aggregate identity beside gain/offset/binning/camera; `TargetReport` publishes per-cluster centroids;
+`inventory_filter` carries `framing_ordinal` + `rotation_expression` + `rotation_fold_deg` (in the PK — two
+clusters can share a fold angle and differ only by center, the M97 shape).
+
+`ReconciliationProjection` pairs a plan with the disk framing whose sky rotation agrees fold-180 with the
+target's rotation; mechanical/unknown framings and rotation-less targets skip the term (the camera
+precedent — rotation only as expressed by both planes). **Mechanical is never converted to sky:** the zero
+point drifts 19–35° across remounts, measured exactly on the multi-framing targets. `FramingDisagrees`
+marks disk cells whose sky rotation fails the plan. Calibrated by the 2026-07-29 spike over the live
+library (18,650 frames): real framings ≥9° apart, jitter ≤0.2°, every true flip's centroids within 0.12°.
+219 tests green.
+
+## 2026-07-27 — non-sidereal targets never enter the library scan
+
+A comet's coordinates change from night to night, so no sidereal plan can describe it — the live TS
+database holds zero comet targets — and every frame of one is acquired by hand at the telescope. Reading
+them produced grid rows that reconcile against nothing. Their capture trees also break the
+`Captures/<Camera>/<Filter>` convention, nesting date-named session folders (`"2024-10-18 - Track Comet"`)
+where a filter directory belongs, so the scan was publishing those session names as filter codes.
+
+Excluded **at the directory walk**, like the calibration tree, rather than filtered afterwards by each
+consumer; the guard sits in `ScanTargetAsync` so both entry points honour it from one place. The predicate
+is named for the reason rather than the spelling — `IsNonSiderealDirectory`, where the `"Comet "` prefix is
+today's *evidence* for non-siderealness, not the fact itself. **Its trailing space is load-bearing:**
+`"Cometary Globule CG4"` and `"NGC 2261 - Comet Nebula"` are sidereal and still scanned, both pinned by
+test. Also adds the first tests for the calibration skip, which had existed since the scanner was written
+with no coverage at all. Removes one target of 84 and 254 of 18,904 light frames. Catalog 199.
+
+## 2026-07-27 — the capture configuration keys the disk plane
+
+Gain, offset and binning join the reconciliation key, and camera becomes a disk-side label. Frames
+differing in any of these do not combine into one integration, so they must not fold into one bucket
+claiming they do — the 2026 broadband move from gain 53 to gain 0, and the offset-50 frames sitting in
+every filter, were both invisible until now. A plan and a disk aggregate share a cell (and so render as one
+`Both` row) only when they agree on every dimension **both planes express**. Camera is deliberately *not*
+in the key: a TS profile cannot name a camera, so keying on it would split cells against a plan that could
+never match them — it rides disk-side cells as a label and never prevents pairing.
+
+**Offset is now read exactly as recorded.** XFM does not divide — its per-camera "ADU Offset divided by N"
+comment describes the camera's scale rather than an operation it performed — so the recorded value is
+already in the scale TS's templates use. `XisfHeader.OffsetNormalized` was rescaling it a second time,
+reporting 2 for a Z183 frame recording 10: a number comparable to neither plane. It had one production
+caller and is **removed**. `FilterAggregate` carries one camera (the capture directory, authoritative and
+known before a file is opened) plus a flag for frames recording a different one, so every configuration
+field is uniform within an aggregate rather than a mode over mixed frames. `WriteBackPlanner` is unchanged
+and now pinned by test: its key stays the coarser (target, filter, purpose, seconds) and it sums inventory
+rows, so finer disk buckets still total the same acquired. Measured over the live library (18,904 light
+frames): disk buckets 471 → 542 (+15%); camera, telescope and binning each add zero; GAIN and OFFSET are
+present on 18,904 of 18,904 frames. Library 186 / XISF 30 / NINA 45 / Contracts 61.
+
 ## 2026-07-26 — the TS read and the resolve observe a `CancellationToken`
 
 `TargetSchedulerReader.ReadPlanData` (and the five `Read*` methods) and `TargetResolver.Resolve` now take
@@ -29,6 +127,13 @@ deliberate choice.
 
 All parameters are optional, so no call site had to change. Guarded by `Resolve_ObservesCancellation`.
 172 tests.
+
+## 2026-07-26 — template `ditherevery` gains its `-1` defer-to-project sentinel
+
+TS's template `DitherEvery = -1` means "use the project's dither setting" (`DitherManager` tests `>= 0`;
+verified against the released v5.10.3.0 tag). The editable schema had it as a plain `Min`-0 `Whole`, so
+consumers displayed the raw `-1` and could never write it back once edited. Now a sentinel: `-1` labelled
+"project default", the same shape as the camera-default sentinels.
 
 ## 2026-07-24 — `ObservationSession`: the observation-dialog orchestration moves library-side
 
@@ -124,7 +229,7 @@ pinning test caught the error before it shipped.)*
 
 Tests: 24 Lorentzian tests deleted; 8 reworked; 16 gate tests added (Δ properties, twilight
 dilution, site derivation, tolerance monotonicity, huge-tolerance ≡ moon-blind, calibration pins,
-#24 contract test + registry entry). Change artifacts: `openspec/changes/ks-dmag-moon-gate/`.
+#24 contract test + registry entry). Change artifacts: `openspec/changes/archive/2026-07-24-ks-dmag-moon-gate/`.
 
 ## 2026-07-24 — PCL linked closure restored to upstream AVX2 (4800U floor)
 
@@ -205,6 +310,36 @@ first, so coverage is not claimed complete). The doc fixes that landed with it:
 Two report-only items were **not** applied: the parent portfolio router's `Catalog.db` description
 contradicts this repo (a cross-repo edit), and `archive/PCL-WrapperRoadmap.md`'s Phase A premise was
 overtaken by `Astronomy.XISF` — now flagged in `ROADMAP.md` rather than silently rewritten.
+
+## 2026-07-23 — resolver panel scoping, write-back absence-stamping, alias-fold removed
+
+Four commits that together settled how panels anchor and what write-back is allowed to leave alone.
+
+- **Panel-scope match tolerance (`e07efd9`).** Panel spacing is a fraction of a field, so the 0.5° target
+  tolerance let an unrelated framing filed under a mosaic directory arrive as a flagged coordinate match
+  ~0.2° from a planned panel. `ResolveOptions` gains `PanelMatchToleranceDegrees` (default 0.1°, generous
+  for planned-vs-plate-solved offsets, which are arcminutes). Beyond it the TS panel stays planned and the
+  directory stays actual-only — no claim, no name-mismatch flag.
+- **…then gated on name alignment (`c27ac7d`, Clamshell P5 regression).** The flat 0.1° radius falsely
+  unmatched a *real* panel whose planned-vs-plate-solved drift exceeds it (token-aligned `Panel 5of6` ↔
+  `… P5`), and the new absence-stamping then zeroed its counts — while the radius exists precisely to
+  reject nearby *unrelated* framings. Distance cannot separate the two cases (both live in the 0.1–0.5°
+  band); the token can. Rule in `TargetResolver` + `SingleTargetPlanner`: an **aligned** panel directory
+  anchors within the full `MatchToleranceDegrees` (name confirms identity, drift absorbed); an
+  **unaligned** claim is limited to `PanelMatchToleranceDegrees` (coordinates alone are trusted only at
+  plate-solve precision).
+- **Disk truth covers absence (`c6e83b2`).** `WriteBackPlanner` groups *every* existing plan, not just
+  `Both`-resolved targets': a plan on a target with no disk match stamps to 0 like any other unmet spec, so
+  stray counts or a diverged accepted/acquired pair on a not-yet-shot target heal instead of persisting
+  forever (the consumer's diff layer keeps clean 0/0 plans as no-ops). Identity-flagged cells still route to
+  manual; `IgnoredMissing` now counts disk-only targets only — write-back never creates plans.
+- **Alias-fold mechanism removed (`306f6fd`, breaking).** The alias escape (≥2 TS names each exactly
+  matching a disk identity facet auto-resolve unflagged, write-back writing disk counts to every member)
+  let the unintentional M27/Dumbell twin pass as benign for weeks. The hand-edit doctrine abolishes the
+  category: every multi-claim is now `DuplicateTsTarget` (`IsAliasName` deleted), `CatalogBuildReport`
+  drops the alias fields, and `WriteBackPlanner`'s exemption branch dies — ex-alias multi-plan cells hold
+  as `ManualGroup(DuplicateFold)`, never auto-written. Single-target naming freedom is unaffected.
+  `CatalogBuildReport`'s ctor loses a parameter; the sole consumer (TSM) updated in lockstep. 171 tests.
 
 ## 2026-07-07 — Contracts.Tests refresh: TS surface pinned (#19–#23), #6/#10 gaps closed
 

@@ -15,9 +15,48 @@ The PCL wrapper is a deep but **settled / parked** subsystem; its design records
 
 Latest three only. **Full shipped history: [`CHANGELOG.md`](CHANGELOG.md)** (append-only, dated, newest first).
 
-- **2026-07-24** — `ObservationSession` ships in Astronomy.Diagnostics (TSM's dialog orchestration lifted library-side; new `Astronomy.Diagnostics.Tests`; assumption #25 pinned; both consumers adopted same-day in their own repos, visual passes complete).
-- **2026-07-24** — editor write path hardened: ungated `Set*` setters removed, `TrySetField` is the sole public write (reflection-pinned by the bench; constellation DRC green).
-- **2026-07-24** — contract bench NINA gap closed: `NamedSitePersistenceContractTests` pins the #2 sites-file serialization shape; bench now covers all five managed assemblies.
+- **2026-07-29** — an off-footprint framing is *priced*, not just flagged: new `Astronomy.Core.FieldFootprint` (rotated-rectangle overlap, `cos(dec)`-scaled) + `XisfHeader` angular field from `<Image geometry>`; a serving framing prices nothing above `OnFootprintFraction` (0.95).
+- **2026-07-29** — write-back credits only frames whose framing serves the plan: `FramingCluster.ServesPlanRotation` is the one predicate behind the badge, the bulk sum, and surgical routing, so counts and badge can't disagree.
+- **2026-07-29** — framing (fold-180 rotation + cluster centroid) keys the disk plane: `FramingCluster`/`FramingClusterer` run per unit before aggregate grouping, so a pier flip merges and a translated stray separates.
+
+## Open: split `ARCHITECTURE.md` — it crossed the size where one file still helps
+
+The 2026-07-29 maintain sweep grew it 38.4 → 48.9 KB (+27%), and three module sections now carry 38 of
+those 49 KB: **Astronomy.Core 14.0 KB, Astronomy.Catalog 13.7 KB, Astronomy.PCL 10.5 KB** (the other five
+total ~10 KB). Nothing in it is off-charter — it is one section per buildable module exactly as its
+charter says, which is *why* the fix is a structural split rather than a trim. It passed the
+promote-into-it test at 38 KB at the start of that sweep; it would not pass it at the start of the next
+one, and Catalog grows with every framing change.
+
+Options: (a) per-module files (`docs/architecture/<module>.md`) with `ARCHITECTURE.md` demoted to the
+module index — cleanest, most churn; (b) extract only the two heavyweights (Core, Catalog), leaving the
+small modules inline — least churn, asymmetric; (c) split Core's three subsections (conventions /
+thread-safety / code-organization) out as the API-conventions doc they effectively already are. Run it as
+its own adjudicated job **before** the next maintain sweep promotes into these sections, and land held
+promotions in the new homes.
+
+## Open: consumer UI terminology has leaked into public XML docs
+
+`DOMAIN.md` § *Multi-consumer strategy* bans consumer **UI terminology** from the public surface and its
+`///` docs (app names like TP/TSM are fine — chart names, control names and per-app feature vocabulary are
+not). The 2026-07-24 docs audit recorded this axis as *report-only* and the sweep never ran, so ~9 sites
+still carry it — TP chart names and a TP member name in `NightCache`, "chart-cache prepare loop" in
+`ObserverInfo`, the chart's "Symmetric" semantics in `BestSession`, and a consumer keybinding (`Ctrl+N`)
+in both `Log` and `ScreenCapture`. Full site list, verified line numbers, and suggested neutral wording:
+**`docs/2026-07-29-maintain-report.md`** § *Code bug*. Doc-only change to the library's XML comments; the
+same leak class as the "Optimal-chart series" catch in `CoarseVisibility.cs`.
+
+## Open: pin two unnumbered contract facts
+
+Two behaviours consumers already depend on are documented in `CONSUMERS.md` § *Contract facts not yet
+numbered* but not pinned as numbered assumptions, because numbering them requires a bench test or a
+`NotCleanlyTestableAssumptions.cs` registry entry (the covered-or-registered rule), which the docs sweep
+that found them could not make: **(a)** Catalog cancellation throws and never returns a partial
+graph/report — compiler-invisible if it regresses, since every token parameter is optional (today only
+`Resolve_ObservesCancellation` in `Astronomy.Catalog.Tests` guards it); **(b)** write-back's four-part
+join key `(target, filter, purpose, whole-second exposure)` — a silent-wrong-result surface, since a
+duration mismatch writes `DiskCount = 0` to a live TS plan. Give each a bench test (preferred) or a
+registry entry, then promote both to numbered assumptions.
 
 ## Open: parked PCL wrapper-extension plan — premise needs re-checking
 
@@ -90,6 +129,13 @@ The four open directions in summary:
    table loops.** Biggest perf upside in the portfolio; needs a
    vectorised sin/cos (hand-rolled polynomial approximation or lookup
    table) since .NET doesn't auto-vectorise scalar `Math.Sin`/`Cos`.
+   **Payoff rose when the K-S Δmag gate shipped (2026-07-24):** the gate's
+   per-minute cost is dominated by the moon-position evaluation
+   (`MoonSeparation.ObserveAt`, ~1,425 ns — `KsAt` adds ~5.6 ns, the sun
+   call ~147 ns), and `BestSession.MoonClearIntersect` now walks it per
+   minute, so this moved off the microbench and onto the placement hot
+   path (cost breakdown:
+   `openspec/changes/archive/2026-07-24-ks-dmag-moon-gate/proposal.md` § Why).
 3. **Estrin's-scheme polynomial parallelisation.** Drop-in alternative
    to Horner for longer chains; modest win on 4-term polynomials, grows
    logarithmically with length.
@@ -105,6 +151,7 @@ The 2026-05-18 library review and its re-check both fully closed — every actio
 
 - **F5.7 Phase 3 — NINA-as-oracle parity.** The parity baseline currently freezes the Library's *own* post-CoordinateSharp output as a self-snapshot (catches drift, but not an independent-implementation check). Promoting it to "Library matches NINA within tolerance" needs a small `tools/NinaParityExtract` exe referencing `NINA.Astrometry` (with `NOVAS31.dll` co-located), calling `AstroUtil` directly to dodge `IProfileService`, emitting `ParityFixtures.BaselineSnapshot` initializers for a NINA-sourced sibling of the existing `ParityFixtures.Baselines` dictionary. ~30–60 min, native-DLL co-location the likeliest stumble. Lower-fidelity alternative: NOAA/USNO web baselines for the 9 fixtures. Full integration scope in the archived follow-ups doc.
 - **Docstring drift — resolved (2026-07-07 audit).** Both cited sites were in fact fixed the same day as the review (`0e777de`), and `AltAzCalculator.Of` was later deleted outright (`b3fc182`) — nothing remains to do. Kept only for the standing warning: the review's other residuals — single-value hemisphere extensions and the `360.985647` Meeus citation literal — were deliberately left as-is; do not "fix" them.
+- **Two further findings were considered and declined** (from `archive/2026-05-18-library-review-followups.md` § *Intentional non-actions*), both the kind a later reviewer re-raises. **C2:** do *not* unify `MoonSeparation.IntervalsAboveDeg` with `BestSession.MoonClearIntersect` behind a shared generic `IntervalSweep` — the predicates differ in observation arity and the type gymnastics outweigh the readability win. **D1:** `TargetGeometry.HourAngleAtAltitude`'s `(latDeg, decDeg, altDeg)` parameter order differing from its siblings' `(haHours, latDeg, decDeg)` is intentional, governed by the "input drives the signature" rule. *(That doc's fourth non-action, C4 — `LunarAge.DaysAt` throwing as the lone exception to a lenient rule — is now obsolete: the 2026-07-24 UTC gate made throwing library-wide.)*
 
 ## Open: publish to GitHub
 
@@ -148,6 +195,11 @@ here so it doesn't drift out of memory.
 1. **License.** Pick one and add a `LICENSE` file at the repo root. Typical
    for libraries: MIT, Apache 2.0, BSD-3. For Option B, verify chosen
    license is compatible with PCL Open License (see `PCL/COPYING.md`).
+   *Mostly answered already:* the PixInsight Class Library License is
+   **permissive, BSD-style** — redistribution allowed, attribution required,
+   and `LICENSE.txt` must be bundled with any redistributed binaries
+   (characterization in `archive/PCL-InterOp.md` § *License note*). Confirm
+   against the current upstream text before committing to Option B.
 2. **Personal-data scrub.** Same kind of pass as TargetPlanner's
    2026-05-08 scrub:
    - `Astronomy.Core.Tests/Tests/Astrometry/ParityFixtures.cs` has inline

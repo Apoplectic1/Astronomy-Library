@@ -16,6 +16,12 @@ grep-verified real usage (2026-06-28; refreshed 2026-07-07, re-audited 2026-07-2
   in `NotCleanlyTestableAssumptions.cs`; retired assumptions keep their numbers (normative spec:
   `openspec/specs/contract-assumption-pinning/`). The bench covers all five managed assemblies
   (NINA added 2026-07-24 — `NamedSitePersistenceContractTests` pins #2's serialization shape).
+- **The bench pins *current behavior* — it does not legislate.** When a contract test exposes a
+  behavior-vs-doc mismatch, the mismatch is **surfaced for adjudication, never silently patched**, and
+  production code is not changed merely to make a pin pass. The rule has paid off twice: #19/#20's
+  `exposure = 0` divergence (adjudicated 2026-07-07 — the doc was wrong, TS's real sentinel is `!= -1`)
+  and the K-S calibration table mislabeling the narrowband gibbous cluster as full-moon, caught by the
+  pinning test before ship. A pin that "fails" is evidence, not a chore.
 
 ---
 
@@ -66,13 +72,21 @@ No consumer→consumer references. Note: **Catalog does NOT depend on Core** (it
   day it added itself**: `Log.UserObservation*`, `Log.NewObservationScreenshotPath` and
   `ScreenCapture.ToPng` are now called only *inside* `ObservationSession` — in-assembly
   composition, not consumer surface (like `Log.FilePath`, which feeds the session's status text).
-  (`Log.ScreenshotsFolderPath` still has no caller at all — dead-surface list.)
+  (`Log.ScreenshotsFolderPath` has no *external* caller — it stays on the dead-surface list, but it is
+  reached in-assembly as the composition root of the screenshot chain, `ScreenshotsFolderPath` →
+  `NewObservationScreenshotPath` → `ObservationSession`, exactly parallel to `Log.FilePath`. Not safe to
+  delete outright.)
 - **Astronomy.Catalog** — *TSM*: `Scan.ImageLibraryScanner.ScanAsync` + `ImageLibraryReport`;
   `Scan.MosaicConvention.PanelLabel`; `Scan.FilterPurpose` + `Scan.FilterPurposeClassifier.Classify`;
   `Build.TargetResolver.Resolve` + `ResolveOptions` +
   `CatalogGraph` + `CatalogBuildReport` and its typed issue rows —
   `NameMismatch`/`AmbiguousMatch`/`InvalidTsTarget`/`DuplicateTsTarget`/`UnanchoredTsTarget`/`TargetMatchIssues`;
   `Reconcile.ReconciliationProjection.Project` + `TargetCells`/`ReconciliationCell`;
+  `Scan.RotationExpression` (the Sky/Mechanical/Unknown enum — frozen into TSM's own
+  `ReconciliationRow` and its rotation formatter) and the static `Scan.FramingCluster.Fold180`
+  (**TSM applies the library's fold to the *plan-side* target rotation** so plan and disk rows read
+  identically — changing the enum's members or the fold convention silently desynchronizes the two
+  planes in the consumer);
   `TargetScheduler.TargetSchedulerReader`(+`TsPlanData` and its element records `TsTarget`/`TsProject`);
   `TargetScheduler.TargetSchedulerEditor.TrySetField`(+`FieldEditResult`/`RefusalReason`/`TsTable`) +
   `.ReadPlanEffectiveExposure`; `TargetScheduler.EffectiveExposure.Seconds` (the standalone static
@@ -109,7 +123,7 @@ No consumer→consumer references. Note: **Catalog does NOT depend on Core** (it
   reason those stay pinned, not TSM.)
 - **Astronomy.XISF** — *TP call sites* (the assembly itself flows transitively via NINA — no direct
   ProjectReference): `XisfHeaderReader.ReadAsync` + `XisfHeader.{RaDegrees, DecDegrees,
-  ObjectName, ImageType}`. Catalog's scanner (TSM's path) uses **17 of the 39 accessors**:
+  ObjectName, ImageType}`. Catalog's scanner (TSM's path) uses a **subset** of the typed accessors:
   `ObjectName`, `RaDegrees`, `DecDegrees`, `DateObsUtc`, `ExposureSec`, `Gain`, `OffsetRaw`,
   `SetTempC`, `XBinning`, `YBinning`, `Instrument`, plus the framing set —
   `RotatorSkyAngleDeg`, `RotatorPosAngleDeg` (2026-07-29, framing clusters) and `PixelWidth`,
@@ -172,6 +186,28 @@ or registered in `NotCleanlyTestableAssumptions.cs` with the reason (see *How th
    context (no context is captured at `Begin`) — **call from the UI thread**. (Both dialogs wire
    `Cancel` to their close-X fallback; whichever terminator fires first wins.)
 
+### Contract facts not yet numbered
+
+Two behaviours consumers already depend on, documented here but **not yet pinned as numbered
+assumptions** — numbering them requires a bench test or a registry entry, which is a code change (see
+`ROADMAP.md` § *Open: pin two unnumbered contract facts*):
+
+- **Cancellation throws; no partial result is ever returned.** Every long-running Catalog entry point
+  takes an optional `CancellationToken` and genuinely observes it: `TargetSchedulerReader.ReadPlanData`
+  and the `Read*` family (forwarded to the private `Query<T>` choke point, checked **per row**),
+  `TargetResolver.Resolve` (each phase boundary, plus per TS target in the anchoring pass — the one
+  super-linear loop), `CatalogBuilder.BuildAsync`, and `ImageLibraryScanner.ScanAsync`. A cancelled call
+  throws rather than returning a truncated graph or report. Because the parameters are optional, a
+  regression here is **compiler-invisible** — nothing breaks if the token silently stops being observed.
+  (Guarded today by `Resolve_ObservesCancellation` in `Astronomy.Catalog.Tests`, not by the bench.)
+- **Write-back's join key is (target, filter, purpose, whole-second exposure).** A plan receives the disk
+  count at exactly its `round(ExposureSeconds ?? template default)` bucket and nothing else (filter
+  compared ordinal-ignore-case). Same-purpose plans at different durations resolve to separate writes
+  rather than manual; a disk bucket with no plan at that duration surfaces as an `UnplannedFrames`
+  `ReconcileNote` and is never folded into a neighbouring plan; and no frames at the plan's duration is a
+  real `DiskCount = 0` write ("spec unmet"), not a skip. This is a silent-wrong-result surface — a
+  duration mismatch writes 0 to a live TS plan.
+
 ## Fragility flags
 - **Three public `Target` types** — `Core.Targets.Target` (class), `NINA.Target` (class), `Catalog.Schema.Target` (record). Naming-overload hazard; consumers alias around it.
 - **Positional-ctor coupling (latent, partially defused)** — the wide record ctors are still a
@@ -194,10 +230,14 @@ Astronomy.Catalog persistence** (`CatalogStore`, `SchemaManager`, `CatalogBuilde
 many **Core statics**
 (`Sun.*` beyond `SunPosition` — `SunEvents`, `SunPower`, `SunTracking`, `SunSeparation`,
 `SunHeliographic`; `Night.TwilightCalculator` **and** `Brightness.Twilight` — two distinct types,
-both uncalled; `Locations.LocationExtensions` / `Targets.TargetExtensions`; and in `Session` exactly
+both uncalled; and in `Session` exactly
 **`VisibilityWindows`, `IntegratedQuality`, `QualitySamples`, `RiseSet`**) · **XISF `Compression`**
-+ the 21 `XisfHeader` members with no caller anywhere (the weight/quality block, optics/pointing,
-focuser/rotator, `CcdTempC`, `InstrumentDescription`, `Filter`, `KeywordNames`) ·
++ the `XisfHeader` members with no caller anywhere (the weight/quality block, optics/pointing, the
+unused focuser accessors, `CcdTempC`, `InstrumentDescription`, `Filter`, `KeywordNames`) ·
+`Core.Horizons.ObstructionTableHorizonProfile` (the fourth `IHorizonProfile` implementation — its
+three siblings are all live TP surface) · `Catalog.TargetScheduler.SingleTargetPlanner` (the
+surgical sibling of `WriteBackPlanner`; the bulk path left this list 2026-07-06 when TSM's
+write-back shipped, the surgical path never followed) ·
 **Diagnostics** `Log.FilePath` / `Log.ScreenshotsFolderPath`.
 
 > **The `Session` members are named deliberately.** `SessionSolvers` and `TargetOrdering` are **live TP
