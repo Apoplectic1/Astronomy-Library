@@ -109,11 +109,14 @@ No consumer→consumer references. Note: **Catalog does NOT depend on Core** (it
   reason those stay pinned, not TSM.)
 - **Astronomy.XISF** — *TP call sites* (the assembly itself flows transitively via NINA — no direct
   ProjectReference): `XisfHeaderReader.ReadAsync` + `XisfHeader.{RaDegrees, DecDegrees,
-  ObjectName, ImageType}`. Catalog's scanner (TSM's path) uses **12 of the 34 accessors** (33 typed
-  per-keyword + `KeywordNames`): `ObjectName`, `RaDegrees`, `DecDegrees`, `DateObsUtc`,
-  `ExposureSec`, `Gain`, `OffsetRaw`, `OffsetNormalized`, `SetTempC`, `XBinning`, `YBinning`,
-  `Instrument` — not the full surface; TP additionally reads `ImageType`, and the remaining 21 have
-  no caller anywhere (see dead surface).
+  ObjectName, ImageType}`. Catalog's scanner (TSM's path) uses **17 of the 39 accessors**:
+  `ObjectName`, `RaDegrees`, `DecDegrees`, `DateObsUtc`, `ExposureSec`, `Gain`, `OffsetRaw`,
+  `SetTempC`, `XBinning`, `YBinning`, `Instrument`, plus the framing set —
+  `RotatorSkyAngleDeg`, `RotatorPosAngleDeg` (2026-07-29, framing clusters) and `PixelWidth`,
+  `PixelHeight`, `FieldWidthDeg`, `FieldHeightDeg` (2026-07-29, footprint overlap). Not the full
+  surface; TP additionally reads `ImageType`, and the rest have no caller anywhere (see dead
+  surface). *(`OffsetNormalized` was deleted 2026-07-27 — XFM never divided, so offset is raw on
+  both planes.)*
 - **Astronomy.NINA** — *TP, only `Persistence`*: `NamedSite`, `PlanningPreferencesDto`. (The root
   namespace + `ReportToTargetAdapter` have no external consumer — see dead surface.)
 
