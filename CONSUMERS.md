@@ -42,13 +42,15 @@ Both consume **by `ProjectReference` (source) — no DLL, no NuGet.** That's the
 - NINA plugin/source + other Astronomy projects — no Library reference.
 
 So the live constellation is a **3-node graph** (Library → TP, TSM), not the 5-consumer web the docs imply.
-Three nodes, but **six edges** as of 2026-07-23 — TSM's Core adoption added one; see the graph below.
+Three nodes, but **seven edges** as of 2026-07-29 — TSM's Core adoption added one on 2026-07-23, and
+Catalog took its own direct Core dependency on 2026-07-29 (framing pricing calls `FieldFootprint`); see the
+graph below.
 
 ## Dependency graph
 
 ```
 Core (base)      XISF (base)      Diagnostics (base)
-Catalog → XISF
+Catalog → XISF, Core          (Core edge added 2026-07-29 — FieldFootprint)
 NINA    → Core, XISF, Catalog
 PCL     → Core  (+ native Astronomy.PCL.Native, build-only)
 
