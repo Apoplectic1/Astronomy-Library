@@ -509,7 +509,16 @@ public static class TargetResolver
     // The disk path validates/clamps at the scanner; the TS plan does not, so a single out-of-range external row
     // must never abort the whole rebuild. Unknown enum codes map to a safe default; coordinates are normalized.
 
-    private static Epoch SafeEpoch(int code) => code is 0 or 1 or 2 ? (Epoch)code : Epoch.J2000;
+    // TS persists NINA's Epoch enum ints (JNOW=0, B1950=1, J2000=2, J2050=3) — the REVERSE of this
+    // library's epoch lookup for codes 0/1 — so translate explicitly: a raw cast would silently swap
+    // JNow and B1950. J2050 has no lookup row here; like any unrecognized code it coerces to J2000
+    // (FlagIfSuspect reports it) per the coerce-don't-abort rule above.
+    private static Epoch SafeEpoch(int code) => code switch {
+        0 => Epoch.JNow,
+        1 => Epoch.B1950,
+        2 => Epoch.J2000,
+        _ => Epoch.J2000,
+    };
 
     private static ProjectState SafeState(int state) =>
         state is 0 or 1 or 2 or 3 ? (ProjectState)state : ProjectState.Draft;

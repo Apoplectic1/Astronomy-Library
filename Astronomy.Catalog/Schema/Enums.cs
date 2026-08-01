@@ -24,7 +24,10 @@ public enum ProjectPriority
     High = 2,
 }
 
-/// <summary>Coordinate epoch. Mirrors the <c>epoch</c> lookup table and TS's <c>epochcode</c> (J2000 = 2).</summary>
+/// <summary>Coordinate epoch. Mirrors the <c>epoch</c> lookup table (B1950 = 0, JNow = 1, J2000 = 2).
+/// ⚠ This is NOT TS's int convention: TS persists NINA's <c>Epoch</c> enum (JNOW = 0, B1950 = 1,
+/// J2000 = 2, J2050 = 3) — only J2000 agrees. Translate at the TS boundary (see
+/// <c>TargetResolver.SafeEpoch</c>); never cast a raw TS code into this enum.</summary>
 public enum Epoch
 {
     /// <summary>B1950 (id 0).</summary>

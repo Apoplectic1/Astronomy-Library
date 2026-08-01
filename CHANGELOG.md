@@ -9,6 +9,20 @@ backstop — this is the human-legible layer above it.
 **Entry format:** `## YYYY-MM-DD — <what landed>` (a month-only `YYYY-MM` is fine when the exact day
 wasn't recorded). Newest first; add new entries directly below this charter, never at the bottom.
 
+## 2026-08-01 — TS epoch codes are translated, not cast (JNOW/B1950 were silently swapped)
+
+Found by the IS repo's docs audit (round 4). TS persists NINA's `Epoch` enum ints — JNOW = 0,
+B1950 = 1, J2000 = 2, J2050 = 3 — while the catalog's `epoch` lookup orders B1950 = 0, JNow = 1,
+J2000 = 2: only J2000 agrees. `TargetResolver.SafeEpoch` raw-cast the TS int into the catalog enum, so
+any non-J2000 TS target would have imported with JNow and B1950 silently swapped. Latent — every real
+target is J2000 — but exactly the silent cross-tree mis-map the harden rule exists to prevent.
+
+Fix: `SafeEpoch` is now an explicit translation table (0 → `JNow`, 1 → `B1950`, 2 → `J2000`; anything
+else — including NINA's unmodeled J2050 — coerces to `J2000` and is still reported via
+`FlagIfSuspect`, unchanged). Doc comments on `Schema/Enums.cs → Epoch` and `TsTarget.EpochCode` now
+state both conventions and the translate-never-cast rule at the TS boundary. A new `[Theory]` in
+`TargetResolverTests` pins all four codes. Catalog 240 tests green (+4); Contracts 61 green.
+
 ## 2026-07-29 — a framing off the plan's footprint is priced, not just flagged
 
 The framing badge said a row's frames point somewhere the plan did not ask for; it never said *how far*

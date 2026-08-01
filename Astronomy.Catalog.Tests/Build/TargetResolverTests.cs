@@ -189,6 +189,25 @@ public sealed class TargetResolverTests
         Assert.Equal("Bad Row", bad.TsName);
     }
 
+    // TS persists NINA's Epoch enum ints (JNOW=0, B1950=1, J2000=2, J2050=3) — the reverse of the
+    // catalog's B1950=0 / JNow=1 for the first two. A raw cast would silently swap JNow and B1950;
+    // this pins the explicit translation. J2050 (3) is unmodeled here: coerced to J2000 AND reported.
+    [Theory]
+    [InlineData(0, Epoch.JNow, false)]
+    [InlineData(1, Epoch.B1950, false)]
+    [InlineData(2, Epoch.J2000, false)]
+    [InlineData(3, Epoch.J2000, true)]
+    public void Resolve_TsEpochCode_TranslatesNinaConvention_NotRawCast(int tsCode, Epoch expected, bool flagged)
+    {
+        TsPlanData ts = Plan(targets: [new TsTarget(1, "Epoch Row", Active: 1, Ra: 5.0, Dec: 10.0,
+            EpochCode: tsCode, Rotation: null, Roi: null, ProjectId: 10, Priority: -1, TsGuid: "g-epoch")]);
+
+        (CatalogGraph g, CatalogBuildReport r) = TargetResolver.Resolve([], ts, Now);
+
+        Assert.Equal(expected, Assert.Single(g.Targets).Epoch);
+        Assert.Equal(flagged ? 1 : 0, r.InvalidTsTargets.Count);
+    }
+
     [Fact]
     public void Resolve_Mosaic_PanelsBecomeChildren_PlansRewireToChildren()
     {

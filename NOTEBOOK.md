@@ -13,6 +13,10 @@ swapped, and J2050 (3) coerces to J2000 via the unknown-code default. Latent —
 is J2000=2 — but it is a contract-grade silent mis-map at the TS boundary: the fix is a mapping,
 not a cast. Full evidence: IS `docs/2026-08-01-audit-report.md`.
 
+**Resolved same day** (user-directed): `SafeEpoch` is now an explicit translation table, a `[Theory]`
+pins codes 0–3 (incl. J2050 → coerce + report), and the doc comments on `Epoch` and
+`TsTarget.EpochCode` carry both conventions. See CHANGELOG 2026-08-01.
+
 ## 2026-07-24 — "pre-Init Log calls are safe no-ops" is only true until someone Inits mid-run
 
 Intermittent (~1-in-3) `IOException` in `LogLifecycleContractTests`: the new

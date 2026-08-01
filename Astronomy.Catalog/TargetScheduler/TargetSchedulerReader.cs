@@ -9,7 +9,9 @@ namespace Astronomy.Catalog.TargetScheduler;
 /// <summary>A TS <c>project</c> row. <c>TsGuid</c> is TS's stable identifier (reused as the catalog id on import).</summary>
 public sealed record TsProject(long Id, string ProfileId, string Name, int State, int Priority, double? MinimumAltitude, int IsMosaic, string? TsGuid);
 
-/// <summary>A TS <c>target</c> row. <c>Ra</c> is decimal hours; <c>Dec</c> is signed decimal degrees; <c>EpochCode</c> 2 = J2000.</summary>
+/// <summary>A TS <c>target</c> row. <c>Ra</c> is decimal hours; <c>Dec</c> is signed decimal degrees; <c>EpochCode</c>
+/// is NINA's <c>Epoch</c> enum int (JNOW = 0, B1950 = 1, J2000 = 2, J2050 = 3) — NOT this library's
+/// <c>Epoch</c> ordering, whose 0/1 are reversed. Translate (never cast) before storing.</summary>
 public sealed record TsTarget(long Id, string Name, int Active, double? Ra, double? Dec, int EpochCode, double? Rotation, double? Roi, long? ProjectId, int Priority, string? TsGuid);
 
 /// <summary>A TS <c>exposureplan</c> row (desired/acquired/accepted counts per target/filter).</summary>
