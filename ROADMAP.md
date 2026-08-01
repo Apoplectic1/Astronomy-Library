@@ -97,15 +97,15 @@ Captured with the Phase A/B work (2026-05-18); neither phase has started. *(Move
 
 **Decision (2026-06-28, reaffirmed 2026-07-24): keep the unused public surface — do not prune.**
 A large fraction of the public API has no external caller today; the inventory lives in `CONSUMERS.md`
-§ *Dead / speculative public surface*. Much of it is for the **planned IntervalScheduler Plugin (ISP —
+§ *Dead / speculative public surface*. Much of it is for the **planned IntervalScheduler plugin (IS —
 not yet started)** and XFM's planned Library migration. The TSM write-back action was once on that list
 and shipped 2026-07-06 consumed as-built, which validated the call: this is *API ahead of its
 consumers*, not dead generality. A smaller public surface is still better in principle, but pruning
-here would just be rebuilt when ISP lands.
+here would just be rebuilt when IS lands.
 
 **Revisit a block only if it ends up with no planned consumer.** *(Moved here 2026-07-24 from
 `CONSUMERS.md`: this is a forward-looking commitment, and it was the only library-level record of the
-ISP plan — invisible to anyone following the router's "forward-looking → ROADMAP" rule.)*
+IS plan — invisible to anyone following the router's "forward-looking → ROADMAP" rule.)*
 
 ## Open: SIMD / FMA deep dive
 

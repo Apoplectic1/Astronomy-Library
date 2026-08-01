@@ -15,7 +15,7 @@ namespace Astronomy.Core.Moon
     /// site. The shared per-night primitive that drives moon-clear gates
     /// (<see cref="MoonSeparation"/>) and sky-brightness walks
     /// (<see cref="Astronomy.Core.Brightness.SkyBrightness.KsAt"/>) downstream;
-    /// memoized by TP's <c>mMoonAxis</c> and ISP's Tier 2 cache.
+    /// memoized by TP's <c>mMoonAxis</c> and IS's Tier 2 cache.
     /// </summary>
     /// <remarks>
     /// <para>

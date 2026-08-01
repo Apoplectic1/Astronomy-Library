@@ -4,7 +4,7 @@ namespace Astronomy.Core.Session
     /// A single per-minute observation of a stellar target's apparent sky position
     /// at a fixed observer. Returned by <c>AltitudeCurve.Sample</c> and
     /// memoized by per-target trajectory caches in downstream consumers (TP's
-    /// <c>mDayAxis</c>, ISP's Tier 3 bitmap precompute).
+    /// <c>mDayAxis</c>, IS's Tier 3 bitmap precompute).
     /// </summary>
     /// <remarks>
     /// <para>

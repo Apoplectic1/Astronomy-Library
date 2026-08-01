@@ -31,7 +31,7 @@ namespace Astronomy.Core.Tests.Tests
         {
             // Location.Default carries neutral, ship-safe placeholder coordinates so the
             // public Library source contains no author-specific values; consumer apps
-            // (TargetPlanner, XisfManager, IS / ISP / ISS) override these via their own
+            // (TargetPlanner, XisfManager, IS, ISM) override these via their own
             // configuration layers. Tests anchored to specific real-world coordinates use
             // the TestLocations fixtures instead of Location.Default.
             Location loc = Location.Default;

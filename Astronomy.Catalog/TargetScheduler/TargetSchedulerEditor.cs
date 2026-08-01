@@ -25,7 +25,7 @@ public enum RefusalReason { None, SchemaIncompatible, ReadOnly, OpenSidecar, Col
 /// read-only shared cache left by a pooled reader), a busy-timeout, and column-presence guards
 /// (<see cref="HasRequiredColumns"/> / <see cref="HasOpenSidecar"/> / <see cref="IsReadOnly"/>) so the caller can
 /// refuse an incompatible or apparently-open db — validated by column presence, not an exact schema version
-/// (TS bumps that every nightly migration). Each write is read-back verified. Transitional, retires at the IS/ISP
+/// (TS bumps that every nightly migration). Each write is read-back verified. Transitional, retires at the IS
 /// cutover.
 /// <para>
 /// The editable surface is the declarative <see cref="TsEditableSchema"/>: <see cref="TrySetField"/> — the sole

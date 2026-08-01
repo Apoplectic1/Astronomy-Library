@@ -3,7 +3,7 @@ namespace Astronomy.Core.Moon
     /// <summary>
     /// A single per-minute observation of the Moon's state at a fixed observer.
     /// Returned by <c>MoonEphemeris.Sample</c> and memoized by per-night
-    /// moon caches in downstream consumers (TP's <c>mMoonAxis</c>, ISP's Tier 2
+    /// moon caches in downstream consumers (TP's <c>mMoonAxis</c>, IS's Tier 2
     /// nightly precompute). Target-independent — the same MoonSample sequence
     /// serves every target observed from the same site on the same night.
     /// </summary>

@@ -37,8 +37,9 @@ Both consume **by `ProjectReference` (source) — no DLL, no NuGet.** That's the
 **Not consumers** (despite portfolio proximity — important to be honest about):
 - **XisfFileManager** — has its own independent XISF/SQLite stack; *migration to Library is
   aspirational, not done.* Zero Library references today.
-- **IntervalScheduler** — empty WPF stub, zero references.
-- **LibraryCatalogManager** — stub repo only (`.git` + ROADMAP.md; no project, no Library reference).
+- **IntervalScheduler (IS)** — design docs only, no project, zero references (planned consumer).
+- **IntervalSchedulerManager (ISM)** — stub repo only (CLAUDE.md + ROADMAP.md; no project, no Library
+  reference; absorbed the deleted LibraryCatalogManager's charter 2026-08-01).
 - NINA plugin/source + other Astronomy projects — no Library reference.
 
 So the live constellation is a **3-node graph** (Library → TP, TSM), not the 5-consumer web the docs imply.
@@ -248,5 +249,5 @@ write-back shipped, the surgical path never followed) ·
 
 → **Do not prune.** The retention decision and its revisit-trigger are forward-looking, so they live in
 `ROADMAP.md` § *Open: public-surface retention — API ahead of its consumers*. Short version: this is
-API ahead of its consumers (the planned ISP plugin, XFM's migration), not dead generality. **This
+API ahead of its consumers (the planned IS plugin, XFM's migration), not dead generality. **This
 section is the inventory; the roadmap holds the policy.**

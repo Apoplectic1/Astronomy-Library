@@ -9,7 +9,7 @@
 The `Astronomy` library at `E:\Projects\VisualStudio\Astronomy\Library\` should expose [PCL](https://pixinsight.com/developer/pcl/) (the PixInsight Class Library, C++), now vendored at `E:\Projects\VisualStudio\Astronomy\Library\PCL\`, to managed C# consumers, while continuing to be usable from C++ consumers without disrupting them. Windows-only is the immediate target; Linux portability is acknowledged as harder and explicitly deferred.
 
 Consumer matrix (post 2026-05-04 portfolio bump):
-- **C# apps:** TargetPlanner, XisfManager, IS, ISS — all `net10` (or `net10.0-windows*` for WinForms/WPF hosts). NINA itself migrated upstream to `net10.0-windows`, so the planned ISP plugin inherits that.
+- **C# apps:** TargetPlanner, XisfManager, IS, ISM — all `net10` (or `net10.0-windows*` for WinForms/WPF hosts). NINA itself migrated upstream to `net10.0-windows`, so the planned IS plugin inherits that.
 - **C++ apps:** existing xisf utility in `PCL\src\utils\xisf\`, plus any future C++ tools.
 - **Library targets:** `Astronomy.Core` and `Astronomy.PCL` both target `net10.0`. (Originally the matrix was netstandard2.0 / net8.0 to bridge a TP-on-net481 host alongside the net10 desktop apps; that constraint disappeared when TP and NINA both migrated.)
 

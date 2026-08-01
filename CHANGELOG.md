@@ -239,8 +239,8 @@ across the whole linked closure (PCL + all six 3rd-party libs + xisf) while upst
 and the `__PCL_AVX2` source macros — are AVX2. The result was real, not theoretical: **5,635 ungated
 AVX-512 instructions in the Release `Astronomy.PCL.Native.dll`** (Debug: zero, since `/Od` doesn't
 auto-vectorize — meaning no Debug test anywhere could ever have caught it). The dev 7950X (Zen 4)
-executes them fine, but the imaging machine — the 4800U where ISP will run — is **Zen 2: no AVX-512
-at all**, so the first ISP call into the wrapper would have died with an illegal-instruction fault,
+executes them fine, but the imaging machine — the 4800U where IS will run — is **Zen 2: no AVX-512
+at all**, so the first IS call into the wrapper would have died with an illegal-instruction fault,
 likely masked as "Unknown C++ exception" by the wrapper's `catch (...)`.
 
 Restored `AdvancedVectorExtensions2` in the 8 sln-visible projects (= upstream's configuration; the
@@ -295,7 +295,7 @@ first, so coverage is not claimed complete). The doc fixes that landed with it:
   the four missing projects and the PCL native prerequisite chain are documented.
 - **Placement**: ARCHITECTURE had become the orphanage for forward-looking plans with no roadmap home
   — `ObservationSession`, NINA Phases C–D, and the XISF Tier 2-4 scope all moved to `ROADMAP.md`, as
-  did the public-surface retention decision (which was the only library-level record of the ISP plan,
+  did the public-surface retention decision (which was the only library-level record of the IS plan,
   invisible to anyone following the router's "forward-looking → ROADMAP" rule).
 - **Corrections worth naming**: "altitude is unrefracted" was false as a universal; the hemisphere
   ctors XOR rather than let sign override; `TargetSchedulerWriter` has no dry-run *default*; the
@@ -382,7 +382,7 @@ Reference-driven consumers render them with zero UI code. 163 tests (+ surface/b
 
 ## 2026-06-28 — CONSUMERS.md datasheet + Astronomy.Contracts.Tests bench
 
-`CONSUMERS.md` stakes out the Library's **de-facto public contract** — the "pinned pinout" derived from grep-verified real usage: who consumes the Library and how (only **TP + TSM**, by `ProjectReference`/source), the surface each depends on, 18 semantic assumptions (contract-test candidates), fragility flags, and a design-review decision on the large dead/speculative public surface (**keep, don't prune** — it's API ahead of its planned consumers: the ISP plugin, the TSM write-back action, XFM's Library migration; not cruft).
+`CONSUMERS.md` stakes out the Library's **de-facto public contract** — the "pinned pinout" derived from grep-verified real usage: who consumes the Library and how (only **TP + TSM**, by `ProjectReference`/source), the surface each depends on, 18 semantic assumptions (contract-test candidates), fragility flags, and a design-review decision on the large dead/speculative public surface (**keep, don't prune** — it's API ahead of its planned consumers: the IS plugin, the TSM write-back action, XFM's Library migration; not cruft).
 
 `Astronomy.Contracts.Tests` (13th buildable project) is the pure-managed xUnit-v3 **bench that pins those assumptions** — a red test = a violated contract. 17 testable assumptions green / 6 documented-not-cleanly-testable: e.g. `RaDegrees`=degrees, `LunarAge.DaysAt` UTC-guard, `MoonEphemeris.Sample` exact count, `MoonSeparation.ObserveAt` geometric-not-apparent, `CatalogGraph` FK-order + mosaic-panels-after-parent, `ScanAsync` throws on missing root, the editor's required-columns refusal (DB untouched), `SkyBrightness.KsAt` pinned golden value (locks the 10-param order). Run by the constellation DRC `..\build-all.ps1`. (The same pass also restructured the docs into the lean-router `CLAUDE.md` + per-module `ARCHITECTURE.md` / `VERIFICATION.md` set.)
 
@@ -495,7 +495,7 @@ foundation. XFM consumed it briefly (`e1cd34a`) but the adoption was reverted (X
 
 Extracted the per-minute observational compute that TargetPlanner rolled
 inline into pure-function AL primitives. Designed so the planned
-IntervalScheduler Plugin (ISP) cache can consume the same surface
+IntervalScheduler (IS) cache can consume the same surface
 without re-porting. No AL-side caching (pure functions per the "no
 static mutable state in Core" contract); consumers memoize at their own
 scope.
@@ -655,7 +655,7 @@ trimmed in a paired TP commit.
 
 ## 2026-05-18 — Astronomy.XISF: Tier 1 extraction
 
-The XISF reading primitives moved from `Astronomy.NINA/Xisf/` into a dedicated `Astronomy.XISF` library (7th and 8th buildable projects added: `Astronomy.XISF` + `Astronomy.XISF.Tests`). Rationale: the XISF file format is NINA-independent (PixInsight defines it); separating the reader from the planning layer makes it sharable across XFM, TP, ISP, and the user's other apps without dragging the planning model.
+The XISF reading primitives moved from `Astronomy.NINA/Xisf/` into a dedicated `Astronomy.XISF` library (7th and 8th buildable projects added: `Astronomy.XISF` + `Astronomy.XISF.Tests`). Rationale: the XISF file format is NINA-independent (PixInsight defines it); separating the reader from the planning layer makes it sharable across XFM, TP, IS, and the user's other apps without dragging the planning model.
 
 What landed:
 

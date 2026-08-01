@@ -46,7 +46,7 @@ public sealed record WriteBackResult(
 /// which TS bumps on every nightly migration). Sets only
 /// <c>exposureplan.acquired</c>/<c>accepted</c> (= disk count) and ratchets <c>exposureplan.desired</c> up to
 /// ≥ that count (never lowered); touches no <c>acquiredimage</c> rows and never alters the journal mode, so TS's
-/// rollback-journal db is left as-is. Dispose to close. Transitional — retires at the IS/ISP cutover.
+/// rollback-journal db is left as-is. Dispose to close. Transitional — retires at the IS cutover.
 /// </summary>
 public sealed class TargetSchedulerWriter : IDisposable
 {

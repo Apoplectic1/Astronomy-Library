@@ -23,7 +23,7 @@ namespace Astronomy.Catalog.TargetScheduler;
 /// <b>reported for manual resolution, never forced</b>. Unlike the bulk planner, plans with no matching cell are
 /// left untouched (never zeroed): this is a per-cell push tool, and a partial or unconventional directory scan
 /// must not be silently destructive to the anchored target's other plans.
-/// Transitional, like all TS interop: retires at the IS/ISP cutover.
+/// Transitional, like all TS interop: retires at the IS cutover.
 /// </summary>
 public static class SingleTargetPlanner
 {
