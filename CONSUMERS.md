@@ -39,7 +39,7 @@ Both consume **by `ProjectReference` (source) — no DLL, no NuGet.** That's the
   aspirational, not done.* Zero Library references today.
 - **IntervalScheduler (IS)** — design docs only, no project, zero references (planned consumer).
 - **IntervalSchedulerManager (ISM)** — stub repo only (CLAUDE.md + ROADMAP.md; no project, no Library
-  reference; absorbed the deleted LibraryCatalogManager's charter 2026-08-01).
+  reference).
 - NINA plugin/source + other Astronomy projects — no Library reference.
 
 So the live constellation is a **3-node graph** (Library → TP, TSM), not the 5-consumer web the docs imply.
