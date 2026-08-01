@@ -4,7 +4,7 @@ namespace Astronomy.NINA.Persistence;
 
 /// <summary>
 /// Cross-app persistence DTO for a named observing site. The serialised JSON shape
-/// is shared across consumer apps (TargetPlanner, IntervalScheduler, XisfManager)
+/// is shared across consumer apps (TargetPlanner, IntervalScheduler, XisfFileManager)
 /// so a sites array round-trips byte-for-byte between any of them.
 /// </summary>
 /// <remarks>
