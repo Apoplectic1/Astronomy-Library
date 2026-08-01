@@ -416,8 +416,8 @@ The catalog reconciles disk (actual) ↔ TS (plan) onto one canonical target and
 write-back shipped**. `TargetSchedulerWriter` + the pure `WriteBackPlanner` write reconciled disk-derived counts
 back into a **local copy** of TS's `schedulerdb.sqlite`, mapping catalog → exact TS rows via the retained
 `imported_from_ts_guid` provenance (TS's own `acquired_count` was badly stale vs disk — e.g. 0 H frames vs 140 on
-disk). A surgical single-target path (`SingleTargetPlanner` + `ImageLibraryScanner.ScanUnitsAsync`, driven by `tcm
-writeback --target`) updates one target — **per panel for a mosaic** — without a catalog rebuild. Driven from TCM
+disk). A surgical single-target path (`SingleTargetPlanner` + `ImageLibraryScanner.ScanUnitsAsync`, driven by `tsm
+writeback --target`) updates one target — **per panel for a mosaic** — without a catalog rebuild. Driven from TSM
 (since renamed TSM — `E:\Projects\VisualStudio\Astronomy\TargetSchedulerManager`, ROADMAP Phase 4; the CLI verbs
 retired 2026-06-11, engine resurfaces as an app action); operates on a local copy (the live TS
 DB lives on the imaging PC — cross-machine WAL caveat). ~~Open: alias-vs-duplicate handling for `M27`/`Dumbell`.~~
@@ -436,7 +436,7 @@ names, so no normalization. `ReconcilePolicy.Combined` (default) counts Light + 
 shooting RGB only as Stars for star colour); `LightOnly` excludes Stars. `Reconciler` (pure) +
 `CatalogStore.GetReconciliation` → per-(target,filter) desired/acquired/remaining/% + a target rollup status
 (NotStarted/InProgress/Complete/Unplanned). First real run: 101 planned targets (6 complete / 33 in-progress /
-62 not-started), 8221/30088 frames done; the TCM host prints the summary. 42 Catalog tests pass.
+62 not-started), 8221/30088 frames done; the TSM host prints the summary. 42 Catalog tests pass.
 
 ## 2026-06 — Astronomy.Catalog: disk(actual) + TS(plan) reconciled onto one canonical target
 
