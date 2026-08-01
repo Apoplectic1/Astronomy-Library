@@ -9,6 +9,17 @@ backstop — this is the human-legible layer above it.
 **Entry format:** `## YYYY-MM-DD — <what landed>` (a month-only `YYYY-MM` is fine when the exact day
 wasn't recorded). Newest first; add new entries directly below this charter, never at the bottom.
 
+## 2026-08-01 — the zero-warning ratchet extends to every shipped project (incl. the C++ wrapper)
+
+Follow-on to the test-bench sweep below, same day: all seven shipped projects — `Astronomy.Core`,
+`.Diagnostics`, `.XISF`, `.NINA`, `.Catalog`, `.PCL`, and `Astronomy.PCL.Native` — now build with
+warnings-as-errors (`TreatWarningsAsErrors` on the six csprojs; `/WX` via `TreatWarningAsError` in both of
+the vcxproj's `ClCompile` groups — wrapper TUs only, the vendored PCL libs are prebuilt). No code changes
+were needed: forced non-incremental rebuilds of all seven were already clean, in **both Debug and Release**,
+before the switch went on — so the ratchet locks in an existing state rather than papering over one.
+`Astronomy.Core.Benchmarks` deliberately excluded (not shipped, not test). Verified under enforcement:
+all seven rebuild clean in both configs; Catalog 240 + Core 472 suites re-run green end-to-end.
+
 ## 2026-08-01 — all six test projects at zero warnings, and warnings are now build breaks
 
 Two passes, same day. First `Astronomy.Catalog.Tests`: every ct-accepting call now passes

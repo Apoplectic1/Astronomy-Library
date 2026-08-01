@@ -48,10 +48,13 @@ dotnet test  Astronomy.Diagnostics.Tests/Astronomy.Diagnostics.Tests.csproj -p:P
 # Contract bench (the CONSUMERS.md pinout) — pure-managed
 dotnet test Astronomy.Contracts.Tests/Astronomy.Contracts.Tests.csproj -p:Platform=x64
 
-# All six test projects build with <TreatWarningsAsErrors> (since 2026-08-01, after 45 xUnit1051s
-# accumulated silently) — a new warning IS a build failure, not noise to scroll past. In test code,
-# pass TestContext.Current.CancellationToken to any ct-accepting call (xUnit1051); tests that
-# deliberately exercise cancellation keep their own cts.Token.
+# EVERY project in this repo builds with warnings-as-errors (since 2026-08-01, after 45 xUnit1051s
+# accumulated silently in test code): <TreatWarningsAsErrors> on all six test csprojs and all six
+# shipped csprojs, /WX (<TreatWarningAsError>) on Astronomy.PCL.Native's wrapper TUs. A new warning
+# IS a build failure, not noise to scroll past — fix it or (rarely, with a comment) suppress it
+# deliberately; never turn the ratchet off. Sole exception: Astronomy.Core.Benchmarks (not shipped,
+# not test). In test code, pass TestContext.Current.CancellationToken to any ct-accepting call
+# (xUnit1051); tests that deliberately exercise cancellation keep their own cts.Token.
 
 # NOTE: Astronomy.Core.Tests is NOT pure-managed — it ProjectReferences Astronomy.PCL,
 # which drags Astronomy.PCL.Native.vcxproj into its graph, so `dotnet test` on it alone
