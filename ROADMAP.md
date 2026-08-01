@@ -79,7 +79,7 @@ Captured 2026-05-18 with the Tier 1 extraction; **added when a real consumer nee
 design.** (Moved here from `CHANGELOG.md` on 2026-07-24: forward scope belongs in the roadmap, and
 `Astronomy.XISF.csproj` already pointed here.)
 
-- **Tier 2** — header write-back. Modify FITS keywords in place, preserving the image-attachment block. Required for XFM migration (XFM does rename / normalization / accept-reject prefix writes) and a future TPS grade-state keyword write.
+- **Tier 2** — header write-back. Modify FITS keywords in place, preserving the image-attachment block. Required for XFM migration (XFM does rename / normalization / accept-reject prefix writes) and a future TSM-side grade-state keyword write.
 - **Tier 3** — full image read. Pixel data decode for uncompressed + LZ4 + zlib + zstd. Borrow compression algorithm strategies from NINA's `XISFData`; don't pull NINA's classes (decouple). Required by any consumer that does actual image processing. *(Partially seeded: the shared zlib+shuffle+SHA-1 codec shipped 2026-06 — `Astronomy.XISF.Compression`, which still has no caller outside its own tests.)*
 - **Tier 4** — full image write. Image data composition + compression + checksum (SHA-256). Required for XFM's writes and any future image-save pipeline.
 
