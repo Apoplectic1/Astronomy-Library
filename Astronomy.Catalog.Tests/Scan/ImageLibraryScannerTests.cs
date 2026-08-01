@@ -69,7 +69,7 @@ public class ImageLibraryScannerTests
     public async Task ScanAsync_NonexistentRoot_Throws()
     {
         await Assert.ThrowsAsync<DirectoryNotFoundException>(
-            () => ImageLibraryScanner.ScanAsync(@"Q:\definitely\does\not\exist"));
+            () => ImageLibraryScanner.ScanAsync(@"Q:\definitely\does\not\exist", TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -82,11 +82,11 @@ public class ImageLibraryScannerTests
         string standardFrame = Path.Combine(root, "M1 - Crab", "Captures", "Z183", "H", "f.xisf");
         Directory.CreateDirectory(Path.GetDirectoryName(mosaicFrame)!);
         Directory.CreateDirectory(Path.GetDirectoryName(standardFrame)!);
-        await File.WriteAllTextAsync(mosaicFrame, "not xisf");      // invalid header → recorded in SkippedFiles
-        await File.WriteAllTextAsync(standardFrame, "not xisf");
+        await File.WriteAllTextAsync(mosaicFrame, "not xisf", TestContext.Current.CancellationToken);      // invalid header → recorded in SkippedFiles
+        await File.WriteAllTextAsync(standardFrame, "not xisf", TestContext.Current.CancellationToken);
         try
         {
-            ImageLibraryReport report = await ImageLibraryScanner.ScanAsync(root);
+            ImageLibraryReport report = await ImageLibraryScanner.ScanAsync(root, TestContext.Current.CancellationToken);
 
             // Both frames were reached by the walk. The mosaic frame sits one level deeper than a standard one, so
             // reaching it proves the scanner descended the opaque panel level (a non-mosaic walk would look for
@@ -111,7 +111,7 @@ public class ImageLibraryScannerTests
         WritePanelFrame(mosaic, "Z183", "Panel 02of02", "H", "p2a.xisf", ra: 312.0, dec: 31.5, bin: 2);
         try
         {
-            IReadOnlyList<TargetReport> units = await ImageLibraryScanner.ScanUnitsAsync(mosaic);
+            IReadOnlyList<TargetReport> units = await ImageLibraryScanner.ScanUnitsAsync(mosaic, TestContext.Current.CancellationToken);
 
             Assert.Equal(2, units.Count);
             TargetReport p1 = Assert.Single(units, u => u.DirectoryName == "Panel 01of02");
@@ -138,7 +138,7 @@ public class ImageLibraryScannerTests
         WriteFrame(Path.Combine(root, "M1 - Crab", "Captures", "Z183", "H"), "n.xisf", ra: 83.6, dec: 22.0, bin: 1);
         try
         {
-            ImageLibraryReport report = await ImageLibraryScanner.ScanAsync(root);
+            ImageLibraryReport report = await ImageLibraryScanner.ScanAsync(root, TestContext.Current.CancellationToken);
 
             // The mosaic's whole-target aggregate still sums the panels (one walk, both granularities)...
             TargetReport parent = Assert.Single(report.Targets, t => t.DirectoryName == "Mosaic - Demo");
@@ -171,7 +171,7 @@ public class ImageLibraryScannerTests
         WriteFrame(Path.Combine(target, "Captures", "Z183", "O"), "b.xisf", ra: 83.6, dec: 22.0, bin: 1);
         try
         {
-            IReadOnlyList<TargetReport> units = await ImageLibraryScanner.ScanUnitsAsync(target);
+            IReadOnlyList<TargetReport> units = await ImageLibraryScanner.ScanUnitsAsync(target, TestContext.Current.CancellationToken);
 
             TargetReport u = Assert.Single(units);
             Assert.Equal("M1 - Crab", u.DirectoryName);
@@ -187,7 +187,7 @@ public class ImageLibraryScannerTests
     public async Task ScanUnitsAsync_NonexistentDir_Throws()
     {
         await Assert.ThrowsAsync<DirectoryNotFoundException>(
-            () => ImageLibraryScanner.ScanUnitsAsync(@"Q:\definitely\does\not\exist"));
+            () => ImageLibraryScanner.ScanUnitsAsync(@"Q:\definitely\does\not\exist", TestContext.Current.CancellationToken));
     }
 
     // ---- calibration is excluded from the scan -----------------------------------------------------------
@@ -204,7 +204,7 @@ public class ImageLibraryScannerTests
         WriteConfiguredFrame(Path.Combine(captures, "Calibration"), "dark2.xisf", "GAIN", "111");
         try
         {
-            ImageLibraryReport report = await ImageLibraryScanner.ScanAsync(root);
+            ImageLibraryReport report = await ImageLibraryScanner.ScanAsync(root, TestContext.Current.CancellationToken);
 
             FilterAggregate agg = Assert.Single(report.Targets.Single().Filters);
             Assert.Equal(1, agg.ExposureCount);            // the light only
@@ -221,7 +221,7 @@ public class ImageLibraryScannerTests
             Path.Combine(root, "M81 - Bode", "Captures", "Calibration"), "dark.xisf", "GAIN", "111");
         try
         {
-            Assert.Empty((await ImageLibraryScanner.ScanAsync(root)).Targets);
+            Assert.Empty((await ImageLibraryScanner.ScanAsync(root, TestContext.Current.CancellationToken)).Targets);
         }
         finally { Directory.Delete(root, recursive: true); }
     }
@@ -258,7 +258,7 @@ public class ImageLibraryScannerTests
         WriteConfiguredFrame(Path.Combine(root, "M81 - Bode", "Captures", "Z183", "H"), "m.xisf", "GAIN", "111");
         try
         {
-            ImageLibraryReport report = await ImageLibraryScanner.ScanAsync(root);
+            ImageLibraryReport report = await ImageLibraryScanner.ScanAsync(root, TestContext.Current.CancellationToken);
 
             // The comet is absent entirely — and with it the session-folder-as-filter-code it would publish.
             TargetReport only = Assert.Single(report.Targets);
@@ -278,7 +278,7 @@ public class ImageLibraryScannerTests
         try
         {
             // The surgical entry point honours the exclusion too — both paths funnel through one guard.
-            Assert.Empty(await ImageLibraryScanner.ScanUnitsAsync(comet));
+            Assert.Empty(await ImageLibraryScanner.ScanUnitsAsync(comet, TestContext.Current.CancellationToken));
         }
         finally { Directory.Delete(root, recursive: true); }
     }
@@ -299,7 +299,7 @@ public class ImageLibraryScannerTests
         WriteConfiguredFrame(filterDir, "two.xisf", keyword, b);
         try
         {
-            ImageLibraryReport report = await ImageLibraryScanner.ScanAsync(root);
+            ImageLibraryReport report = await ImageLibraryScanner.ScanAsync(root, TestContext.Current.CancellationToken);
             IReadOnlyList<FilterAggregate> aggs = report.Targets.Single().Filters;
 
             Assert.Equal(2, aggs.Count);
@@ -317,7 +317,7 @@ public class ImageLibraryScannerTests
         WriteConfiguredFrame(Path.Combine(target, "Z533", "L"), "two.xisf", "GAIN", "53");
         try
         {
-            ImageLibraryReport report = await ImageLibraryScanner.ScanAsync(root);
+            ImageLibraryReport report = await ImageLibraryScanner.ScanAsync(root, TestContext.Current.CancellationToken);
             IReadOnlyList<FilterAggregate> aggs = report.Targets.Single().Filters;
 
             Assert.Equal(2, aggs.Count);
@@ -335,7 +335,7 @@ public class ImageLibraryScannerTests
         WriteConfiguredFrame(filterDir, "two.xisf", "GAIN", "111");
         try
         {
-            ImageLibraryReport report = await ImageLibraryScanner.ScanAsync(root);
+            ImageLibraryReport report = await ImageLibraryScanner.ScanAsync(root, TestContext.Current.CancellationToken);
             FilterAggregate agg = report.Targets.Single().Filters.Single();
 
             Assert.Equal(2, agg.ExposureCount);
@@ -354,7 +354,7 @@ public class ImageLibraryScannerTests
         WriteConfiguredFrame(filterDir, "wrong.xisf", "GAIN", "111", instrume: "Z533");
         try
         {
-            ImageLibraryReport report = await ImageLibraryScanner.ScanAsync(root);
+            ImageLibraryReport report = await ImageLibraryScanner.ScanAsync(root, TestContext.Current.CancellationToken);
             FilterAggregate agg = report.Targets.Single().Filters.Single();
 
             Assert.Equal("Z183", agg.Camera);       // the directory stays authoritative
@@ -372,7 +372,7 @@ public class ImageLibraryScannerTests
         WriteConfiguredFrame(filterDir, "one.xisf", "OFFSET", "10");
         try
         {
-            ImageLibraryReport report = await ImageLibraryScanner.ScanAsync(root);
+            ImageLibraryReport report = await ImageLibraryScanner.ScanAsync(root, TestContext.Current.CancellationToken);
             Assert.Equal(10, report.Targets.Single().Filters.Single().Typical.Offset);
         }
         finally { Directory.Delete(root, recursive: true); }

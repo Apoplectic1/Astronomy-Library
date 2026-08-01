@@ -9,6 +9,15 @@ backstop — this is the human-legible layer above it.
 **Entry format:** `## YYYY-MM-DD — <what landed>` (a month-only `YYYY-MM` is fine when the exact day
 wasn't recorded). Newest first; add new entries directly below this charter, never at the bottom.
 
+## 2026-08-01 — Catalog.Tests back to a zero-warning build (45 × xUnit1051)
+
+Every ct-accepting call in `Astronomy.Catalog.Tests` now passes `TestContext.Current.CancellationToken`
+(`Resolve`, `BuildAsync`, `ScanAsync`/`ScanUnitsAsync`, the TS reader methods, `XisfHeaderReader.ReadAsync`,
+two `File.WriteAllTextAsync`), silencing all 45 `xUnit1051` sites the xUnit v3 analyzers had accumulated —
+one of which the same-day epoch fix had added, matching the then-idiom. Beyond hygiene, the analyzer's point
+is real: without the token a cancelled test run waits out the full scan/resolve. The deliberate exception is
+untouched: the cancellation test still passes its own `cts.Token`. Build: 0 warnings; 240/240 green.
+
 ## 2026-08-01 — TS epoch codes are translated, not cast (JNOW/B1950 were silently swapped)
 
 Found by the IS repo's docs audit (round 4). TS persists NINA's `Epoch` enum ints — JNOW = 0,

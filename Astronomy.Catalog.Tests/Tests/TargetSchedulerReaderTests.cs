@@ -23,12 +23,12 @@ public sealed class TargetSchedulerReaderTests
         // user_version regularly, and the reader proceeds regardless (IsNewerThanTested is only a soft signal).
         Assert.True(reader.SchemaUserVersion >= 24);
 
-        Assert.NotEmpty(reader.ReadProjects());
-        Assert.NotEmpty(reader.ReadExposureTemplates());
-        Assert.NotEmpty(reader.ReadExposurePlans());
-        _ = reader.ReadAcquiredImages();   // smoke: reads without throwing (count varies with imaging)
+        Assert.NotEmpty(reader.ReadProjects(TestContext.Current.CancellationToken));
+        Assert.NotEmpty(reader.ReadExposureTemplates(TestContext.Current.CancellationToken));
+        Assert.NotEmpty(reader.ReadExposurePlans(TestContext.Current.CancellationToken));
+        _ = reader.ReadAcquiredImages(TestContext.Current.CancellationToken);   // smoke: reads without throwing (count varies with imaging)
 
-        IReadOnlyList<TsTarget> targets = reader.ReadTargets();
+        IReadOnlyList<TsTarget> targets = reader.ReadTargets(TestContext.Current.CancellationToken);
         Assert.NotEmpty(targets);
 
         // Documented invariants: all J2000, coordinates within range.

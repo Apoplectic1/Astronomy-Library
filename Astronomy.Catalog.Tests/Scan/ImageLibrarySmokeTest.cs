@@ -28,7 +28,7 @@ public class ImageLibrarySmokeTest
 
         mOut.WriteLine($"Scanning: {root}");
         DateTime t0 = DateTime.UtcNow;
-        ImageLibraryReport report = await ImageLibraryScanner.ScanAsync(root);
+        ImageLibraryReport report = await ImageLibraryScanner.ScanAsync(root, TestContext.Current.CancellationToken);
         TimeSpan dt = DateTime.UtcNow - t0;
 
         mOut.WriteLine($"Scanned in {dt.TotalSeconds:F1}s.");

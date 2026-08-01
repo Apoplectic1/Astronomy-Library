@@ -34,7 +34,7 @@ public sealed class TargetResolverTests
             targets: [TsT(1, "M42", 5.591, -5.39, project: 10, guid: "g-m42")],
             plans: [TsP(100, target: 1, template: 1000)]);
 
-        (CatalogGraph g, CatalogBuildReport r) = TargetResolver.Resolve(disk, ts, Now);
+        (CatalogGraph g, CatalogBuildReport r) = TargetResolver.Resolve(disk, ts, Now, ct: TestContext.Current.CancellationToken);
 
         Target t = Assert.Single(g.Targets);
         Assert.Equal(TargetSource.Both, t.Source);
@@ -58,7 +58,7 @@ public sealed class TargetResolverTests
             targets: [TsT(1, "NGC 7000", 20.97, 44.5, project: 10, guid: "g-na")],
             plans: [TsP(100, target: 1, template: 1000)]);
 
-        (CatalogGraph g, CatalogBuildReport r) = TargetResolver.Resolve([], ts, Now);
+        (CatalogGraph g, CatalogBuildReport r) = TargetResolver.Resolve([], ts, Now, ct: TestContext.Current.CancellationToken);
 
         Target t = Assert.Single(g.Targets);
         Assert.Equal(TargetSource.Planned, t.Source);
@@ -75,7 +75,7 @@ public sealed class TargetResolverTests
     {
         TargetReport[] disk = [Disk("M51 - Whirlpool", "M51", "Whirlpool", 13.50, 47.2, withFilter: true)];
 
-        (CatalogGraph g, CatalogBuildReport r) = TargetResolver.Resolve(disk, TsPlanData.Empty, Now);
+        (CatalogGraph g, CatalogBuildReport r) = TargetResolver.Resolve(disk, TsPlanData.Empty, Now, ct: TestContext.Current.CancellationToken);
 
         Target t = Assert.Single(g.Targets);
         Assert.Equal(TargetSource.Actual, t.Source);
@@ -92,7 +92,7 @@ public sealed class TargetResolverTests
         TargetReport[] disk = [Disk("M42 - Orion", "M42", "Orion", 5.59, -5.39, withFilter: false)];
         TsPlanData ts = Plan(targets: [TsT(1, "Sombrero", 5.59, -5.39, project: 10, guid: "g-x")]);
 
-        (CatalogGraph g, CatalogBuildReport r) = TargetResolver.Resolve(disk, ts, Now);
+        (CatalogGraph g, CatalogBuildReport r) = TargetResolver.Resolve(disk, ts, Now, ct: TestContext.Current.CancellationToken);
 
         Assert.Equal(TargetSource.Both, Assert.Single(g.Targets).Source);
         NameMismatch nm = Assert.Single(r.NameMismatches);
@@ -112,7 +112,7 @@ public sealed class TargetResolverTests
             ],
             plans: [TsP(100, target: 1, template: 1000), TsP(101, target: 2, template: 1000)]);
 
-        (CatalogGraph g, CatalogBuildReport r) = TargetResolver.Resolve(disk, ts, Now);
+        (CatalogGraph g, CatalogBuildReport r) = TargetResolver.Resolve(disk, ts, Now, ct: TestContext.Current.CancellationToken);
 
         Target t = Assert.Single(g.Targets);    // both TS folded onto one canonical
         Assert.Equal(TargetSource.Both, t.Source);
@@ -138,7 +138,7 @@ public sealed class TargetResolverTests
             ],
             plans: [TsP(100, target: 1, template: 1000), TsP(101, target: 2, template: 1000)]);
 
-        (CatalogGraph g, CatalogBuildReport r) = TargetResolver.Resolve(disk, ts, Now);
+        (CatalogGraph g, CatalogBuildReport r) = TargetResolver.Resolve(disk, ts, Now, ct: TestContext.Current.CancellationToken);
 
         Target t = Assert.Single(g.Targets);    // both fold onto the one canonical, like any dup
         Assert.Equal(TargetSource.Both, t.Source);
@@ -156,11 +156,11 @@ public sealed class TargetResolverTests
         TsPlanData ts = Plan(targets: [TsT(1, "M42", 5.59, -4.79, project: 10, guid: "g1")]); // 0.6° away in dec
 
         // Default 0.5° tolerance: no match → disk stays Actual, TS becomes its own Planned target.
-        CatalogGraph tight = TargetResolver.Resolve(disk, ts, Now).Graph;
+        CatalogGraph tight = TargetResolver.Resolve(disk, ts, Now, ct: TestContext.Current.CancellationToken).Graph;
         Assert.Equal(TargetSource.Actual, Assert.Single(tight.Targets, t => t.DirectoryName == "M42 - Orion").Source);
 
         // Widen to 1.0°: they merge into one Both target.
-        CatalogGraph loose = TargetResolver.Resolve(disk, ts, Now, new ResolveOptions(1.0)).Graph;
+        CatalogGraph loose = TargetResolver.Resolve(disk, ts, Now, new ResolveOptions(1.0), TestContext.Current.CancellationToken).Graph;
         Assert.Equal(TargetSource.Both, Assert.Single(loose.Targets).Source);
     }
 
@@ -177,7 +177,7 @@ public sealed class TargetResolverTests
         TsPlanData ts = Plan(targets: [new TsTarget(1, "Bad Row", Active: 1, Ra: 25.0, Dec: 95.0, EpochCode: 7,
             Rotation: null, Roi: null, ProjectId: 10, Priority: 9, TsGuid: "g-bad")]);
 
-        (CatalogGraph g, CatalogBuildReport r) = TargetResolver.Resolve([], ts, Now);
+        (CatalogGraph g, CatalogBuildReport r) = TargetResolver.Resolve([], ts, Now, ct: TestContext.Current.CancellationToken);
 
         Target t = Assert.Single(g.Targets);
         Assert.Equal(TargetSource.Planned, t.Source);
@@ -202,7 +202,7 @@ public sealed class TargetResolverTests
         TsPlanData ts = Plan(targets: [new TsTarget(1, "Epoch Row", Active: 1, Ra: 5.0, Dec: 10.0,
             EpochCode: tsCode, Rotation: null, Roi: null, ProjectId: 10, Priority: -1, TsGuid: "g-epoch")]);
 
-        (CatalogGraph g, CatalogBuildReport r) = TargetResolver.Resolve([], ts, Now);
+        (CatalogGraph g, CatalogBuildReport r) = TargetResolver.Resolve([], ts, Now, ct: TestContext.Current.CancellationToken);
 
         Assert.Equal(expected, Assert.Single(g.Targets).Epoch);
         Assert.Equal(flagged ? 1 : 0, r.InvalidTsTargets.Count);
@@ -221,7 +221,7 @@ public sealed class TargetResolverTests
             [new TsExposureTemplate(1000, "profile-1", "Ha", "H", 100, 50, 1, 300.0)],
             [TsP(100, target: 1, template: 1000), TsP(101, target: 2, template: 1000), TsP(102, target: 3, template: 1000)]);
 
-        (CatalogGraph g, CatalogBuildReport r) = TargetResolver.Resolve(disk, ts, Now);
+        (CatalogGraph g, CatalogBuildReport r) = TargetResolver.Resolve(disk, ts, Now, ct: TestContext.Current.CancellationToken);
 
         Assert.Equal(4, g.Targets.Count);                    // one parent + one child per panel
         Target parent = Assert.Single(g.Targets, t => t.DirectoryName == "Mosaic - Cygnus Loop");
@@ -267,7 +267,7 @@ public sealed class TargetResolverTests
             [new TsExposureTemplate(1000, "profile-1", "Ha", "H", 100, 50, 1, 300.0)],
             [TsP(102, target: 3, template: 1000)]);
 
-        (CatalogGraph g, CatalogBuildReport r) = TargetResolver.Resolve(disk, ts, Now);
+        (CatalogGraph g, CatalogBuildReport r) = TargetResolver.Resolve(disk, ts, Now, ct: TestContext.Current.CancellationToken);
 
         Target veil = Assert.Single(g.Targets, x => x.DirectoryName == "NGC 6995 - Eastern Veil");
         Assert.Equal(TargetSource.Actual, veil.Source);                 // panel did NOT anchor here
@@ -290,7 +290,7 @@ public sealed class TargetResolverTests
             [new TsProject(20, "profile-1", "Mosaic - Cygnus Loop", 1, 1, null, 1, "g-mosaic")],
             [], [new TsExposureTemplate(1000, "profile-1", "Ha", "H", 100, 50, 1, 300.0)], []);
 
-        (CatalogGraph g, CatalogBuildReport r) = TargetResolver.Resolve(disk, ts, Now);
+        (CatalogGraph g, CatalogBuildReport r) = TargetResolver.Resolve(disk, ts, Now, ct: TestContext.Current.CancellationToken);
 
         Target parent = Assert.Single(g.Targets, t => t.ParentTargetId is null);
         Assert.Equal(TargetSource.Actual, parent.Source);
@@ -318,7 +318,7 @@ public sealed class TargetResolverTests
             [TsP(100, target: 1, template: 1000), TsP(101, target: 2, template: 1000),
              TsP(102, target: 3, template: 1000), TsP(103, target: 4, template: 1000)]);
 
-        (CatalogGraph g, CatalogBuildReport r) = TargetResolver.Resolve(disk, ts, Now);
+        (CatalogGraph g, CatalogBuildReport r) = TargetResolver.Resolve(disk, ts, Now, ct: TestContext.Current.CancellationToken);
 
         Assert.Equal(5, g.Targets.Count);   // parent + 1 Both child + 3 Planned children
         Target parent = Assert.Single(g.Targets, t => t.ParentTargetId is null);
@@ -349,7 +349,7 @@ public sealed class TargetResolverTests
             [new TsExposureTemplate(1000, "profile-1", "Ha", "H", 100, 50, 1, 300.0)],
             [TsP(100, target: 1, template: 1000), TsP(101, target: 2, template: 1000)]);
 
-        (CatalogGraph g, CatalogBuildReport r) = TargetResolver.Resolve(disk, ts, Now);
+        (CatalogGraph g, CatalogBuildReport r) = TargetResolver.Resolve(disk, ts, Now, ct: TestContext.Current.CancellationToken);
 
         Target both = Assert.Single(g.Targets, t => t.Source == TargetSource.Both && t.ParentTargetId is not null);
         Assert.Equal("Tight P1", both.Name);
@@ -376,7 +376,7 @@ public sealed class TargetResolverTests
             [new TsExposureTemplate(1000, "profile-1", "Ha", "H", 100, 50, 1, 300.0)],
             [TsP(100, target: 1, template: 1000)]);
 
-        (CatalogGraph g, CatalogBuildReport r) = TargetResolver.Resolve(disk, ts, Now);
+        (CatalogGraph g, CatalogBuildReport r) = TargetResolver.Resolve(disk, ts, Now, ct: TestContext.Current.CancellationToken);
 
         Target both = Assert.Single(g.Targets, t => t.Source == TargetSource.Both && t.ParentTargetId is not null);
         Assert.Equal("Rose P4", both.Name);
@@ -398,7 +398,7 @@ public sealed class TargetResolverTests
             [new TsExposureTemplate(1000, "profile-1", "Ha", "H", 100, 50, 1, 300.0)],
             [TsP(100, target: 1, template: 1000)]);
 
-        (CatalogGraph g, CatalogBuildReport r) = TargetResolver.Resolve(disk, ts, Now);
+        (CatalogGraph g, CatalogBuildReport r) = TargetResolver.Resolve(disk, ts, Now, ct: TestContext.Current.CancellationToken);
 
         Target planned = Assert.Single(g.Targets, t => t.Source == TargetSource.Planned);
         Assert.Equal("Rose P4", planned.Name);
@@ -424,7 +424,7 @@ public sealed class TargetResolverTests
             [new TsExposureTemplate(1000, "profile-1", "Ha", "H", 100, 50, 1, 300.0)],
             [TsP(100, target: 1, template: 1000)]);
 
-        (CatalogGraph g, CatalogBuildReport r) = TargetResolver.Resolve(disk, ts, Now);
+        (CatalogGraph g, CatalogBuildReport r) = TargetResolver.Resolve(disk, ts, Now, ct: TestContext.Current.CancellationToken);
 
         Target both = Assert.Single(g.Targets, t => t.Source == TargetSource.Both && t.ParentTargetId is not null);
         Assert.Equal("Clam P5", both.Name);
@@ -447,7 +447,7 @@ public sealed class TargetResolverTests
             [new TsExposureTemplate(1000, "profile-1", "Ha", "H", 100, 50, 1, 300.0)],
             [TsP(100, target: 1, template: 1000)]);
 
-        (CatalogGraph g, CatalogBuildReport r) = TargetResolver.Resolve(disk, ts, Now);
+        (CatalogGraph g, CatalogBuildReport r) = TargetResolver.Resolve(disk, ts, Now, ct: TestContext.Current.CancellationToken);
 
         NameMismatch m = Assert.Single(r.NameMismatches);
         Assert.Equal("Tight P1", m.TsName);
@@ -475,7 +475,7 @@ public sealed class TargetResolverTests
             [new TsExposureTemplate(1000, "profile-1", "Ha", "H", 100, 50, 1, 300.0)],
             [TsP(100, target: 1, template: 1000)]);
 
-        (CatalogGraph g, CatalogBuildReport r) = TargetResolver.Resolve(disk, ts, Now);
+        (CatalogGraph g, CatalogBuildReport r) = TargetResolver.Resolve(disk, ts, Now, ct: TestContext.Current.CancellationToken);
 
         Target parent = Assert.Single(g.Targets, t => t.ParentTargetId is null);
         Assert.Equal(parent.Id, Assert.Single(g.InventoryFilters).TargetId);     // aggregate stays on parent

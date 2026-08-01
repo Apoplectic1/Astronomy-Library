@@ -22,7 +22,7 @@ public sealed class CatalogBuilderTests
         {
             // No library root → disk plane empty → every TS target lands as planned-only, anchored to nothing.
             CatalogBuildReport report =
-                await CatalogBuilder.BuildAsync(path, libraryRoot: null, targetSchedulerDbPath: TsDbPath);
+                await CatalogBuilder.BuildAsync(path, libraryRoot: null, targetSchedulerDbPath: TsDbPath, ct: TestContext.Current.CancellationToken);
 
             Assert.True(report.TsTargetCount > 0);
             Assert.Equal(0, report.DiskTargetCount);
