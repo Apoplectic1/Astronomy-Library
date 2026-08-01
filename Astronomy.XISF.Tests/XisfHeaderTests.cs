@@ -96,7 +96,7 @@ public class XisfHeaderTests
     [InlineData(null, "2.40")]   // no focal length
     [InlineData("531", null)]    // no pixel size
     [InlineData("0", "2.40")]    // non-positive focal length
-    public void FieldSize_MissingOrUnusableKeywords_IsNull(string? focalLen, string? pixelSize)
+    public void FieldSize_MissingOrUnusableKeywords_IsNull(string focalLen, string pixelSize)
     {
         List<(string, string)> kv = [];
         if (focalLen is not null) kv.Add(("FOCALLEN", focalLen));

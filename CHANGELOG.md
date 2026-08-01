@@ -9,14 +9,23 @@ backstop — this is the human-legible layer above it.
 **Entry format:** `## YYYY-MM-DD — <what landed>` (a month-only `YYYY-MM` is fine when the exact day
 wasn't recorded). Newest first; add new entries directly below this charter, never at the bottom.
 
-## 2026-08-01 — Catalog.Tests back to a zero-warning build (45 × xUnit1051)
+## 2026-08-01 — all six test projects at zero warnings, and warnings are now build breaks
 
-Every ct-accepting call in `Astronomy.Catalog.Tests` now passes `TestContext.Current.CancellationToken`
-(`Resolve`, `BuildAsync`, `ScanAsync`/`ScanUnitsAsync`, the TS reader methods, `XisfHeaderReader.ReadAsync`,
-two `File.WriteAllTextAsync`), silencing all 45 `xUnit1051` sites the xUnit v3 analyzers had accumulated —
-one of which the same-day epoch fix had added, matching the then-idiom. Beyond hygiene, the analyzer's point
-is real: without the token a cancelled test run waits out the full scan/resolve. The deliberate exception is
-untouched: the cancellation test still passes its own `cts.Token`. Build: 0 warnings; 240/240 green.
+Two passes, same day. First `Astronomy.Catalog.Tests`: every ct-accepting call now passes
+`TestContext.Current.CancellationToken` (`Resolve`, `BuildAsync`, `ScanAsync`/`ScanUnitsAsync`, the TS
+reader methods, `XisfHeaderReader.ReadAsync`, two `File.WriteAllTextAsync`), silencing all 45 `xUnit1051`
+sites the xUnit v3 analyzers had accumulated — one of which the same-day epoch fix had added, matching the
+then-idiom. Then the same sweep across the rest: `Contracts.Tests` (2 sites), `XISF.Tests` (12 sites + a
+`CS8632` pair — `string?` annotations in the project's deliberate `Nullable`-disable context, dropped to
+match convention); `Core.Tests`, `Diagnostics.Tests`, `NINA.Tests` were verified clean-rebuild-clean
+already. Beyond hygiene, the analyzer's point is real: without the token a cancelled test run waits out the
+full scan/resolve. Deliberate exceptions untouched (the cancellation test's own `cts.Token`).
+
+**Enforcement:** `<TreatWarningsAsErrors>true</TreatWarningsAsErrors>` on all six test csprojs — the
+warnings accumulated precisely because they were warnings; the next one is a build break. Verified: clean
+non-incremental rebuilds of all six (Core.Tests via VS MSBuild x64, per the mixed-graph rule) with zero
+warnings, and every suite green — Catalog 240, Contracts 61 (+6 skip), Core 472 (+1 skip), Diagnostics 15,
+NINA 45, XISF 51.
 
 ## 2026-08-01 — TS epoch codes are translated, not cast (JNOW/B1950 were silently swapped)
 

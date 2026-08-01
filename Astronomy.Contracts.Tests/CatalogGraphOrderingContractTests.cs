@@ -47,7 +47,7 @@ public sealed class CatalogGraphOrderingContractTests
             [new TsExposureTemplate(1000, "profile-1", "Ha", "H", 100, 50, 1, 300.0)],
             [TsP(100, target: 1, template: 1000), TsP(101, target: 2, template: 1000), TsP(102, target: 3, template: 1000)]);
 
-        (CatalogGraph g, _) = TargetResolver.Resolve(disk, ts, Now);
+        (CatalogGraph g, _) = TargetResolver.Resolve(disk, ts, Now, ct: TestContext.Current.CancellationToken);
 
         List<Target> targets = [.. g.Targets];
 

@@ -83,7 +83,7 @@ public class XisfHeaderReaderTests : IDisposable
             ["INSTRUME"] = "ZWO ASI183MM Pro",
         });
 
-        XisfHeader h = await XisfHeaderReader.ReadAsync(path);
+        XisfHeader h = await XisfHeaderReader.ReadAsync(path, TestContext.Current.CancellationToken);
 
         Assert.Equal("M51", h.ObjectName);
         Assert.Equal(202.469625, h.RaDegrees);
@@ -107,7 +107,7 @@ public class XisfHeaderReaderTests : IDisposable
             new Dictionary<string, string> { ["INSTRUME"] = "Z183" },
             new Dictionary<string, string> { ["INSTRUME"] = "ZWO ASI183MM Pro" });
 
-        XisfHeader h = await XisfHeaderReader.ReadAsync(path);
+        XisfHeader h = await XisfHeaderReader.ReadAsync(path, TestContext.Current.CancellationToken);
         Assert.Equal("Z183", h.Instrument);
         Assert.Equal("ZWO ASI183MM Pro", h.InstrumentDescription);
     }
@@ -118,7 +118,7 @@ public class XisfHeaderReaderTests : IDisposable
         string path = Path.Combine(mTempDir, "quoted.xisf");
         WriteSyntheticXisf(path, new Dictionary<string, string> { ["OBJECT"] = "M31 Andromeda" });
 
-        XisfHeader h = await XisfHeaderReader.ReadAsync(path);
+        XisfHeader h = await XisfHeaderReader.ReadAsync(path, TestContext.Current.CancellationToken);
         // Synthetic writer FITS-quoted string values; reader strips surrounding quotes.
         Assert.Equal("M31 Andromeda", h.ObjectName);
     }
@@ -129,7 +129,7 @@ public class XisfHeaderReaderTests : IDisposable
         string path = Path.Combine(mTempDir, "bad-sig.xisf");
         File.WriteAllBytes(path, Encoding.ASCII.GetBytes("NOTANXISFFILE000"));
 
-        await Assert.ThrowsAsync<InvalidDataException>(() => XisfHeaderReader.ReadAsync(path));
+        await Assert.ThrowsAsync<InvalidDataException>(() => XisfHeaderReader.ReadAsync(path, TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -148,13 +148,13 @@ public class XisfHeaderReaderTests : IDisposable
             fs.Write(xmlBytes, 0, xmlBytes.Length);
         }
 
-        await Assert.ThrowsAsync<InvalidDataException>(() => XisfHeaderReader.ReadAsync(path));
+        await Assert.ThrowsAsync<InvalidDataException>(() => XisfHeaderReader.ReadAsync(path, TestContext.Current.CancellationToken));
     }
 
     [Fact]
     public async Task Read_EmptyPath_Throws()
     {
-        await Assert.ThrowsAsync<ArgumentException>(() => XisfHeaderReader.ReadAsync(""));
+        await Assert.ThrowsAsync<ArgumentException>(() => XisfHeaderReader.ReadAsync("", TestContext.Current.CancellationToken));
     }
 
     // ---- The mandatory image geometry ----
@@ -167,7 +167,7 @@ public class XisfHeaderReaderTests : IDisposable
         string path = Path.Combine(mTempDir, "geometry.xisf");
         WriteSyntheticXisf(path, new Dictionary<string, string>(), geometry: "3008:3008:1");
 
-        XisfHeader h = await XisfHeaderReader.ReadAsync(path);
+        XisfHeader h = await XisfHeaderReader.ReadAsync(path, TestContext.Current.CancellationToken);
 
         Assert.Equal(3008, h.PixelWidth);
         Assert.Equal(3008, h.PixelHeight);
@@ -185,7 +185,7 @@ public class XisfHeaderReaderTests : IDisposable
             ["NAXIS2"] = "888",
         }, geometry: "5496:3672:1");
 
-        XisfHeader h = await XisfHeaderReader.ReadAsync(path);
+        XisfHeader h = await XisfHeaderReader.ReadAsync(path, TestContext.Current.CancellationToken);
 
         Assert.Equal(5496, h.PixelWidth);
         Assert.Equal(3672, h.PixelHeight);
@@ -198,7 +198,7 @@ public class XisfHeaderReaderTests : IDisposable
         string path = Path.Combine(mTempDir, "no-naxis.xisf");
         WriteSyntheticXisf(path, new Dictionary<string, string> { ["OBJECT"] = "M81" });
 
-        XisfHeader h = await XisfHeaderReader.ReadAsync(path);
+        XisfHeader h = await XisfHeaderReader.ReadAsync(path, TestContext.Current.CancellationToken);
 
         Assert.Equal(5496, h.PixelWidth);
         Assert.False(h.Has("NAXIS1"));
@@ -211,7 +211,7 @@ public class XisfHeaderReaderTests : IDisposable
         WriteSyntheticXisf(path, new Dictionary<string, string>(), geometry: null);
 
         InvalidDataException ex = await Assert.ThrowsAsync<InvalidDataException>(
-            () => XisfHeaderReader.ReadAsync(path));
+            () => XisfHeaderReader.ReadAsync(path, TestContext.Current.CancellationToken));
 
         // The message must name the file and what was expected — it is what reaches SkippedFiles.
         Assert.Contains("geometry", ex.Message, StringComparison.OrdinalIgnoreCase);
@@ -230,7 +230,7 @@ public class XisfHeaderReaderTests : IDisposable
         string path = Path.Combine(mTempDir, "bad-geometry.xisf");
         WriteSyntheticXisf(path, new Dictionary<string, string>(), geometry: geometry);
 
-        await Assert.ThrowsAsync<InvalidDataException>(() => XisfHeaderReader.ReadAsync(path));
+        await Assert.ThrowsAsync<InvalidDataException>(() => XisfHeaderReader.ReadAsync(path, TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -253,6 +253,6 @@ public class XisfHeaderReaderTests : IDisposable
             fs.Write(xmlBytes, 0, xmlBytes.Length);
         }
 
-        await Assert.ThrowsAsync<InvalidDataException>(() => XisfHeaderReader.ReadAsync(path));
+        await Assert.ThrowsAsync<InvalidDataException>(() => XisfHeaderReader.ReadAsync(path, TestContext.Current.CancellationToken));
     }
 }

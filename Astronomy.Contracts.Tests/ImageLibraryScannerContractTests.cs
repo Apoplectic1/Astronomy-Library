@@ -26,6 +26,6 @@ public sealed class ImageLibraryScannerContractTests
         Assert.False(Directory.Exists(missingRoot));
 
         await Assert.ThrowsAsync<DirectoryNotFoundException>(
-            () => ImageLibraryScanner.ScanAsync(missingRoot));
+            () => ImageLibraryScanner.ScanAsync(missingRoot, TestContext.Current.CancellationToken));
     }
 }
