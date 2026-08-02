@@ -59,7 +59,9 @@ for completeness).
   PixInsight project, developed by Pleiades Astrophoto and its contributors
   (https://pixinsight.com/)."* No current consumer release ships it; TP's planned pixel-data
   feature will be the first — its release checklist inherits this rule.
-- **No LICENSE file** — all rights reserved (portfolio-consistent). The README says so.
+- **MIT-licensed** (`LICENSE`, © Dan Stark; adopted 2026-08-02, superseding the initial
+  no-license posture). MIT covers this repo's code only — the PCL-binary obligation above is
+  unaffected, and the vendored PCL material is governed by its own license.
 - **`archive/` is versioned design history** — published deliberately; `archive/README.md`
   indexes it.
 - **Shared-library neutrality:** public docs and XML doc comments describe the abstract

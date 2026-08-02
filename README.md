@@ -62,7 +62,9 @@ docs, not user documentation. `CONSUMERS.md` is the library's public-contract da
 
 ## License & acknowledgments
 
-No license is granted: source is published for reference, all rights reserved.
+[MIT](LICENSE) — this covers the code in this repository. The PixInsight Class Library
+material that the native tier builds against is separately governed by the PCL license (see
+below); MIT neither extends to nor shields it.
 
 `Astronomy.PCL.Native` builds against and statically links the
 [PixInsight Class Library](https://pixinsight.com/developer/pcl/) by Pleiades Astrophoto S.L.

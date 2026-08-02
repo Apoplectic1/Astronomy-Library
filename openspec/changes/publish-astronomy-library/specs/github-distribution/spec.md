@@ -90,12 +90,15 @@ standing obligation so future consumer releases inherit it.
 - **WHEN** TP/TSM ship only managed `Astronomy.*` DLLs (no PCL wrapper)
 - **THEN** no PCL attribution is required
 
-### Requirement: License posture is all-rights-reserved
+### Requirement: License posture is MIT, scoped to this repo's code
 
-The repo SHALL publish without a LICENSE file (all rights reserved by default,
-portfolio-consistent): source is visible for reference, with no reuse grant implied. The
-README SHALL NOT imply an open-source license.
+The repo SHALL carry an MIT `LICENSE` (© Dan Stark). Public docs SHALL state that MIT covers
+this repository's code only — the PixInsight Class Library material the native tier builds
+against remains governed by the PCL license, and the PCL-binary attribution obligation is
+unaffected. (Supersedes the initial all-rights-reserved posture, revised 2026-08-02 before
+archive.)
 
 #### Scenario: Visitor checks reuse terms
 - **WHEN** a visitor looks for a license
-- **THEN** none is present and no doc implies a reuse grant
+- **THEN** an MIT LICENSE file is present, and the README scopes it to the repo's own code
+  (not the PCL material)

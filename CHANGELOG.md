@@ -24,7 +24,9 @@ now stamps a tag-derived version, giving consumer payloads AL provenance. The st
 PCL-binary obligation (notice + acknowledgment when any product ships
 `Astronomy.PCL.Native.dll`) is recorded in `RELEASING.md` content rules. First public tags:
 `v1.0.0` (pre-public history) + `v1.1.0` (publish commit). New capability spec:
-`openspec/specs/github-distribution/`.
+`openspec/specs/github-distribution/`. Same-day revision: **MIT license adopted** (© Dan
+Stark) covering the repo's own code, superseding the initial no-license posture — the PCL
+license still governs the vendored material and the PCL-binary obligation stands.
 
 ## 2026-08-01 — the zero-warning ratchet extends to every shipped project (incl. the C++ wrapper)
 
