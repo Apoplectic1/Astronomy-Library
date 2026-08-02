@@ -44,6 +44,13 @@ TargetPlanner and TargetSchedulerManager installers, built locally in those repo
   Untagged commits shape as `-alpha` prereleases. The C++ `Astronomy.PCL.Native.dll` is not
   MinVer-stamped (native project); its provenance rides its managed wrapper.
 
+- **Consumer coordination — AL releases first.** TP/TSM installers embed this library's
+  *working tree* at their pack time, unpinned; the MinVer stamp on the embedded DLLs is the
+  only linkage. Whenever AL has moved since its last published tag (or its tree is dirty),
+  publish here **before** cutting a consumer release, so consumer payloads carry clean
+  `X.Y.Z` stamps that exist on this mirror. Consumer `release.ps1` scripts enforce this with
+  an abort gate (dirty Library tree, or `-alpha` in the embedded stamp).
+
 Latest published tag: **`v1.1.0`** (first public tag; `v1.0.0` is pre-public history, pushed
 for completeness).
 
