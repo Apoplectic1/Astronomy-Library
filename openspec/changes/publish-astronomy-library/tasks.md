@@ -30,17 +30,17 @@
 
 ## 3. Publish
 
-- [ ] 3.1 Pre-flight: clean `dev`, warning-free build, tests green
-- [ ] 3.2 `git remote add origin https://github.com/Apoplectic1/Astronomy-Library.git`
-- [ ] 3.3 ff `main` to `dev`, tag `v1.1.0` at the publish commit, push `main` + `v1.0.0` +
+- [x] 3.1 Pre-flight: clean `dev`, warning-free build, tests green
+- [x] 3.2 `git remote add origin https://github.com/Apoplectic1/Astronomy-Library.git`
+- [x] 3.3 ff `main` to `dev`, tag `v1.1.0` at the publish commit, push `main` + `v1.0.0` +
       `v1.1.0`; verify default branch = `main` on GitHub and README renders (incl. PCL repo
       link)
-- [ ] 3.4 Verify a build at the `v1.1.0` commit stamps assemblies `1.1.0` exactly
+- [x] 3.4 Verify a build at the `v1.1.0` commit stamps assemblies `1.1.0` exactly
 
 ## 4. Ripples (sibling repos, separate commits)
 
-- [ ] 4.1 TSM `RELEASING.md`: correct "AL's source stays unpublished" content rule and the
+- [x] 4.1 TSM `RELEASING.md`: correct "AL's source stays unpublished" content rule and the
       "sibling Library repo stays unpublished" local-build rationale (local-build stays; its
       reason is now simplicity, not secrecy); commit on TSM `dev`
-- [ ] 4.2 TP `README.md` build-from-source: real clone URL for Astronomy-Library (and the
+- [x] 4.2 TP `README.md` build-from-source: real clone URL for Astronomy-Library (and the
       nested PCL clone note for the future native path); commit on TP `dev`
