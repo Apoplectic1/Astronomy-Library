@@ -23,7 +23,7 @@
   <ItemGroup>
     <!-- Win32 screen-pixel capture (ScreenCapture.ToPng -> Graphics.CopyFromScreen); Windows-only package, and
          every consumer is a Windows desktop app. -->
-    <PackageReference Include="System.Drawing.Common" Version="10.0.9" />
+    <PackageReference Include="System.Drawing.Common" Version="10.0.10" />
   </ItemGroup>
 
   <ItemGroup>

@@ -9,6 +9,23 @@ backstop — this is the human-legible layer above it.
 **Entry format:** `## YYYY-MM-DD — <what landed>` (a month-only `YYYY-MM` is fine when the exact day
 wasn't recorded). Newest first; add new entries directly below this charter, never at the bottom.
 
+## 2026-08-02 — AL published to GitHub (Astronomy-Library mirror), MinVer versioning
+
+The library gained a public mirror — https://github.com/Apoplectic1/Astronomy-Library — on the
+portfolio's shared distribution rules (new `RELEASING.md`: local repo is ground truth, `dev`
+never pushes, every `main` push carries a `vX.Y.Z` tag, docs-only exception). A library has no
+installer, so **publish = the push**: bare tags mark source snapshots, no Releases page, no
+assets — the compiled DLLs continue to ship inside TP/TSM installers. New public `README.md`
+documents the two-tier build (managed = self-sufficient `dotnet build`; native =
+`Astronomy.PCL.Native` needs the PCL mirror — https://github.com/Apoplectic1/PCL, published
+the same day — cloned nested at `Library\PCL\`). MinVer 7.0.0 adopted via
+`Directory.Build.props` (`MinVerTagPrefix=v`, `alpha.0` prereleases): every managed assembly
+now stamps a tag-derived version, giving consumer payloads AL provenance. The standing
+PCL-binary obligation (notice + acknowledgment when any product ships
+`Astronomy.PCL.Native.dll`) is recorded in `RELEASING.md` content rules. First public tags:
+`v1.0.0` (pre-public history) + `v1.1.0` (publish commit). New capability spec:
+`openspec/specs/github-distribution/`.
+
 ## 2026-08-01 — the zero-warning ratchet extends to every shipped project (incl. the C++ wrapper)
 
 Follow-on to the test-bench sweep below, same day: all seven shipped projects — `Astronomy.Core`,

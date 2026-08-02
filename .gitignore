@@ -4,8 +4,9 @@
 *.pdb
 *.dll.config
 
-# Vendored PixInsight Class Library — ~10 GB of source + prebuilt libs.
-# Canonical snapshot pinned at PCL\PCL-master.zip (2025-02-22) per archive\PCL-InterOp.md.
+# Vendored PixInsight Class Library — source + build state, never published from here.
+# Canonical versioned home: https://github.com/Apoplectic1/PCL (its own repo, cloned nested
+# at Library\PCL\ — this ignore keeps the two repos from interacting). See RELEASING.md.
 /PCL/
 
 # Visual Studio IDE state

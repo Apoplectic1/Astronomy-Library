@@ -15,9 +15,9 @@ The PCL wrapper is a deep but **settled / parked** subsystem; its design records
 
 Latest three only. **Full shipped history: [`CHANGELOG.md`](CHANGELOG.md)** (append-only, dated, newest first).
 
+- **2026-08-02** — AL published: public mirror https://github.com/Apoplectic1/Astronomy-Library (new `README.md` + `RELEASING.md`, shared portfolio rules, publish = push `main` + tag, no installer/assets); MinVer via `Directory.Build.props` stamps tag-derived versions on every managed assembly; sibling https://github.com/Apoplectic1/PCL mirror carries the vendored tree.
 - **2026-08-01** — TS epoch codes are *translated*, never cast, at the TS boundary: NINA/TS order JNOW=0 / B1950=1 — the reverse of the catalog's lookup — so `SafeEpoch`'s raw cast silently swapped non-J2000 epochs. Latent (every real target is J2000); found by the IS repo's docs audit, pinned by a new `[Theory]`.
 - **2026-07-29** — an off-footprint framing is *priced*, not just flagged: new `Astronomy.Core.FieldFootprint` (rotated-rectangle overlap, `cos(dec)`-scaled) + `XisfHeader` angular field from `<Image geometry>`; a serving framing prices nothing above `OnFootprintFraction` (0.95).
-- **2026-07-29** — write-back credits only frames whose framing serves the plan: `FramingCluster.ServesPlanRotation` is the one predicate behind the badge, the bulk sum, and surgical routing, so counts and badge can't disagree.
 
 ## Open: split `ARCHITECTURE.md` — it crossed the size where one file still helps
 

@@ -11,6 +11,7 @@
 - **`VERIFICATION.md`** — how to **build / test / benchmark** and the build traps. Read before claiming a build or tests pass. The cross-repo contract DRC is `..\build-all.ps1`.
 - **`CONSUMERS.md`** — the Library's de-facto public **contract / datasheet**: what each downstream consumer depends on (the "pinned pinout").
 - **`DOMAIN.md`** — the domain layer's home (science/unit conventions, algorithm provenance, multi-consumer strategy): *why* the library models things this way. Charter'd-thin — routes to where each domain truth currently lives.
+- **`RELEASING.md`** — GitHub mirror rules (publish = push `main` + tag, no installer/assets; MinVer tag-derived versions; PCL content rules + the PCL-binary attribution obligation). `README.md` is the public storefront.
 
 **Journal** (dated capture — by convention, not an enumerated list). Three homes, by what you're recording:
 
@@ -22,7 +23,7 @@ Standing truths graduate up out of the journal into the reference docs.
 
 **`archive/`** holds completed/superseded records — *not* current truth, kept for history. Indexed in `archive/README.md`; the one worth knowing cold is `archive/PCL-InterOp.md` (*why* PCL is wrapped Option 3 / Hybrid, P/Invoke not C++/CLI).
 
-**Scope-exclusions** — never scaffold/audit docs into these trees: `PCL/` (vendored ~19 GB PixInsight Class Library, gitignored — has its own upstream READMEs), `BenchmarkDotNet.Artifacts/`, `bin`/`obj`, `.vs/`, and the tooling trees `.claude/`, `.superpowers/`, `openspec/changes/` (workflow churn). `openspec/specs/` is different: **promoted normative specs** (e.g. `moon-brightness-gate`, `contract-assumption-pinning`) — excluded from doc scaffolding but citable, and reference docs may route into it. `Astronomy.Contracts.Tests` is the (already-charter'd) contract harness behind `CONSUMERS.md`.
+**Scope-exclusions** — never scaffold/audit docs into these trees: `PCL/` (vendored ~19 GB PixInsight Class Library, gitignored — a nested repo of its own, mirrored at github.com/Apoplectic1/PCL), `BenchmarkDotNet.Artifacts/`, `bin`/`obj`, `.vs/`, and the tooling trees `.claude/`, `.superpowers/`, `openspec/changes/` (workflow churn). `openspec/specs/` is different: **promoted normative specs** (e.g. `moon-brightness-gate`, `contract-assumption-pinning`) — excluded from doc scaffolding but citable, and reference docs may route into it. `Astronomy.Contracts.Tests` is the (already-charter'd) contract harness behind `CONSUMERS.md`.
 
 ## Load-bearing gotchas (detail in the docs above)
 
