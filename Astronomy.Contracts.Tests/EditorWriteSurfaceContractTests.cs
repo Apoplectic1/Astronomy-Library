@@ -16,14 +16,16 @@ public sealed class EditorWriteSurfaceContractTests
 {
     // ---------------------------------------------------------------------------
     // CONSUMERS.md assumption #9 (structural half):
-    //   "TrySetField is the editor's only public write path."
+    //   "TrySetField (field edits) and TryInsertRows (batch-atomic row creation)
+    //    are the editor's only public write paths."
     // Reflection over the public instance surface: no public Set* method may exist,
-    // and TrySetField must. (SetField survives as the internal engine — visible to
-    // Astronomy.Catalog.Tests via InternalsVisibleTo, invisible to consumers.)
+    // and both guarded gates must. (SetField survives as the internal engine —
+    // visible to Astronomy.Catalog.Tests via InternalsVisibleTo, invisible to
+    // consumers.)
     // ---------------------------------------------------------------------------
 
     [Fact]
-    public void TargetSchedulerEditor_OnlyPublicWritePath_IsTrySetField()
+    public void TargetSchedulerEditor_PublicWritePaths_AreTheGuardedGates()
     {
         MethodInfo[] publicMethods = typeof(TargetSchedulerEditor)
             .GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly);
@@ -34,6 +36,7 @@ public sealed class EditorWriteSurfaceContractTests
             .ToArray();
 
         Assert.Empty(publicSetters);                                          // no ungated public writer
-        Assert.Contains(publicMethods, m => m.Name == "TrySetField");         // the guarded gate exists
+        Assert.Contains(publicMethods, m => m.Name == "TrySetField");         // the guarded field gate exists
+        Assert.Contains(publicMethods, m => m.Name == "TryInsertRows");       // the guarded insert gate exists
     }
 }

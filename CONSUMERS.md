@@ -92,7 +92,8 @@ No consumer→consumer references. Note: **Catalog does NOT depend on Core** (it
   planes in the consumer);
   `TargetScheduler.TargetSchedulerReader`(+`TsPlanData` and its element records `TsTarget`/`TsProject`);
   `TargetScheduler.TargetSchedulerEditor.TrySetField`(+`FieldEditResult`/`RefusalReason`/`TsTable`) +
-  `.ReadPlanEffectiveExposure`; `TargetScheduler.EffectiveExposure.Seconds` (the standalone static
+  `.TryInsertRows`(+`TsRowInsert`/`InsertOutcome`/`RowInsertResult` — TSM's disk-row adoption inserts
+  target/plan rows through it and replays them at push) + `.ReadPlanEffectiveExposure`; `TargetScheduler.EffectiveExposure.Seconds` (the standalone static
   rule class — distinct from the editor method); `TargetScheduler.TsEditableSchema`
   (`.For`/`.EnumValues`/`.Find`/
   `.IsCadenceBreaking` + `TsField`/`TsFieldType`/`TsCadenceClear`/`TsEnumValue` — TSM's field editors
@@ -153,7 +154,7 @@ or registered in `NotCleanlyTestableAssumptions.cs` with the reason (see *How th
 6. `Log.Init` **gates the silent no-op** — before `Init`, every `Log.*` silently does nothing. `StartNewSession` is rotation-only (must follow `Init` and precede logging you want inside the rotated session; skipping it costs the session boundary, not the trail).
 7. `Night.NightCache.ComputeYearStartDay` / `ComputeYearDaysCount` are **pure statics called before the ctor**.
 8. `TargetSchedulerReader`/`Editor` **open the DB in their ctor** — file must exist; reader is single-use.
-9. `TargetSchedulerEditor.HasRequiredColumns` (`Id,guid,active`) **gates ALL writes** (else `RefusalReason.SchemaIncompatible`): `TrySetField` is the editor's **only public write path** (structurally pinned by `EditorWriteSurfaceContractTests`). The formerly-public raw `Set*` setters that bypassed the gates were removed/internalized 2026-07-24 — `SetField` survives only as the internal engine behind `TrySetField`.
+9. `TargetSchedulerEditor.HasRequiredColumns` (`Id,guid,active`) **gates ALL writes** (else `RefusalReason.SchemaIncompatible`): `TrySetField` (field edits) and `TryInsertRows` (batch-atomic row creation, 2026-08-03) are the editor's **only public write paths** (structurally pinned by `EditorWriteSurfaceContractTests`). The formerly-public raw `Set*` setters that bypassed the gates were removed/internalized 2026-07-24 — `SetField` survives only as the internal engine behind `TrySetField`.
 10. Editor write-back **key = `ImportedFromTsGuid`** (GUID string *or* TS int Id as decimal string; disambiguated by `long.TryParse`).
 
 **Performance-coupled:**

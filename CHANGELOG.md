@@ -9,6 +9,23 @@ backstop — this is the human-legible layer above it.
 **Entry format:** `## YYYY-MM-DD — <what landed>` (a month-only `YYYY-MM` is fine when the exact day
 wasn't recorded). Newest first; add new entries directly below this charter, never at the bottom.
 
+## 2026-08-03 — TryInsertRows: guarded batch-atomic row creation; v1.2.0 published
+
+`TargetSchedulerEditor` gained its second public write path, the row-creation sibling of
+`TrySetField`: `TryInsertRows(IReadOnlyList<TsRowInsert>) → (InsertOutcome?, RefusalReason)` —
+one all-or-none transaction over exposuretemplate / target / exposureplan payloads, built for a
+consumer sync model that journals creations locally and replays them remotely (TSM's disk-row
+adoption is the driving consumer). Same guard order as field edits (required columns / read-only
+/ open sidecar), per-table required payload columns (`guid` always; `Id` forbidden — SQLite
+autoincrement mints it), payload column names validated against the live schema (the injection
+whitelist role), parent references (`projectid`/`targetid`/`exposureTemplateId`) accepted as
+integer id **or guid** and resolved in-transaction — a guid may name a row inserted earlier in
+the same batch — a plan insert clears the target's `filtercadenceitem` rows in-transaction and
+refuses on hand-authored override-order rows (`HasOverrideOrder`), and every landed row is
+read-back verified (`RowInsertResult`). 15 tests (`TargetSchedulerEditorInsertTests`); the
+write-surface contract test now pins both paths. Published as **`v1.2.0`** (tagged source
+snapshot; the DLLs ship inside TSM v1.2.0's installer, cut the same day).
+
 ## 2026-08-02 — AL published to GitHub (Astronomy-Library mirror), MinVer versioning
 
 The library gained a public mirror — https://github.com/Apoplectic1/Astronomy-Library — on the
