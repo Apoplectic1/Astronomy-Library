@@ -51,8 +51,9 @@ TargetPlanner and TargetSchedulerManager installers, built locally in those repo
   `X.Y.Z` stamps that exist on this mirror. Consumer `release.ps1` scripts enforce this with
   an abort gate (dirty Library tree, or `-alpha` in the embedded stamp).
 
-Latest published tag: **`v1.1.0`** (first public tag; `v1.0.0` is pre-public history, pushed
-for completeness).
+Latest published tag: **`v1.2.0`** (adds the guarded row-insert primitive `TryInsertRows` —
+exposuretemplate/target/exposureplan batch inserts for consumer sync replay). Prior: `v1.1.0`
+(first public tag); `v1.0.0` is pre-public history, pushed for completeness.
 
 ## Content rules (what is deliberately public — and not)
 
