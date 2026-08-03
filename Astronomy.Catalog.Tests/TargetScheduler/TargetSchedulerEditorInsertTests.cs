@@ -175,7 +175,38 @@ public sealed class TargetSchedulerEditorInsertTests
         string db = NewDb();
         using TargetSchedulerEditor editor = new(db);
         Assert.Throws<ArgumentException>(() => editor.TryInsertRows([new TsRowInsert(
-            TsTable.ExposureTemplate, new Dictionary<string, object?> { ["guid"] = "et-new" })]));
+            TsTable.Project, new Dictionary<string, object?> { ["guid"] = "p-new" })]));
+    }
+
+    [Fact]
+    public void Batch_TemplateThenPlan_PlanResolvesTheNewTemplatesGuid()
+    {
+        string db = NewDb();
+        using TargetSchedulerEditor editor = new(db);
+        (InsertOutcome? outcome, RefusalReason refusal) = editor.TryInsertRows(
+        [
+            new TsRowInsert(TsTable.ExposureTemplate, new Dictionary<string, object?>
+            { ["guid"] = "et-new", ["profileId"] = "prof-1", ["name"] = "Stars B g53", ["filtername"] = "B" }),
+            new TsRowInsert(TsTable.ExposurePlan, new Dictionary<string, object?>
+            { ["guid"] = "ep-new", ["targetid"] = 1L, ["exposureTemplateId"] = "et-new", ["desired"] = 30 }),
+        ]);
+
+        Assert.Equal(RefusalReason.None, refusal);
+        Assert.True(outcome!.Applied);
+        Assert.All(outcome.Rows, r => Assert.True(r.Succeeded));
+        long templateId = (long)Scalar(db, "SELECT Id FROM exposuretemplate WHERE guid = 'et-new'")!;
+        Assert.Equal(templateId, Scalar(db, "SELECT exposureTemplateId FROM exposureplan WHERE guid = 'ep-new'"));
+        Assert.Equal(0L, Scalar(db, "SELECT COUNT(*) FROM filtercadenceitem WHERE targetid = 1"));  // plan insert clears
+    }
+
+    [Fact]
+    public void TemplateInsert_MissingIdentityColumn_Throws()
+    {
+        string db = NewDb();
+        using TargetSchedulerEditor editor = new(db);
+        Assert.Throws<ArgumentException>(() => editor.TryInsertRows([new TsRowInsert(
+            TsTable.ExposureTemplate, new Dictionary<string, object?>
+            { ["guid"] = "et-new", ["profileId"] = "prof-1", ["name"] = "X" })]));   // no filtername
     }
 
     // ---- fixture: mirrors the cadence tests', plus template 21 for plan FKs -----------------------------
@@ -194,12 +225,12 @@ public sealed class TargetSchedulerEditorInsertTests
             "CREATE TABLE target (Id INTEGER PRIMARY KEY, guid TEXT, active INTEGER NOT NULL, projectid INTEGER, name TEXT);" +
             "CREATE TABLE exposureplan (Id INTEGER PRIMARY KEY, guid TEXT, targetid INTEGER, exposureTemplateId INTEGER," +
             " enabled INTEGER, desired INTEGER, acquired INTEGER, accepted INTEGER, exposure REAL);" +
-            "CREATE TABLE exposuretemplate (Id INTEGER PRIMARY KEY, guid TEXT);" +
+            "CREATE TABLE exposuretemplate (Id INTEGER PRIMARY KEY, guid TEXT, profileId TEXT, name TEXT, filtername TEXT);" +
             "CREATE TABLE filtercadenceitem (Id INTEGER PRIMARY KEY, targetid INTEGER, \"order\" INTEGER, next INTEGER, action INTEGER, referenceIdx INTEGER);" +
             "CREATE TABLE overrideexposureorderitem (Id INTEGER PRIMARY KEY, targetid INTEGER, \"order\" INTEGER, action INTEGER, referenceIdx INTEGER);" +
             "INSERT INTO project VALUES (101, 'p-101', 1), (102, 'p-102', 1);" +
             "INSERT INTO target VALUES (1, 't-1', 1, 101, 'A'), (2, 't-2', 1, 101, 'B'), (3, 't-3', 1, 102, 'C');" +
-            "INSERT INTO exposuretemplate VALUES (21, 'et-21');" +
+            "INSERT INTO exposuretemplate VALUES (21, 'et-21', 'prof-1', 'H900', 'H');" +
             "INSERT INTO filtercadenceitem VALUES (1, 1, 1, 1, 0, 0), (2, 1, 2, 0, 0, 1)," +
             " (3, 2, 1, 1, 0, 0), (4, 2, 2, 0, 0, 1), (5, 3, 1, 1, 0, 0);" +
             (oeoOnTarget1 ? "INSERT INTO overrideexposureorderitem VALUES (1, 1, 1, 0, 0);" : ""));

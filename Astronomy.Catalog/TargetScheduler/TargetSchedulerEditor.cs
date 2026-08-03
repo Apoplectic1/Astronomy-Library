@@ -18,13 +18,14 @@ public sealed record FieldEditResult(bool RowFound, string? OldValue, bool Verif
 /// would require deleting user-authored data; re-author the order in the TS editor instead.</summary>
 public enum RefusalReason { None, SchemaIncompatible, ReadOnly, OpenSidecar, ColumnAbsent, HasOverrideOrder }
 
-/// <summary>One row for <see cref="TargetSchedulerEditor.TryInsertRows"/>: the table (only
-/// <see cref="TsTable.Target"/> and <see cref="TsTable.ExposurePlan"/> are insertable) and the full column
-/// payload. The payload must carry a minted <c>guid</c> (the cross-copy row name) and the table's parent
-/// reference column(s); it must not carry <c>Id</c> (the db mints it). A parent reference value may be the
-/// parent's integer <c>Id</c> <em>or</em> its <c>guid</c> string — guids are resolved inside the insert
-/// transaction, so a caller replaying rows onto a copy with different integer ids passes guids throughout
-/// (a row inserted earlier in the same batch resolves too).</summary>
+/// <summary>One row for <see cref="TargetSchedulerEditor.TryInsertRows"/>: the table
+/// (<see cref="TsTable.ExposureTemplate"/>, <see cref="TsTable.Target"/> and
+/// <see cref="TsTable.ExposurePlan"/> are insertable) and the full column payload. The payload must carry a
+/// minted <c>guid</c> (the cross-copy row name) and the table's parent reference column(s); it must not
+/// carry <c>Id</c> (the db mints it). A parent reference value may be the parent's integer <c>Id</c>
+/// <em>or</em> its <c>guid</c> string — guids are resolved inside the insert transaction, so a caller
+/// replaying rows onto a copy with different integer ids passes guids throughout (a row inserted earlier
+/// in the same batch resolves too).</summary>
 public sealed record TsRowInsert(TsTable Table, IReadOnlyDictionary<string, object?> Payload);
 
 /// <summary>Outcome of one row inside a <see cref="TargetSchedulerEditor.TryInsertRows"/> batch. When
@@ -155,9 +156,9 @@ public sealed class TargetSchedulerEditor : IDisposable
     }
 
     /// <summary>
-    /// The guarded insert path: creates <c>target</c> / <c>exposureplan</c> rows from full column payloads in
-    /// <b>one transaction</b> (all rows or none — a caller creating a target plus its first plan cannot be left
-    /// with half). Shares <see cref="TrySetField"/>'s safety predicates (schema, writable, sidecar) plus a
+    /// The guarded insert path: creates <c>exposuretemplate</c> / <c>target</c> / <c>exposureplan</c> rows
+    /// from full column payloads in <b>one transaction</b> (all rows or none — a caller creating a template
+    /// plus the plan referencing it, or a target plus its first plan, cannot be left with half). Shares <see cref="TrySetField"/>'s safety predicates (schema, writable, sidecar) plus a
     /// payload-column presence check against this db's actual columns (which doubles as the SQL identifier
     /// whitelist). Parent reference columns (<c>projectid</c>; <c>targetid</c> / <c>exposureTemplateId</c>)
     /// accept the parent's integer id or its guid — see <see cref="TsRowInsert"/>. An
@@ -291,14 +292,19 @@ public sealed class TargetSchedulerEditor : IDisposable
     private static void ValidateInsertPayload(TsRowInsert row)
     {
         ArgumentNullException.ThrowIfNull(row);
-        if (row.Table is not (TsTable.Target or TsTable.ExposurePlan))
+        if (row.Table is not (TsTable.Target or TsTable.ExposurePlan or TsTable.ExposureTemplate))
             throw new ArgumentException($"{row.Table} rows are not insertable", nameof(row));
         Dictionary<string, object?> payload = new(row.Payload, StringComparer.OrdinalIgnoreCase);
         if (payload.ContainsKey("Id"))
             throw new ArgumentException("payload must not carry Id (the db mints it)", nameof(row));
         if (payload.GetValueOrDefault("guid") is not string guid || string.IsNullOrWhiteSpace(guid))
             throw new ArgumentException("payload must carry a minted guid", nameof(row));
-        string[] required = row.Table == TsTable.Target ? ["projectid"] : ["targetid", "exposureTemplateId"];
+        string[] required = row.Table switch
+        {
+            TsTable.Target => ["projectid"],
+            TsTable.ExposurePlan => ["targetid", "exposureTemplateId"],
+            _ => ["profileId", "name", "filtername"],   // template: profile-scoped, NOT NULL identity columns
+        };
         foreach (string column in required)
             if (!payload.TryGetValue(column, out object? reference) || reference is null)
                 throw new ArgumentException($"{row.Table} payload must carry {column}", nameof(row));
