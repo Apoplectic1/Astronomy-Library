@@ -36,10 +36,12 @@ namespace Astronomy.Catalog.Reconcile;
 /// framing.
 /// </para>
 /// <para>
-/// <see cref="TemplateSentinel"/> is true when a plan behind this cell uses a template that leaves a
-/// camera-managed value unspecified (a gain, offset or readout-mode "use the camera's default" sentinel).
-/// An unspecified value can never pair and never credits (<see cref="CaptureConfigPairing"/>), so the flag
+/// <see cref="TemplateSentinel"/> is true when a plan behind this cell uses a template whose gain or
+/// offset carries the "use the camera's default" sentinel. Those are the dimensions pairing compares, so
+/// an unspecified value can never pair and never credits (<see cref="CaptureConfigPairing"/>) — the flag
 /// is the consumer's cue that the plan's capture configuration needs to be made explicit at its source.
+/// Sentinels that are a field's designed deferral state (a template's readout mode, a plan's
+/// defer-to-template exposure) are correct by construction and never raise it.
 /// </para>
 /// <para>
 /// <see cref="FramingOverlapFraction"/> prices that disagreement: the share of these frames' own footprint
@@ -307,11 +309,12 @@ public static class ReconciliationProjection
             _planTsKey = p.ImportedFromTsGuid;
             _templateTsKey = tpl.ImportedFromTsGuid;
             _planEnabled = p.Enabled;
-            // A camera-default sentinel anywhere in the template's capture trio: gain/offset via the shared
-            // normalization; readout mode compared raw (an absent value is absence, not an asserted default).
+            // A camera-default sentinel on gain or offset — the fields whose values the authoring
+            // convention decides explicitly (their sentinel is an affirmative act in the source UI).
+            // Readout mode is deliberately NOT checked: its sentinel is the designed "camera decides"
+            // state, correct by construction — like a plan's defer-to-template exposure — not a violation.
             _templateSentinel |= CaptureConfigPairing.PlanGain(tpl) == CaptureConfigPairing.Sentinel
-                || CaptureConfigPairing.PlanOffset(tpl) == CaptureConfigPairing.Sentinel
-                || tpl.ReadoutMode == CaptureConfigPairing.Sentinel;
+                || CaptureConfigPairing.PlanOffset(tpl) == CaptureConfigPairing.Sentinel;
         }
 
         public ReconciliationCell ToCell(double? targetRotationDeg, double? targetRaHours, double? targetDecDeg) =>
