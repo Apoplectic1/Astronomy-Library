@@ -9,6 +9,14 @@ backstop — this is the human-legible layer above it.
 **Entry format:** `## YYYY-MM-DD — <what landed>` (a month-only `YYYY-MM` is fine when the exact day
 wasn't recorded). Newest first; add new entries directly below this charter, never at the bottom.
 
+## 2026-08-03 — Diagnostics ≠ Catalog boundary rationale graduated into ARCHITECTURE.md
+
+One-sentence standing truth landed in § *Astronomy.Diagnostics* (user placement decision, TSM
+2026-07-29 maintain sweep held graduate H1): shared observation tooling stays out of
+`Astronomy.Catalog` on purpose — Catalog is a schema/build contract, not a grab-bag utility
+library. The rationale predates Diagnostics itself (TSM archive review 2026-06-10 §4.4) and had
+no home in any live doc until now.
+
 ## 2026-08-03 — TryInsertRows: guarded batch-atomic row creation; v1.2.0 published
 
 `TargetSchedulerEditor` gained its second public write path, the row-creation sibling of
