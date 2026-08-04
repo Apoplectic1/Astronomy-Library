@@ -36,6 +36,12 @@ namespace Astronomy.Catalog.Reconcile;
 /// framing.
 /// </para>
 /// <para>
+/// <see cref="TemplateSentinel"/> is true when a plan behind this cell uses a template that leaves a
+/// camera-managed value unspecified (a gain, offset or readout-mode "use the camera's default" sentinel).
+/// An unspecified value can never pair and never credits (<see cref="CaptureConfigPairing"/>), so the flag
+/// is the consumer's cue that the plan's capture configuration needs to be made explicit at its source.
+/// </para>
+/// <para>
 /// <see cref="FramingOverlapFraction"/> prices that disagreement: the share of these frames' own footprint
 /// that falls inside the footprint the target's rotation asked for, in <c>[0, 1]</c>. It is <c>null</c>
 /// whenever there is no disagreement to price (a serving framing, a mechanical/unknown rotation, a target
@@ -67,7 +73,8 @@ public sealed record ReconciliationCell(
     double? DiskRotationFoldDeg = null,
     bool FramingDisagrees = false,
     double? FramingOverlapFraction = null,
-    bool FramingSpansMultipleSensors = false);
+    bool FramingSpansMultipleSensors = false,
+    bool TemplateSentinel = false);
 
 /// <summary>
 /// One canonical target's reconciliation: its identity + match-state plus its <see cref="Cells"/>, which are
@@ -159,15 +166,18 @@ public static class ReconciliationProjection
                 // plan which does not specify the value, and what the camera would default to is unknowable
                 // here — so it is kept as its own key rather than assumed to match whatever was captured. Such
                 // a plan forms its own cell and does not pair, which is the honest reading: nothing can be
-                // asserted to agree with an unspecified value.
-                int bin = tpl.Binning is int b && b > 0 ? b : 1;
+                // asserted to agree with an unspecified value. The normalization lives in
+                // CaptureConfigPairing so key-equality here IS the pairing predicate every consumer shares.
+                int gain = CaptureConfigPairing.PlanGain(tpl);
+                int offset = CaptureConfigPairing.PlanOffset(tpl);
+                int bin = CaptureConfigPairing.PlanBin(tpl);
                 string filter = tpl.FilterName;
                 FilterPurpose purpose = FilterPurposeClassifier.Classify(tpl.Name);
                 int framing = ChooseFraming(
-                    cells, filter, purpose, seconds, tpl.Gain ?? -1, tpl.OffsetAdu ?? -1, bin, bin,
+                    cells, filter, purpose, seconds, gain, offset, bin, bin,
                     t.RotationDeg);
                 CellAccumulator c = Cell(cells, filter, purpose, seconds,
-                    tpl.Gain ?? -1, tpl.OffsetAdu ?? -1, bin, bin, framing);
+                    gain, offset, bin, bin, framing);
                 c.AddPlan(p, tpl);
             }
 
@@ -266,6 +276,7 @@ public static class ReconciliationProjection
         private bool? _planEnabled;
         private string? _camera;
         private bool _cameraDisagrees;
+        private bool _templateSentinel;
 
         /// <summary>Folds one disk aggregate in. The camera is disk-side only; the configuration key already
         /// guarantees these frames share one, so the first seen is the cell's — and likewise the framing.</summary>
@@ -296,6 +307,11 @@ public static class ReconciliationProjection
             _planTsKey = p.ImportedFromTsGuid;
             _templateTsKey = tpl.ImportedFromTsGuid;
             _planEnabled = p.Enabled;
+            // A camera-default sentinel anywhere in the template's capture trio: gain/offset via the shared
+            // normalization; readout mode compared raw (an absent value is absence, not an asserted default).
+            _templateSentinel |= CaptureConfigPairing.PlanGain(tpl) == CaptureConfigPairing.Sentinel
+                || CaptureConfigPairing.PlanOffset(tpl) == CaptureConfigPairing.Sentinel
+                || tpl.ReadoutMode == CaptureConfigPairing.Sentinel;
         }
 
         public ReconciliationCell ToCell(double? targetRotationDeg, double? targetRaHours, double? targetDecDeg) =>
@@ -321,6 +337,7 @@ public static class ReconciliationProjection
                         _framingFieldWidthDeg, _framingFieldHeightDeg,
                         targetRaHours, targetDecDeg, targetRotationDeg)
                     : null,
-                FramingSpansMultipleSensors: _framingSpansSensors);
+                FramingSpansMultipleSensors: _framingSpansSensors,
+                TemplateSentinel: _templateSentinel);
     }
 }

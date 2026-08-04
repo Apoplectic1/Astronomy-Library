@@ -125,6 +125,43 @@ public sealed class SingleTargetPlannerTests
     }
 
     [Fact]
+    public void GainMismatch_SameSecondsPlanExists_IsManualNoMatchingPlan()
+    {
+        // The shared pairing rule reaches the surgical path too: a gain-0 plan never receives gain-100
+        // frames; the same-duration plan is shown as context for the human call.
+        TargetReport[] units = [Unit("Wide", 5.0, 10.0, Cell("H", FilterPurpose.Light, 25, bin: 1))];
+        TsPlanData ts = new(
+            [Proj(10, "Proj", mosaic: false)],
+            [TsT(1, "Wide", 5.0, 10.0, project: 10)],
+            [Tpl(1000, "Ha", "H", bin: 1, gain: 0)],
+            [TsP(500, target: 1, template: 1000)]);
+
+        WriteBackPlan plan = SingleTargetPlanner.Plan(units, isMosaic: false, "Wide", ts);
+
+        Assert.Empty(plan.Writes);
+        ManualGroup g = Assert.Single(plan.Manual);
+        Assert.Equal(ManualReason.NoMatchingPlan, g.Reason);
+    }
+
+    [Fact]
+    public void SentinelTemplate_NeverReceivesACount()
+    {
+        // A camera-default sentinel template pairs with nothing — the cell holds for the human, the plan's
+        // count does not move.
+        TargetReport[] units = [Unit("Wide", 5.0, 10.0, Cell("H", FilterPurpose.Light, 25, bin: 1))];
+        TsPlanData ts = new(
+            [Proj(10, "Proj", mosaic: false)],
+            [TsT(1, "Wide", 5.0, 10.0, project: 10)],
+            [Tpl(1000, "Ha", "H", bin: 1, gain: -1)],
+            [TsP(500, target: 1, template: 1000)]);
+
+        WriteBackPlan plan = SingleTargetPlanner.Plan(units, isMosaic: false, "Wide", ts);
+
+        Assert.Empty(plan.Writes);
+        Assert.Equal(ManualReason.NoMatchingPlan, Assert.Single(plan.Manual).Reason);
+    }
+
+    [Fact]
     public void PlanExposureMinusOne_UsesTemplateDefault()
     {
         // Raw TS sentinel: exposure -1 means "use the template default".
@@ -304,8 +341,11 @@ public sealed class SingleTargetPlannerTests
     private static TsTarget TsT(long id, string name, double ra, double dec, long project, double? rotation = null) =>
         new(id, name, 1, ra, dec, 2, rotation, null, project, -1, "g-t" + id);
 
-    private static TsExposureTemplate Tpl(long id, string name, string filter, int bin, double defExp = 300.0) =>
-        new(id, "profile-1", name, filter, 100, 50, bin, defExp);
+    // Config defaults MATCH the Cell builder's TypicalSettings (gain 100, offset 50) so crediting pairs by
+    // default; pass explicit values (or -1, the camera-default sentinel) to test the config rule itself.
+    private static TsExposureTemplate Tpl(
+        long id, string name, string filter, int bin, double defExp = 300.0, int gain = 100, int offset = 50) =>
+        new(id, "profile-1", name, filter, gain, offset, bin, defExp);
 
     private static TsExposurePlan TsP(
         long id, long target, long template, int desired = 60, int acquired = 0, int accepted = 0,

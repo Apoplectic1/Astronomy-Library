@@ -17,8 +17,9 @@ public sealed record TsTarget(long Id, string Name, int Active, double? Ra, doub
 /// <summary>A TS <c>exposureplan</c> row (desired/acquired/accepted counts per target/filter).</summary>
 public sealed record TsExposurePlan(long Id, string ProfileId, double Exposure, int Desired, int Acquired, int Accepted, long TargetId, long ExposureTemplateId, bool Enabled = true);
 
-/// <summary>A TS <c>exposuretemplate</c> row.</summary>
-public sealed record TsExposureTemplate(long Id, string ProfileId, string Name, string FilterName, int Gain, int Offset, int Bin, double DefaultExposure);
+/// <summary>A TS <c>exposuretemplate</c> row. <c>ReadoutMode</c> carries the raw column (-1 = the
+/// use-camera-default sentinel); the non-sentinel default keeps hand-built instances unflagged.</summary>
+public sealed record TsExposureTemplate(long Id, string ProfileId, string Name, string FilterName, int Gain, int Offset, int Bin, double DefaultExposure, int ReadoutMode = 0);
 
 /// <summary>A TS <c>acquiredimage</c> row (per-frame history).</summary>
 public sealed record TsAcquiredImage(long Id, long ProjectId, long TargetId, long AcquiredDate, string FilterName);
@@ -103,10 +104,11 @@ public sealed class TargetSchedulerReader : IDisposable
     /// <summary>Reads all TS exposure templates.</summary>
     /// <param name="ct">Cancellation token, observed per row.</param>
     public IReadOnlyList<TsExposureTemplate> ReadExposureTemplates(CancellationToken ct = default) => Query(
-        "SELECT Id, profileId, name, filtername, gain, offset, bin, defaultexposure FROM exposuretemplate;",
+        "SELECT Id, profileId, name, filtername, gain, offset, bin, defaultexposure, readoutmode FROM exposuretemplate;",
         r => new TsExposureTemplate(
             r.GetInt64("Id"), r.GetString("profileId"), r.GetString("name"), r.GetString("filtername"),
-            r.GetInt32("gain"), r.GetInt32("offset"), r.GetInt32("bin"), r.GetDouble("defaultexposure")), ct);
+            r.GetInt32("gain"), r.GetInt32("offset"), r.GetInt32("bin"), r.GetDouble("defaultexposure"),
+            r.GetInt32("readoutmode")), ct);
 
     /// <summary>Reads all TS acquired-image history rows (metadata BLOB/JSON columns deliberately omitted).</summary>
     /// <param name="ct">Cancellation token, observed per row.</param>

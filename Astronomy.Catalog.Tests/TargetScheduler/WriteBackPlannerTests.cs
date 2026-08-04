@@ -30,27 +30,88 @@ public sealed class WriteBackPlannerTests
     }
 
     [Fact]
-    public void FinerDiskBuckets_StillTotalOneAcquiredCount()
+    public void ConfigSplitBuckets_OnlyPairingRowsCredit()
     {
-        // The disk plane now keys on the capture configuration, so one filter/exposure can occupy several
-        // inventory rows (here: the gain-53 era, the gain-0 era, and a stray offset). Write-back keys more
-        // coarsely and SUMS them, so the count written back is unchanged by that finer split.
+        // One filter/exposure can occupy several config-keyed inventory rows (here: the gain-53 era, the
+        // gain-0 era, and a stray offset). Crediting uses the shared pairing rule, so only the rows whose
+        // configuration equals the plan's template count — the rest surface as unplanned-frames notes,
+        // exactly the disk-side split the grid renders.
         Guid t = Guid.NewGuid(), tpl = Guid.NewGuid();
 
         WriteBackPlan plan = WriteBackPlanner.Plan(
             [Both(t, "M1")],
             [Plan(t, tpl, tsId: 500)],
-            [Tpl(tpl, "H", "H")],
+            [Tpl(tpl, "H", "H", gain: 0, offset: 10)],
             [
                 Inv(t, "H", FilterPurpose.Light, 20, gain: 53, offset: 10),
                 Inv(t, "H", FilterPurpose.Light, 15, gain: 0, offset: 10),
-                Inv(t, "H", FilterPurpose.Light, 12, gain: 0, offset: 50, camera: "Z183"),
+                Inv(t, "H", FilterPurpose.Light, 12, gain: 0, offset: 50, camera: "Z183", framingOrdinal: 1),
             ],
             Report());
 
         PlannedWrite w = Assert.Single(plan.Writes);
-        Assert.Equal(47, w.DiskCount);   // 20 + 15 + 12 — identical to the single-bucket case
+        Assert.Equal(15, w.DiskCount);   // only the gain-0/offset-10 era pairs with the template
         Assert.Empty(plan.Manual);
+        Assert.Equal(2, plan.NeedsReconciliation.Count);
+        Assert.All(plan.NeedsReconciliation, n => Assert.Equal(ReconcileNote.UnplannedFramesKind, n.Kind));
+        Assert.Contains(plan.NeedsReconciliation, n => n.Detail.Contains("20 frames") && n.Detail.Contains("gain 53"));
+        Assert.Contains(plan.NeedsReconciliation, n => n.Detail.Contains("12 frames") && n.Detail.Contains("offset 50"));
+    }
+
+    [Fact]
+    public void NonPairingConfig_PlanStampsToZero()
+    {
+        // The field case that motivated pairing-credited write-back: a plan assigned a gain-0 template over
+        // 18 gain-53 frames must stamp 0 — the grid, the stamped counts and the push review tell one story.
+        Guid t = Guid.NewGuid(), tpl = Guid.NewGuid();
+
+        WriteBackPlan plan = WriteBackPlanner.Plan(
+            [Both(t, "Abell 78")],
+            [Plan(t, tpl, tsId: 900, desired: 18, acquired: 18, accepted: 18)],
+            [Tpl(tpl, "Stars B", "B", defExp: 30.0, gain: 0, offset: 10)],
+            [Inv(t, "B", FilterPurpose.Stars, 18, seconds: 30.0, gain: 53, offset: 10)],
+            Report());
+
+        PlannedWrite w = Assert.Single(plan.Writes);
+        Assert.Equal(0, w.DiskCount);
+        ReconcileNote n = Assert.Single(plan.NeedsReconciliation);
+        Assert.Equal(ReconcileNote.UnplannedFramesKind, n.Kind);
+        Assert.Contains("gain 53", n.Detail);
+    }
+
+    [Fact]
+    public void SentinelTemplate_CreditsNothing()
+    {
+        // A camera-default sentinel is an unspecified value: it can never be asserted to agree with what
+        // was captured, so the plan stamps 0 even when frames sit at the camera's actual setting.
+        Guid t = Guid.NewGuid(), tpl = Guid.NewGuid();
+
+        WriteBackPlan plan = WriteBackPlanner.Plan(
+            [Both(t, "M1")],
+            [Plan(t, tpl, tsId: 500)],
+            [Tpl(tpl, "H", "H", gain: null)],
+            [Inv(t, "H", FilterPurpose.Light, 47)],
+            Report());
+
+        PlannedWrite w = Assert.Single(plan.Writes);
+        Assert.Equal(0, w.DiskCount);
+        Assert.Single(plan.NeedsReconciliation);   // the uncredited bucket states itself
+    }
+
+    [Fact]
+    public void DifferentBinning_DoesNotCredit()
+    {
+        Guid t = Guid.NewGuid(), tpl = Guid.NewGuid();
+
+        WriteBackPlan plan = WriteBackPlanner.Plan(
+            [Both(t, "M1")],
+            [Plan(t, tpl, tsId: 500)],
+            [Tpl(tpl, "H", "H", bin: 1)],
+            [Inv(t, "H", FilterPurpose.Light, 47, binX: 2, binY: 2)],
+            Report());
+
+        Assert.Equal(0, Assert.Single(plan.Writes).DiskCount);
+        Assert.Contains(plan.NeedsReconciliation, n => n.Detail.Contains("bin 2x2"));
     }
 
     [Fact]
@@ -524,8 +585,13 @@ public sealed class WriteBackPlannerTests
         Epoch.J2000, RotationDeg: null, RoiPercent: null, Priority: null, DirectoryName: null, Catalog: null,
         CommonName: null, ObjectName: null, ScannedAt: null, CreatedAt: 0, ImportedFromTsGuid: "guid");
 
-    private static ExposureTemplate Tpl(Guid id, string name, string filter, double? defExp = 300.0) =>
-        new(id, Guid.NewGuid(), name, filter, Gain: null, OffsetAdu: null, Binning: null, ReadoutMode: null,
+    // Template config defaults MATCH the Inv builder's (gain 100, offset 50, bin 1): crediting requires the
+    // configurations to pair, so tests about routing/framing/identity stay about that. Pass explicit values
+    // (or nulls — the camera-default sentinel, which pairs with nothing) to test the config rule itself.
+    private static ExposureTemplate Tpl(
+        Guid id, string name, string filter, double? defExp = 300.0,
+        int? gain = 100, int? offset = 50, int? bin = 1) =>
+        new(id, Guid.NewGuid(), name, filter, Gain: gain, OffsetAdu: offset, Binning: bin, ReadoutMode: null,
             DefaultExposureSeconds: defExp, ImportedFromTsGuid: null);
 
     private static ExposurePlan Plan(
@@ -536,12 +602,12 @@ public sealed class WriteBackPlannerTests
 
     private static InventoryFilter Inv(
         Guid target, string filter, FilterPurpose purpose, int count, double seconds = 300.0,
-        int gain = 100, int offset = 50, string camera = "Z533",
+        int gain = 100, int offset = 50, int binX = 1, int binY = 1, string camera = "Z533",
         int framingOrdinal = 0, RotationExpression rotation = RotationExpression.Sky,
         double? rotationFold = 20.0) =>
         new(target, filter, purpose, filter, count, count * seconds, FirstImagedAt: 0, LastImagedAt: 0,
-            TypicalGain: gain, TypicalOffset: offset, TypicalSetTempC: -10.0, TypicalBinningX: 1,
-            TypicalBinningY: 1, ExposureSeconds: seconds, Camera: camera,
+            TypicalGain: gain, TypicalOffset: offset, TypicalSetTempC: -10.0, TypicalBinningX: binX,
+            TypicalBinningY: binY, ExposureSeconds: seconds, Camera: camera,
             FramingOrdinal: framingOrdinal, RotationExpression: rotation, RotationFoldDeg: rotationFold);
 
     private static CatalogBuildReport Report(

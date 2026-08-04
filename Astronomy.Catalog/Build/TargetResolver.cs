@@ -106,7 +106,7 @@ public static class TargetResolver
             templateIds[t.Id] = id;
             templates.Add(new ExposureTemplate(
                 id, profileGuid, t.Name, t.FilterName, Gain: t.Gain, OffsetAdu: t.Offset, Binning: t.Bin,
-                ReadoutMode: null, DefaultExposureSeconds: t.DefaultExposure,
+                ReadoutMode: t.ReadoutMode, DefaultExposureSeconds: t.DefaultExposure,
                 ImportedFromTsGuid: t.Id.ToString(CultureInfo.InvariantCulture)));
         }
 

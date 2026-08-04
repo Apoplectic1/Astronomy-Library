@@ -9,6 +9,23 @@ backstop — this is the human-legible layer above it.
 **Entry format:** `## YYYY-MM-DD — <what landed>` (a month-only `YYYY-MM` is fine when the exact day
 wasn't recorded). Newest first; add new entries directly below this charter, never at the bottom.
 
+## 2026-08-04 — Write-back credits by the capture-configuration pairing rule
+
+`WriteBackPlanner` and `SingleTargetPlanner` no longer credit every frame in a plan's
+`(target, filter, purpose, seconds)` bucket: an inventory row joins a plan's sum only when its
+gain/offset/binning **pair with the plan's template** under the new shared predicate
+**`Reconcile.CaptureConfigPairing`** (value equality after plan-side normalization; the camera-default
+sentinel `-1` pairs with nothing). `ReconciliationProjection`'s cell key derives from the same
+normalization, so a consumer's rendered separation and the stamped counts can never drift — the drift
+this closes was field-observed (frames at a superseded gain still crediting a differently-configured
+plan, which then never healed to 0). Non-pairing buckets surface as `UnplannedFrames` notes naming the
+configuration; the surgical path holds a configuration miss as a `NoMatchingPlan` manual with context.
+Also: `TsExposureTemplate` gained `ReadoutMode` (the reader now selects `readoutmode`; `-1` = TS's
+use-camera-default sentinel) and `ReconciliationCell` gained `TemplateSentinel` — true when a plan's
+template leaves any of gain/offset/readout-mode unspecified, the consumer's cue to badge it.
+Consumer contract note updated in `CONSUMERS.md` (silent-wrong-result surface: a configuration mismatch
+now writes 0 to a live plan — by design, disk is truth). Catalog tests 268.
+
 ## 2026-08-03 — Diagnostics ≠ Catalog boundary rationale graduated into ARCHITECTURE.md
 
 One-sentence standing truth landed in § *Astronomy.Diagnostics* (user placement decision, TSM

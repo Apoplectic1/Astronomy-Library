@@ -1,4 +1,5 @@
 using Astronomy.Catalog.Build;
+using Astronomy.Catalog.Reconcile;
 using Astronomy.Catalog.Scan;
 
 namespace Astronomy.Catalog.TargetScheduler;
@@ -12,14 +13,15 @@ namespace Astronomy.Catalog.TargetScheduler;
 ///   <item><b>Unit → TS target</b> by coordinates: a normal target is one unit anchored to the nearest TS target;
 ///   a mosaic is one unit per panel, each anchored to the nearest panel <i>within the same-named isMosaic
 ///   project</i> (name-matched first, exactly like <see cref="TargetResolver"/>).</item>
-///   <item><b>Cell → TS plan</b> by <c>(filter, purpose, binning, whole-second exposure)</c>: each per-sub-length
-///   aggregate lands on the plan whose template matches all four — a 2×2 <c>Stars B</c> cell can't write a 1×1
-///   plan, and 600 s frames can't satisfy a 900 s plan.</item>
+///   <item><b>Cell → TS plan</b> by <c>(filter, purpose, whole-second exposure)</c> plus the shared
+///   capture-configuration pairing rule (<see cref="CaptureConfigPairing"/> — gain/offset/binning value
+///   equality, a camera-default sentinel pairs with nothing): a 2×2 cell can't write a 1×1 plan, gain-53
+///   frames can't satisfy a gain-0 plan, and 600 s frames can't satisfy a 900 s plan.</item>
 /// </list>
 /// Disk is the single source of truth, so a matched cell takes the disk count verbatim (the writer ratchets
 /// <c>desired</c> up). A cell whose duration no plan targets is an informational
 /// <see cref="ReconcileNote.UnplannedFramesKind"/> note (write-back updates existing plan rows only); a cell whose
-/// only same-duration plans sit at a different binning, or with several plans at the full key, is
+/// only same-duration plans sit at a different configuration, or with several plans at the full key, is
 /// <b>reported for manual resolution, never forced</b>. Unlike the bulk planner, plans with no matching cell are
 /// left untouched (never zeroed): this is a per-cell push tool, and a partial or unconventional directory scan
 /// must not be silently destructive to the anchored target's other plans.
@@ -157,11 +159,19 @@ public static class SingleTargetPlanner
             && string.Equals(tpl.FilterName, cell.FilterName, StringComparison.OrdinalIgnoreCase)
             && FilterPurposeClassifier.Classify(tpl.Name) == cell.Purpose;
 
-        // Filter + purpose + binning + seconds is the full key — a square-binned cell only writes a
-        // like-binned plan, and frames only count toward a plan at exactly their duration.
+        // Filter + purpose + seconds + the shared configuration pairing is the full key — a square-binned
+        // cell only writes a like-binned plan, frames only count toward a plan at exactly their duration,
+        // and a plan's expressed gain/offset must equal the cell's (a sentinel template pairs with nothing).
+        bool ConfigPairs(TsExposurePlan p)
+        {
+            TsExposureTemplate tpl = templateById[p.ExposureTemplateId];
+            return CaptureConfigPairing.Pairs(
+                tpl.Gain, tpl.Offset, tpl.Bin,
+                cell.Typical.Gain, cell.Typical.Offset, cell.Typical.Binning.X, cell.Typical.Binning.Y);
+        }
         List<TsExposurePlan> matches = [.. targetPlans.Where(p =>
             MatchesFilterPurpose(p)
-            && templateById[p.ExposureTemplateId].Bin == cell.Typical.Binning.X
+            && ConfigPairs(p)
             && PlanSeconds(p) == cellSeconds)];
 
         if (matches.Count == 1)
@@ -174,22 +184,25 @@ public static class SingleTargetPlanner
 
         if (matches.Count == 0)
         {
-            // Same-duration plans at another binning are shown as context (e.g. a 1×1 plan when the disk
-            // cell is 2×2) — a human call. No plan at this duration at all → informational note.
-            List<TsExposurePlan> otherBin = [.. targetPlans.Where(p =>
+            // Same-duration plans at another configuration (binning, gain or offset — including a sentinel
+            // template, which pairs with nothing) are shown as context — a human call, with the cell's
+            // configuration named so the withheld count states its reason. No plan at this duration at
+            // all → informational note.
+            List<TsExposurePlan> otherConfig = [.. targetPlans.Where(p =>
                 MatchesFilterPurpose(p) && PlanSeconds(p) == cellSeconds)];
-            if (otherBin.Count == 0)
+            if (otherConfig.Count == 0)
             {
                 needs.Add(new ReconcileNote(ReconcileNote.UnplannedFramesKind, matched.Name,
                     $"{cell.FilterName} {cell.Purpose} {cell.ExposureCount} frames @{cellSeconds}s " +
-                    $"(bin {cell.Typical.Binning.X}) - no TS plan at {cellSeconds}s"));
+                    $"(gain {cell.Typical.Gain} offset {cell.Typical.Offset} bin {cell.Typical.Binning.X}) " +
+                    $"- no TS plan at {cellSeconds}s"));
                 return;
             }
 
             manual.Add(new ManualGroup(
                 Guid.Empty, matched.Name, cell.FilterName, cell.Purpose, cellSeconds, cell.ExposureCount,
                 ManualReason.NoMatchingPlan,
-                [.. otherBin.Select(p => new ManualPlan(p.Id, PlanSeconds(p), p.Acquired, p.Accepted, p.Desired))]));
+                [.. otherConfig.Select(p => new ManualPlan(p.Id, PlanSeconds(p), p.Acquired, p.Accepted, p.Desired))]));
             return;
         }
 

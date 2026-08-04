@@ -204,13 +204,17 @@ assumptions** — numbering them requires a bench test or a registry entry, whic
   throws rather than returning a truncated graph or report. Because the parameters are optional, a
   regression here is **compiler-invisible** — nothing breaks if the token silently stops being observed.
   (Guarded today by `Resolve_ObservesCancellation` in `Astronomy.Catalog.Tests`, not by the bench.)
-- **Write-back's join key is (target, filter, purpose, whole-second exposure).** A plan receives the disk
-  count at exactly its `round(ExposureSeconds ?? template default)` bucket and nothing else (filter
-  compared ordinal-ignore-case). Same-purpose plans at different durations resolve to separate writes
-  rather than manual; a disk bucket with no plan at that duration surfaces as an `UnplannedFrames`
-  `ReconcileNote` and is never folded into a neighbouring plan; and no frames at the plan's duration is a
-  real `DiskCount = 0` write ("spec unmet"), not a skip. This is a silent-wrong-result surface — a
-  duration mismatch writes 0 to a live TS plan.
+- **Write-back's join key is (target, filter, purpose, whole-second exposure), credited by pairing.** A
+  plan receives the disk count at exactly its `round(ExposureSeconds ?? template default)` bucket (filter
+  compared ordinal-ignore-case), and **within the bucket only frames whose capture configuration pairs
+  with the plan's template count** (`CaptureConfigPairing` — gain/offset/binning value equality after
+  plan-side normalization; a camera-default sentinel `-1` pairs with nothing) and whose framing serves the
+  target's rotation (2026-08-04, `pairing-credited-write-back`). Same-purpose plans at different durations
+  resolve to separate writes rather than manual; a disk bucket with no plan at that duration — or frames
+  whose configuration no plan pairs with — surfaces as an `UnplannedFrames` `ReconcileNote` and is never
+  folded into a neighbouring plan; and no pairing frames at the plan's spec is a real `DiskCount = 0`
+  write ("spec unmet"), not a skip. This is a silent-wrong-result surface — a duration or configuration
+  mismatch writes 0 to a live TS plan.
 
 ## Fragility flags
 - **Three public `Target` types** — `Core.Targets.Target` (class), `NINA.Target` (class), `Catalog.Schema.Target` (record). Naming-overload hazard; consumers alias around it.
