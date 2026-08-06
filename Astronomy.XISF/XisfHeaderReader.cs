@@ -1,6 +1,4 @@
 using System.Globalization;
-using System.Text;
-using System.Xml;
 using System.Xml.Linq;
 
 namespace Astronomy.XISF;
@@ -29,10 +27,6 @@ namespace Astronomy.XISF;
 /// </remarks>
 public static class XisfHeaderReader
 {
-    private const int SignatureSize = 16;
-    private const string XisfSignature = "XISF0100";
-    private const int MaxXmlSize = 16 * 1024 * 1024;  // 16 MiB — sanity bound on XML header
-
     /// <summary>
     /// Reads the XISF header at <paramref name="filePath"/> and returns a
     /// <see cref="XisfHeader"/> populated from the embedded FITS keywords.
@@ -50,48 +44,7 @@ public static class XisfHeaderReader
             filePath, FileMode.Open, FileAccess.Read, FileShare.Read,
             bufferSize: 4096, useAsync: true);
 
-        // Signature + XML length header (first 16 bytes).
-        byte[] sigBuf = new byte[SignatureSize];
-        await fs.ReadExactlyAsync(sigBuf, 0, SignatureSize, ct).ConfigureAwait(false);
-
-        string sig = Encoding.ASCII.GetString(sigBuf, 0, 8);
-        if (sig != XisfSignature)
-        {
-            throw new InvalidDataException(
-                $"Not an XISF file: signature '{sig}' (expected '{XisfSignature}') at '{filePath}'.");
-        }
-
-        // Bytes 8–11: little-endian uint32. XFM's reader comment claims "big-endian"
-        // but the actual XISF spec + XFM's own bit-shift order is little-endian.
-        int xmlSize = sigBuf[8]
-                    | (sigBuf[9] << 8)
-                    | (sigBuf[10] << 16)
-                    | (sigBuf[11] << 24);
-
-        if (xmlSize <= 0 || xmlSize > MaxXmlSize)
-        {
-            throw new InvalidDataException(
-                $"Invalid XISF XML section size {xmlSize} at '{filePath}'.");
-        }
-
-        byte[] xmlBuf = new byte[xmlSize];
-        await fs.ReadExactlyAsync(xmlBuf, 0, xmlSize, ct).ConfigureAwait(false);
-        string xmlString = Encoding.UTF8.GetString(xmlBuf);
-
-        XDocument doc;
-        try
-        {
-            doc = XDocument.Parse(xmlString, LoadOptions.None);
-        }
-        catch (XmlException ex)
-        {
-            throw new InvalidDataException(
-                $"Failed to parse XISF XML at '{filePath}': {ex.Message}", ex);
-        }
-
-        XElement? root = doc.Root
-            ?? throw new InvalidDataException($"XISF XML has no root element at '{filePath}'.");
-        XNamespace ns = root.GetDefaultNamespace();
+        (XDocument doc, XNamespace ns) = await XisfXmlLoader.LoadAsync(fs, filePath, ct).ConfigureAwait(false);
 
         // The image's pixel dimensions live on the <Image> element's `geometry` attribute
         // ("width:height:channels"), NOT in the FITS keyword bag below: NAXIS1/NAXIS2 are optional

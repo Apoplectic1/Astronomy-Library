@@ -23,8 +23,14 @@
     <InternalsVisibleTo Include="Astronomy.XISF.Tests" />
   </ItemGroup>
 
-  <!-- Tier 1 scope (2026-05-18): header-only read. Pure managed; no native deps;
-       no NINA / Profile / WPF coupling. T2-T4 (header write-back, image read,
-       image write) tracked in ROADMAP.md. -->
+  <ItemGroup>
+    <PackageReference Include="K4os.Compression.LZ4" Version="1.3.8" />
+    <PackageReference Include="ZstdSharp.Port" Version="0.8.8" />
+  </ItemGroup>
+
+  <!-- Tier 1 (2026-05-18): header-only read. Tier 3 (2026-08-06): full-codec block
+       compression + image read. Pure managed (LZ4/zstd via managed-only packages);
+       no native deps; no NINA / Profile / WPF coupling. T2 (header write-back) and
+       T4 (image write) tracked in ROADMAP.md. -->
 
 </Project>

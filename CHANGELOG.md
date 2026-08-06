@@ -9,6 +9,23 @@ backstop — this is the human-legible layer above it.
 **Entry format:** `## YYYY-MM-DD — <what landed>` (a month-only `YYYY-MM` is fine when the exact day
 wasn't recorded). Newest first; add new entries directly below this charter, never at the bottom.
 
+## 2026-08-06 — XISF Tier 3: full-codec block compression + image read (`xisf-codecs-and-image-read`)
+
+`Astronomy.XISF` graduated from header-only. **`XisfBlockCompression`** is now the symmetric,
+XISF-1.0-conformant block codec layer: encode *and* decode for zlib / lz4 / lz4hc / zstd, each ±
+byte-shuffle (`Compress` gained a base-family codec parameter, zlib default preserving the old call
+shape), all five spec checksum algorithms (sha-1/256/512, sha3-256/512) via `ComputeChecksumHex` /
+`VerifyChecksum`, and fail-fast `BlockCompressionInfo.Parse` (malformed or sub-block attribute forms
+for known codecs throw; unknown tokens still parse as `Other` for read-side detection but throw on
+decode). **`XisfImageReader.ReadImageAsync`** is the Tier-3 read slice: locate the primary image's
+attachment → bounds-check → verify declared checksum → decompress → geometry/sample-format-verified
+pixel buffer (`XisfImageData`). Signature/XML handling extracted to a shared `XisfXmlLoader`; the
+header path stays pixel-free and byte-identical. Codec wiring via managed-only `K4os.Compression.LZ4`
++ `ZstdSharp.Port` (NINA's `XISFData` as strategy reference only — tokens, levels L00_FAST/L06_HC/zstd-1,
+checksum-over-stored-bytes all pinned by NINA-call-identical interop tests). Consumers queued: the
+TSM-side ASTAP plate-solve pipeline (read) and XFM's `adopt-al-xisf-compression` (encode — retires its
+vendored codec duplicate). XISF tests 91; full suite green.
+
 ## 2026-08-04 — Write-back credits by the capture-configuration pairing rule
 
 `WriteBackPlanner` and `SingleTargetPlanner` no longer credit every frame in a plan's

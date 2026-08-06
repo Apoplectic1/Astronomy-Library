@@ -73,14 +73,14 @@ Before any Phase A work resumes, decide one of: **(a)** fold the FITS-keyword ne
 `Astronomy.XISF` genuinely does *not* cover — non-FITS PCL `Variant` properties being the obvious
 candidate. Phases B+ (pixel/image operations) are unaffected.
 
-## Open: Astronomy.XISF Tiers 2-4
+## Open: Astronomy.XISF Tiers 2 & 4
 
 Captured 2026-05-18 with the Tier 1 extraction; **added when a real consumer needs them — no eager
 design.** (Moved here from `CHANGELOG.md` on 2026-07-24: forward scope belongs in the roadmap, and
 `Astronomy.XISF.csproj` already pointed here.)
 
-- **Tier 2** — header write-back. Modify FITS keywords in place, preserving the image-attachment block. Required for XFM migration (XFM does rename / normalization / accept-reject prefix writes) and a future TSM-side grade-state keyword write.
-- **Tier 3** — full image read. Pixel data decode for uncompressed + LZ4 + zlib + zstd. Borrow compression algorithm strategies from NINA's `XISFData`; don't pull NINA's classes (decouple). Required by any consumer that does actual image processing. *(Partially seeded: the shared zlib+shuffle+SHA-1 codec shipped 2026-06 — `Astronomy.XISF.Compression`, which still has no caller outside its own tests.)*
+- **Tier 2** — header write-back. Modify FITS keywords in place, preserving the image-attachment block. Required for XFM migration (XFM does rename / normalization / accept-reject prefix writes), a future TSM-side grade-state keyword write, and the TSM-side ASTAP plate-solve write-back (home undecided — Tier 2 vs XFM vs standalone).
+- **Tier 3** — **SHIPPED 2026-08-06** (`xisf-codecs-and-image-read`): symmetric block-codec layer (zlib/lz4/lz4hc/zstd ±shuffle, all five spec checksum algorithms) + `XisfImageReader.ReadImageAsync` (locate attachment → verify checksum → decompress → verified pixel buffer + geometry/sample metadata). NINA's `XISFData` used as strategy reference only; codecs wired via managed-only `K4os.Compression.LZ4` + `ZstdSharp.Port`. Consumers queued: TSM-side ASTAP pipeline (read), XFM `adopt-al-xisf-compression` (encode — retires XFM's vendored codec duplicate).
 - **Tier 4** — full image write. Image data composition + compression + checksum (SHA-256). Required for XFM's writes and any future image-save pipeline.
 
 When XFM eventually migrates to Astronomy.XISF as its sole reader, the additional `KeywordList` accessors (FocalLength, Camera, EGAIN, MasterFrame metadata, weight keywords, etc.) port over alongside Tier 2.
