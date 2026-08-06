@@ -51,10 +51,12 @@ TargetPlanner and TargetSchedulerManager installers, built locally in those repo
   `X.Y.Z` stamps that exist on this mirror. Consumer `release.ps1` scripts enforce this with
   an abort gate (dirty Library tree, or `-alpha` in the embedded stamp).
 
-Latest published tag: **`v1.4.0`** (`project.name` joins the editable schema with
-altitude-clause awareness — `StripAltitudeClause` short `- N` form, legacy `- Above N` still
-stripped; `minimumaltitude` clamps to 89.9 per TS's `HorizonDefinition` assert; schema notes
-carry the TS-UI choice lists). Prior: `v1.3.0` (write-back credits by the capture-config
+Latest published tag: **`v1.5.0`** (XISF Tier 3 — symmetric zlib/lz4/lz4hc/zstd ±shuffle block
+codecs, all five spec checksums, `XisfImageReader` verified image read; `Astronomy.Core.Astrometry.WcsOrientation`
+CD-matrix → position angle/parity; new `Astronomy.Diagnostics.WinForms` satellite carrying the
+shared Ctrl+N `DiagnosticsDialog`. First consumers: XFM's ASTAP plate solving + codec adoption, TP's
+dialog swap). Prior: `v1.4.0` (`project.name` editable schema with altitude-clause awareness;
+89.9 clamp); `v1.3.0` (write-back credits by the capture-config
 pairing rule — `Reconcile.CaptureConfigPairing`); `v1.2.0` (guarded row-insert primitive
 `TryInsertRows`); `v1.1.0` (first public tag); `v1.0.0` is pre-public history, pushed for
 completeness.
