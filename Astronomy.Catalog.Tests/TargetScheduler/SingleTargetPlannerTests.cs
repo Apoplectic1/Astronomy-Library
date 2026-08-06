@@ -204,6 +204,25 @@ public sealed class SingleTargetPlannerTests
     }
 
     [Fact]
+    public void Mosaic_ProjectNameWithAltitudeClause_StillMatches()
+    {
+        // Same clause tolerance as the resolver (2026-08-06): "Mosaic - X - Above N" matches the bare
+        // "Mosaic - X" directory instead of refusing with MosaicUnmatched.
+        TargetReport[] units = [Unit("Panel 01of02", 20.50, 30.50, Cell("H", FilterPurpose.Light, 30, bin: 2))];
+        TsPlanData ts = new(
+            [Proj(20, "Mosaic - Cygnus Loop - Above 25", mosaic: true)],
+            [TsT(1, "CygnusLoop P1", 20.50, 30.50, project: 20)],
+            [Tpl(1000, "Ha", "H", bin: 2)],
+            [TsP(101, target: 1, template: 1000)]);
+
+        WriteBackPlan plan = SingleTargetPlanner.Plan(units, isMosaic: true, "Mosaic - Cygnus Loop", ts);
+
+        PlannedWrite w = Assert.Single(plan.Writes);
+        Assert.Equal(101, w.TsExposurePlanId);
+        Assert.Empty(plan.NeedsReconciliation);
+    }
+
+    [Fact]
     public void Binning_DisambiguatesTwoPlansOfTheSameFilter()
     {
         TargetReport[] units = [Unit("Wide", 5.0, 10.0, Cell("H", FilterPurpose.Light, 25, bin: 2))];

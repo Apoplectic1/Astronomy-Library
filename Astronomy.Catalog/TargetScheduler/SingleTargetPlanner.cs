@@ -62,7 +62,7 @@ public static class SingleTargetPlanner
             TsProject? project = ts.Projects
                 .Where(p => p.IsMosaic != 0)
                 .FirstOrDefault(p => string.Equals(
-                    TargetResolver.Normalize(p.Name), TargetResolver.Normalize(dirName), StringComparison.Ordinal));
+                    TargetResolver.MosaicKey(p.Name), TargetResolver.MosaicKey(dirName), StringComparison.Ordinal));
             if (project is null)
             {
                 needs.Add(new ReconcileNote("MosaicUnmatched", dirName, "no isMosaic TS project with a matching name"));

@@ -7,10 +7,28 @@ namespace Astronomy.Catalog.Scan;
 /// <b>name</b> against the same-named N.I.N.A. Target Scheduler <c>isMosaic</c> project, not by coordinates
 /// (a mosaic's panels spread well beyond the match tolerance from its centroid).
 /// </summary>
-public static class MosaicConvention
+public static partial class MosaicConvention
 {
-    /// <summary>Top-level directory-name prefix that marks a mosaic target (and equals the TS mosaic project name).</summary>
+    /// <summary>Top-level directory-name prefix that marks a mosaic target (and, minus any altitude
+    /// clause — see <see cref="StripAltitudeClause"/> — equals the TS mosaic project name).</summary>
     public const string Prefix = "Mosaic - ";
+
+    /// <summary>
+    /// Strips one trailing altitude clause — <c>"«name» - Above 30"</c> → <c>"«name»"</c> — so the
+    /// mosaic name-match tolerates the clause's presence or absence on either side: project names may
+    /// carry a minimum-altitude suffix as an authoring convention while capture directories stay bare.
+    /// Case-insensitive, spacing-tolerant, integer or decimal degrees; a name without the clause
+    /// returns unchanged (trimmed).
+    /// </summary>
+    public static string StripAltitudeClause(string name)
+    {
+        ArgumentNullException.ThrowIfNull(name);
+        return AltitudeClause().Replace(name, string.Empty).TrimEnd();
+    }
+
+    [System.Text.RegularExpressions.GeneratedRegex(@"\s*-\s*Above\s*\d+(\.\d+)?\s*$",
+        System.Text.RegularExpressions.RegexOptions.IgnoreCase)]
+    private static partial System.Text.RegularExpressions.Regex AltitudeClause();
 
     /// <summary>
     /// Separator used in a panel's catalog directory name, <c>"&lt;mosaic dir&gt;/&lt;panel label&gt;"</c>.

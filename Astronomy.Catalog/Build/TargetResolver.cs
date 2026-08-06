@@ -127,7 +127,7 @@ public static class TargetResolver
             diskWorking.Add(top);
 
             if (!isMosaicDir) continue;
-            string mosaicScope = Normalize(d.DirectoryName);
+            string mosaicScope = MosaicKey(d.DirectoryName);
             foreach (TargetReport panel in d.Panels)
             {
                 string childDir = MosaicConvention.PanelDirectoryName(d.DirectoryName, panel.DirectoryName);
@@ -154,7 +154,7 @@ public static class TargetResolver
         Dictionary<long, TsProject> mosaicProjectById = [];
         foreach (TsProject mp in ts.Projects.Where(p => p.IsMosaic != 0))
         {
-            mosaicProjectsByName[Normalize(mp.Name)] = mp;
+            mosaicProjectsByName[MosaicKey(mp.Name)] = mp;
             mosaicProjectById[mp.Id] = mp;
         }
 
@@ -163,7 +163,7 @@ public static class TargetResolver
         foreach (WorkingTarget mw in diskWorking)
         {
             if (mw.IsPanel || !MosaicConvention.IsMosaicDirectory(mw.Disk.DirectoryName)) continue;
-            if (!mosaicProjectsByName.TryGetValue(Normalize(mw.Disk.DirectoryName), out TsProject? proj)) continue;
+            if (!mosaicProjectsByName.TryGetValue(MosaicKey(mw.Disk.DirectoryName), out TsProject? proj)) continue;
 
             mw.MosaicProject = proj;
             mosaicParentByProject[proj.Id] = mw.Id;
@@ -184,7 +184,7 @@ public static class TargetResolver
             // cross-scope match (e.g. a panel's goals landing on a sky-overlapping standalone dir) is
             // impossible by construction.
             bool isPanelTarget = mosaicProjectById.TryGetValue(projectId, out TsProject? mosaicProj);
-            string tsScope = isPanelTarget ? Normalize(mosaicProj!.Name) : DefaultScope;
+            string tsScope = isPanelTarget ? MosaicKey(mosaicProj!.Name) : DefaultScope;
             Guid? plannedParent = isPanelTarget && mosaicParentByProject.TryGetValue(projectId, out Guid pp)
                 ? pp : null;
 
@@ -470,6 +470,15 @@ public static class TargetResolver
     /// <summary>Reduces a name to an alphanumeric, upper-cased key for case/punctuation-insensitive matching (shared with the surgical <c>--target</c> mosaic-project name-match).</summary>
     internal static string Normalize(string? value) =>
         value is null ? string.Empty : new string([.. value.Where(char.IsLetterOrDigit)]).ToUpperInvariant();
+
+    /// <summary>The mosaic name-match/scope key: <see cref="Normalize"/> over the name with any trailing
+    /// altitude clause stripped (<see cref="MosaicConvention.StripAltitudeClause"/>) — so
+    /// <c>"Mosaic - X - Above 30"</c> and the bare <c>"Mosaic - X"</c> directory key identically.
+    /// EVERY mosaic name-key site must use this (match dictionaries and scope keys alike): a scope key
+    /// built from the raw name would silently divorce a project's panels from their disk panels even
+    /// after the parent match succeeds.</summary>
+    internal static string MosaicKey(string? value) =>
+        Normalize(value is null ? null : MosaicConvention.StripAltitudeClause(value));
 
     /// <summary>
     /// The compact identity token of a panel directory label, mirroring the established filing convention:

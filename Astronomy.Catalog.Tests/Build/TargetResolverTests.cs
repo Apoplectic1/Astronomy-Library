@@ -254,6 +254,32 @@ public sealed class TargetResolverTests
     }
 
     [Fact]
+    public void Resolve_Mosaic_ProjectNameWithAltitudeClause_StillMatchesAndScopesPanels()
+    {
+        // The authoring convention appends " - Above N" to project names; the capture directory stays
+        // bare. The match AND the panel scope keys must both strip the clause — a raw-name scope would
+        // pass the parent match yet leave every panel planned-only (field failure 2026-08-06, obs ff07).
+        TargetReport[] disk = [DiskMosaic("Mosaic - Cygnus Loop",
+            ("Panel 01of03", 20.5, 30.5), ("Panel 02of03", 20.7, 30.7), ("Panel 03of03", 20.9, 30.9))];
+        TsPlanData ts = new(
+            [new TsProject(20, "profile-1", "Mosaic - Cygnus Loop - Above 25", 1, 1, null, 1, "g-mosaic")],
+            [TsT(1, "CygnusLoop P1", 20.5, 30.5, project: 20, guid: "g-p1"),
+             TsT(2, "CygnusLoop P2", 20.7, 30.7, project: 20, guid: "g-p2"),
+             TsT(3, "CygnusLoop P3", 20.9, 30.9, project: 20, guid: "g-p3")],
+            [new TsExposureTemplate(1000, "profile-1", "Ha", "H", 100, 50, 1, 300.0)],
+            [TsP(100, target: 1, template: 1000), TsP(101, target: 2, template: 1000), TsP(102, target: 3, template: 1000)]);
+
+        (CatalogGraph g, CatalogBuildReport r) = TargetResolver.Resolve(disk, ts, Now, ct: TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, r.MosaicsResolved);
+        Assert.Equal(3, r.PanelsMatched);
+        Assert.Equal(0, r.PanelsPlannedOnly);
+        Target parent = Assert.Single(g.Targets, t => t.DirectoryName == "Mosaic - Cygnus Loop");
+        Assert.Equal(TargetSource.Both, parent.Source);
+        Assert.Equal(3, g.Targets.Count(t => t.ParentTargetId == parent.Id));
+    }
+
+    [Fact]
     public void Resolve_Mosaic_PanelDoesNotMisAnchorToOverlappingStandalone()
     {
         TargetReport[] disk =
