@@ -51,9 +51,11 @@ TargetPlanner and TargetSchedulerManager installers, built locally in those repo
   `X.Y.Z` stamps that exist on this mirror. Consumer `release.ps1` scripts enforce this with
   an abort gate (dirty Library tree, or `-alpha` in the embedded stamp).
 
-Latest published tag: **`v1.3.0`** (write-back credits by the capture-config pairing rule —
-`Reconcile.CaptureConfigPairing` shared by projection and planners; sentinel `-1` never pairs;
-reader selects `exposuretemplate.readoutmode`). Prior: `v1.2.0` (guarded row-insert primitive
+Latest published tag: **`v1.4.0`** (`project.name` joins the editable schema with
+altitude-clause awareness — `StripAltitudeClause` short `- N` form, legacy `- Above N` still
+stripped; `minimumaltitude` clamps to 89.9 per TS's `HorizonDefinition` assert; schema notes
+carry the TS-UI choice lists). Prior: `v1.3.0` (write-back credits by the capture-config
+pairing rule — `Reconcile.CaptureConfigPairing`); `v1.2.0` (guarded row-insert primitive
 `TryInsertRows`); `v1.1.0` (first public tag); `v1.0.0` is pre-public history, pushed for
 completeness.
 
