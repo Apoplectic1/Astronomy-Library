@@ -122,7 +122,7 @@ public static class TsEditableSchema
     [
         // ---- project ----------------------------------------------------------------------------------------
         new(TsTable.Project, "name", "Name", TsFieldType.Text,
-            Notes: "A trailing altitude clause (\"- Above N\") is authoring metadata: the scoped Set press "
+            Notes: "A trailing altitude clause (\"- N\"; legacy \"- Above N\" recognized) is authoring metadata: the scoped Set press "
                 + "rewrites it when it writes minimumaltitude, and the mosaic name-match strips it."),
         new(TsTable.Project, "state", "State", TsFieldType.Enum, EnumName: "ProjectState"),
         new(TsTable.Project, "priority", "Priority", TsFieldType.Enum, EnumName: "ProjectPriority"),

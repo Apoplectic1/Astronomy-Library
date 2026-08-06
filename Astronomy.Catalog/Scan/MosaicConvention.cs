@@ -14,11 +14,12 @@ public static partial class MosaicConvention
     public const string Prefix = "Mosaic - ";
 
     /// <summary>
-    /// Strips one trailing altitude clause — <c>"«name» - Above 30"</c> → <c>"«name»"</c> — so the
-    /// mosaic name-match tolerates the clause's presence or absence on either side: project names may
-    /// carry a minimum-altitude suffix as an authoring convention while capture directories stay bare.
-    /// Case-insensitive, spacing-tolerant, integer or decimal degrees; a name without the clause
-    /// returns unchanged (trimmed).
+    /// Strips one trailing altitude clause — <c>"«name» - 30"</c> (the current short authoring form)
+    /// or the legacy <c>"«name» - Above 30"</c> — so the mosaic name-match tolerates the clause's
+    /// presence or absence on either side: project names may carry a minimum-altitude suffix while
+    /// capture directories stay bare. Case-insensitive, spacing-tolerant, integer or decimal degrees;
+    /// the dash is load-bearing (a name merely ending in a number, "Abell 2218", is never stripped);
+    /// a name without the clause returns unchanged (trimmed).
     /// </summary>
     public static string StripAltitudeClause(string name)
     {
@@ -26,7 +27,7 @@ public static partial class MosaicConvention
         return AltitudeClause().Replace(name, string.Empty).TrimEnd();
     }
 
-    [System.Text.RegularExpressions.GeneratedRegex(@"\s*-\s*Above\s*\d+(\.\d+)?\s*$",
+    [System.Text.RegularExpressions.GeneratedRegex(@"\s*-\s*(Above\s*)?\d+(\.\d+)?\s*$",
         System.Text.RegularExpressions.RegexOptions.IgnoreCase)]
     private static partial System.Text.RegularExpressions.Regex AltitudeClause();
 
