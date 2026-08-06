@@ -9,6 +9,17 @@ backstop — this is the human-legible layer above it.
 **Entry format:** `## YYYY-MM-DD — <what landed>` (a month-only `YYYY-MM` is fine when the exact day
 wasn't recorded). Newest first; add new entries directly below this charter, never at the bottom.
 
+## 2026-08-06 — WCS orientation from a CD matrix (`wcs-position-angle`)
+
+`Astronomy.Core.Astrometry.WcsOrientation.FromCdMatrix` — position angle (North-toward-East, [0,360)),
+image-axis rotation, parity (`Flipped`, from the determinant sign), and per-axis pixel scales
+(arcsec/px) out of a plate solution's `CD1_1..CD2_2`. NINA `WorldCoordinateSystem` as the strategy
+reference, pinned by its three real-matrix test vectors + flip cases. Contract documents the domain of
+validity (normal + single-mirrored images; a both-axes mirror is indistinguishable from a 180°
+rotation — undetectable by construction) and the solver-offset boundary (solver-specific conventions,
+e.g. ASTAP's 180°, stay in the calling wrapper — this is the generic form). First consumer queued:
+XFM's ASTAP solve step. Core tests 478.
+
 ## 2026-08-06 — XISF Tier 3: full-codec block compression + image read (`xisf-codecs-and-image-read`)
 
 `Astronomy.XISF` graduated from header-only. **`XisfBlockCompression`** is now the symmetric,
