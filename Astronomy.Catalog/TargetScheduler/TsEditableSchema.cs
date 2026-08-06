@@ -125,8 +125,10 @@ public static class TsEditableSchema
         new(TsTable.Project, "priority", "Priority", TsFieldType.Enum, EnumName: "ProjectPriority"),
         new(TsTable.Project, "minimumtime", "Min time", TsFieldType.Whole, Min: 0, Max: 999, Unit: "min",
             Notes: "TS UI offers 5/10/20 then 30–240 by 30; other values are legal in the db but show unselected there."),
-        new(TsTable.Project, "minimumaltitude", "Min altitude", TsFieldType.Real, Min: 0, Max: 90, Unit: "°",
-            Notes: "0 = Off in the TS UI, which offers 5–60° by 5; other values are legal in the db but show unselected there."),
+        new(TsTable.Project, "minimumaltitude", "Min altitude", TsFieldType.Real, Min: 0, Max: 89.9, Unit: "°",
+            Notes: "0 = Off in the TS UI, which offers 5–60° by 5; off-list values are honored by the planner "
+                + "but show unselected in TS's editor. Max 89.9: TS's HorizonDefinition ASSERTS < 90 — a stored 90 "
+                + "throws at plan time (one of the few TS-enforced bounds)."),
         new(TsTable.Project, "maximumaltitude", "Max altitude", TsFieldType.Real, Min: 0, Max: 90, Unit: "°",
             Notes: "0 = Off in the TS UI, which offers 50–85° by 5; other values are legal in the db but show unselected there."),
         new(TsTable.Project, "usecustomhorizon", "Use custom horizon", TsFieldType.Bool),
