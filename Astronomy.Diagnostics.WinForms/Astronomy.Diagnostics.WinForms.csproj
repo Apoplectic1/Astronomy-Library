@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Zero-warning ratchet (2026-08-01, portfolio-wide): a new warning is a build break. -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <RootNamespace>Astronomy.Diagnostics.WinForms</RootNamespace>
+    <AssemblyName>Astronomy.Diagnostics.WinForms</AssemblyName>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Deterministic>true</Deterministic>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <AnalysisLevel>latest</AnalysisLevel>
+    <AnalysisMode>Recommended</AnalysisMode>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+    <!-- AnyCPU enables a standalone `dotnet build`; the SLN-driven build is x64. Matches the core. -->
+    <Platforms>AnyCPU;x64</Platforms>
+  </PropertyGroup>
+
+  <!-- WinForms satellite over the UI-free Astronomy.Diagnostics core (2026-08-06,
+       diagnostics-winforms-satellite): per-framework dialog shells live here so WinForms consumers
+       (TP, XFM) share one implementation and WinUI consumers never inherit the WinForms stack.
+       The WinUI counterpart is deliberately deferred - see ROADMAP.md. -->
+
+  <ItemGroup>
+    <ProjectReference Include="..\Astronomy.Diagnostics\Astronomy.Diagnostics.csproj" />
+  </ItemGroup>
+
+</Project>

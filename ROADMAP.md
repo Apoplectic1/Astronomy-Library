@@ -85,6 +85,15 @@ design.** (Moved here from `CHANGELOG.md` on 2026-07-24: forward scope belongs i
 
 When XFM eventually migrates to Astronomy.XISF as its sole reader, the additional `KeywordList` accessors (FocalLength, Camera, EGAIN, MasterFrame metadata, weight keywords, etc.) port over alongside Tier 2.
 
+## Open: Astronomy.Diagnostics.WinUI — parked until ISM
+
+Captured 2026-08-06 with the WinForms satellite (`Astronomy.Diagnostics.WinForms`). A WinUI
+counterpart is deliberately **not** built yet: TSM is the only WinUI consumer (no dedup to win), and
+the genuinely reusable WinUI asset is TSM's `AppDialog` behavior layer (drag, Ctrl+N, lone-button
+centering) with the diagnostics dialog as one rider — graduating that is a bigger design than a
+diagnostics errand. Revisit when ISM (the second WinUI app) actually needs it; scope the question
+then as "AppDialog-layer graduation", not "diagnostics dialog copy".
+
 ## Open: Astronomy.NINA Phases C-D
 
 Captured with the Phase A/B work (2026-05-18); neither phase has started. *(Moved here 2026-07-24 from

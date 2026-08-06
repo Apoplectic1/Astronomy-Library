@@ -9,6 +9,18 @@ backstop — this is the human-legible layer above it.
 **Entry format:** `## YYYY-MM-DD — <what landed>` (a month-only `YYYY-MM` is fine when the exact day
 wasn't recorded). Newest first; add new entries directly below this charter, never at the bottom.
 
+## 2026-08-06 — WinForms diagnostics satellite (`diagnostics-winforms-satellite`)
+
+New **`Astronomy.Diagnostics.WinForms`**: per-framework dialog shells over the UI-free
+`Astronomy.Diagnostics` core, so WinForms consumers share one implementation and WinUI consumers
+never inherit the WinForms stack. Initial content: `DiagnosticsDialog` (the Ctrl+N observation
+dialog) moved verbatim from TP — `public`, namespace + doc generalization, construction reordered
+(controls before `ObservationSession.Begin`) to satisfy the nullable ratchet. `ScreenCapture` stays
+in the core deliberately: `ObservationSession` invokes it for every consumer (TSM's WinUI Ctrl+N
+included) and `System.Drawing.Common` is Windows-GDI+, not WinForms-specific. Consumers queued: TP
+(deletes its local copy), XFM (first-time adoption). WinUI counterpart parked in ROADMAP (gated on
+ISM; the real asset there is TSM's AppDialog behavior layer).
+
 ## 2026-08-06 — WCS orientation from a CD matrix (`wcs-position-angle`)
 
 `Astronomy.Core.Astrometry.WcsOrientation.FromCdMatrix` — position angle (North-toward-East, [0,360)),

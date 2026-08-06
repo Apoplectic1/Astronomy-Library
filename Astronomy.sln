@@ -49,6 +49,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Astronomy.Core.Benchmarks",
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Astronomy.Contracts.Tests", "Astronomy.Contracts.Tests\Astronomy.Contracts.Tests.csproj", "{F1E2D3C4-B5A6-4978-8C7D-6E5F4A3B2C1D}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Astronomy.Diagnostics.WinForms", "Astronomy.Diagnostics.WinForms\Astronomy.Diagnostics.WinForms.csproj", "{36471F6F-8839-44C4-998D-72E2D21C8BDD}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -307,6 +309,18 @@ Global
 		{F1E2D3C4-B5A6-4978-8C7D-6E5F4A3B2C1D}.Release|Any CPU.Build.0 = Release|x64
 		{F1E2D3C4-B5A6-4978-8C7D-6E5F4A3B2C1D}.Release|x86.ActiveCfg = Release|x64
 		{F1E2D3C4-B5A6-4978-8C7D-6E5F4A3B2C1D}.Release|x86.Build.0 = Release|x64
+		{36471F6F-8839-44C4-998D-72E2D21C8BDD}.Debug|x64.ActiveCfg = Debug|x64
+		{36471F6F-8839-44C4-998D-72E2D21C8BDD}.Debug|x64.Build.0 = Debug|x64
+		{36471F6F-8839-44C4-998D-72E2D21C8BDD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{36471F6F-8839-44C4-998D-72E2D21C8BDD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{36471F6F-8839-44C4-998D-72E2D21C8BDD}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{36471F6F-8839-44C4-998D-72E2D21C8BDD}.Debug|x86.Build.0 = Debug|Any CPU
+		{36471F6F-8839-44C4-998D-72E2D21C8BDD}.Release|x64.ActiveCfg = Release|x64
+		{36471F6F-8839-44C4-998D-72E2D21C8BDD}.Release|x64.Build.0 = Release|x64
+		{36471F6F-8839-44C4-998D-72E2D21C8BDD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{36471F6F-8839-44C4-998D-72E2D21C8BDD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{36471F6F-8839-44C4-998D-72E2D21C8BDD}.Release|x86.ActiveCfg = Release|Any CPU
+		{36471F6F-8839-44C4-998D-72E2D21C8BDD}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
