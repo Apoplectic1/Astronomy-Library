@@ -121,6 +121,9 @@ public static class TsEditableSchema
     public static IReadOnlyList<TsField> Fields { get; } =
     [
         // ---- project ----------------------------------------------------------------------------------------
+        new(TsTable.Project, "name", "Name", TsFieldType.Text,
+            Notes: "A trailing altitude clause (\"- Above N\") is authoring metadata: the scoped Set press "
+                + "rewrites it when it writes minimumaltitude, and the mosaic name-match strips it."),
         new(TsTable.Project, "state", "State", TsFieldType.Enum, EnumName: "ProjectState"),
         new(TsTable.Project, "priority", "Priority", TsFieldType.Enum, EnumName: "ProjectPriority"),
         new(TsTable.Project, "minimumtime", "Min time", TsFieldType.Whole, Min: 0, Max: 999, Unit: "min",
