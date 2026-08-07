@@ -19,6 +19,19 @@ Latest three only. **Full shipped history: [`CHANGELOG.md`](CHANGELOG.md)** (app
 - **2026-08-02** — AL published: public mirror https://github.com/Apoplectic1/Astronomy-Library (new `README.md` + `RELEASING.md`, shared portfolio rules, publish = push `main` + tag, no installer/assets); MinVer via `Directory.Build.props` stamps tag-derived versions on every managed assembly; sibling https://github.com/Apoplectic1/PCL mirror carries the vendored tree.
 - **2026-08-01** — TS epoch codes are *translated*, never cast, at the TS boundary: NINA/TS order JNOW=0 / B1950=1 — the reverse of the catalog's lookup — so `SafeEpoch`'s raw cast silently swapped non-J2000 epochs. Latent (every real target is J2000); found by the IS repo's docs audit, pinned by a new `[Theory]`.
 
+## Open: `WcsOrientation.FramingAngleDegrees` — queued for the second orientation consumer
+
+Decided 2026-08-07 (XFM ROADMAP follow-up #9, where the full rationale lives): the PA ≡ PA+180
+framing-equivalence fold becomes a **naming choice, not consumer math** — `WcsOrientation` gains
+`FramingAngleDegrees` (folded [0,180); "PA and PA+180 frame identical sky on a rectangular
+sensor") beside the existing `PositionAngleDegrees` (true 0–360), so consumers pick a value whose
+name states its semantics instead of remembering to fold. No consumer folds by hand; on-disk
+`OBJCTROT` stays true 0–360 (FITS convention — folding at the writer was rejected: it hands
+third-party readers a framing angle labeled as a PA). **Build when the second consumer lands**
+(TSM's `°(M)` rescan framings work) — and that consumer must read orientation *through this type*,
+not raw `OBJCTROT`; the named-property protection only covers AL-path readers. XFM's format-time
+0.1° rounding dance stays XFM-side (display quantization, not domain math).
+
 ## Open: split `ARCHITECTURE.md` — it crossed the size where one file still helps
 
 The 2026-07-29 maintain sweep grew it 38.4 → 48.9 KB (+27%), and three module sections now carry 38 of
