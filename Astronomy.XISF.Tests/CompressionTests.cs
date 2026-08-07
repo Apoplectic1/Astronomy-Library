@@ -109,6 +109,32 @@ public sealed class XisfBlockCompressionTests
         Assert.Throws<ArgumentOutOfRangeException>(() => XisfBlockCompression.Compress(raw, 1, BlockCodec.Other));
     }
 
+    [Theory]
+    [InlineData(1)]
+    [InlineData(19)]
+    [InlineData(22)]
+    public void Compress_ZstdLevel_RoundTripsAndKeepsToken(int level)
+    {
+        byte[] raw = new byte[48_000];
+        new Random(20260807).NextBytes(raw);
+
+        BlockCompressionResult result = XisfBlockCompression.Compress(raw, 2, BlockCodec.Zstd, level);
+
+        Assert.Equal("zstd+sh", result.Info.CodecName); // level is encoder effort only, never a new token
+        Assert.Equal(raw, XisfBlockCompression.Decompress(result.CompressedBytes, result.Info));
+    }
+
+    [Fact]
+    public void Compress_Level_RejectedOutsideZstdOrRange()
+    {
+        byte[] raw = new byte[64];
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => XisfBlockCompression.Compress(raw, 2, BlockCodec.Zlib, 9));
+        Assert.Throws<ArgumentOutOfRangeException>(() => XisfBlockCompression.Compress(raw, 2, BlockCodec.Lz4Hc, 6));
+        Assert.Throws<ArgumentOutOfRangeException>(() => XisfBlockCompression.Compress(raw, 2, BlockCodec.Zstd, 0));
+        Assert.Throws<ArgumentOutOfRangeException>(() => XisfBlockCompression.Compress(raw, 2, BlockCodec.Zstd, 23));
+    }
+
     [Fact]
     public void Parse_NullAttributes_IsUncompressed()
     {

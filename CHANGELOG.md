@@ -9,6 +9,18 @@ backstop — this is the human-legible layer above it.
 **Entry format:** `## YYYY-MM-DD — <what landed>` (a month-only `YYYY-MM` is fine when the exact day
 wasn't recorded). Newest first; add new entries directly below this charter, never at the bottom.
 
+## 2026-08-07 — `Compress` gains an optional zstd level (`zstd-level`)
+
+`XisfBlockCompression.Compress(raw, itemSize, codec, level: null)`: the new optional parameter
+sets zstd encoder effort (1–22; null keeps the level-1 interop default, so existing callers'
+bytes are unchanged). Level affects encode cost and output size only — any zstd decoder reads
+any level, so no read-side or attribute change. Non-zstd families take no level; passing one
+throws rather than being silently ignored. Motivated by XFM's library benchmark (its
+`docs/2026-08-07-compression-benchmark.md`): shuffled 16-bit frames compress ~11% smaller at
+zstd-19 than zlib-SmallestSize, a win that only appears at the level-15+ strategy switch —
+XFM's save path is the first caller to pass a level. Pinned by round-trip `[Theory]` (1/19/22,
+token stays `zstd+sh`) and rejection tests.
+
 ## 2026-08-06 — Legacy XISF checksum aliases accepted on read (`checksum-alias`)
 
 `BlockCompressionInfo.Parse` canonicalizes the non-hyphenated checksum algorithm tokens legacy

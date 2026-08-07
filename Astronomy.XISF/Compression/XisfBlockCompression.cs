@@ -79,8 +79,8 @@ public static class XisfBlockCompression
     /// Compress a raw block: shuffle (when itemSize &gt; 1) → codec → SHA-1 over the compressed bytes.
     /// Always returns the compressed result (no no-gain fallback): a block stored uncompressed would read
     /// back as uncompressed and be re-attempted on every future save. The recorded codec is the "+sh"
-    /// variant when shuffled. Levels match the producers this library interoperates with (NINA/PixInsight):
-    /// zlib SmallestSize, LZ4 fast, LZ4-HC level 6, zstd level 1.
+    /// variant when shuffled. Default levels match the producers this library interoperates with
+    /// (NINA/PixInsight): zlib SmallestSize, LZ4 fast, LZ4-HC level 6, zstd level 1.
     /// </summary>
     /// <param name="raw">The uncompressed block.</param>
     /// <param name="itemSize">Bytes per sample; &gt; 1 enables the byte-shuffle.</param>
@@ -89,13 +89,35 @@ public static class XisfBlockCompression
     /// <see cref="BlockCodec.Lz4Hc"/>, or <see cref="BlockCodec.Zstd"/>. The shuffled variant is selected
     /// automatically from <paramref name="itemSize"/> — passing a "+sh" member here throws.
     /// </param>
-    /// <exception cref="ArgumentOutOfRangeException"><paramref name="codec"/> is not a base family.</exception>
-    public static BlockCompressionResult Compress(byte[] raw, int itemSize, BlockCodec codec = BlockCodec.Zlib)
+    /// <param name="level">
+    /// Optional encoder effort for <see cref="BlockCodec.Zstd"/> (1–22; null = the level-1 interop
+    /// default). Level changes encode cost and output size only — any zstd decoder reads any level.
+    /// Other codec families take no level; passing one for them throws rather than being silently
+    /// ignored.
+    /// </param>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// <paramref name="codec"/> is not a base family, or <paramref name="level"/> is provided for a
+    /// non-zstd family or falls outside 1–22.
+    /// </exception>
+    public static BlockCompressionResult Compress(byte[] raw, int itemSize, BlockCodec codec = BlockCodec.Zlib, int? level = null)
     {
         if (codec is not (BlockCodec.Zlib or BlockCodec.Lz4 or BlockCodec.Lz4Hc or BlockCodec.Zstd))
         {
             throw new ArgumentOutOfRangeException(nameof(codec), codec,
                 "Pass a base codec family (Zlib/Lz4/Lz4Hc/Zstd); the +sh variant is selected from itemSize.");
+        }
+
+        if (level is not null)
+        {
+            if (codec is not BlockCodec.Zstd)
+            {
+                throw new ArgumentOutOfRangeException(nameof(level), level,
+                    $"A compression level is only meaningful for {nameof(BlockCodec.Zstd)}; {codec} has a fixed interop level.");
+            }
+            if (level is < 1 or > 22)
+            {
+                throw new ArgumentOutOfRangeException(nameof(level), level, "zstd level must be within 1–22.");
+            }
         }
 
         bool shuffle = itemSize > 1;
@@ -106,7 +128,7 @@ public static class XisfBlockCompression
             BlockCodec.Zlib => ZlibCompress(prepared),
             BlockCodec.Lz4 => Lz4Compress(prepared, LZ4Level.L00_FAST),
             BlockCodec.Lz4Hc => Lz4Compress(prepared, LZ4Level.L06_HC),
-            _ => ZstdCompress(prepared),
+            _ => ZstdCompress(prepared, level ?? 1),
         };
 
         BlockCodec effective = (codec, shuffle) switch
@@ -258,9 +280,9 @@ public static class XisfBlockCompression
         return output;
     }
 
-    private static byte[] ZstdCompress(byte[] data)
+    private static byte[] ZstdCompress(byte[] data, int level)
     {
-        using ZstdSharp.Compressor compressor = new(level: 1);
+        using ZstdSharp.Compressor compressor = new(level);
         return compressor.Wrap(data).ToArray();
     }
 
