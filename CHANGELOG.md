@@ -9,6 +9,17 @@ backstop — this is the human-legible layer above it.
 **Entry format:** `## YYYY-MM-DD — <what landed>` (a month-only `YYYY-MM` is fine when the exact day
 wasn't recorded). Newest first; add new entries directly below this charter, never at the bottom.
 
+## 2026-08-06 — Legacy XISF checksum aliases accepted on read (`checksum-alias`)
+
+`BlockCompressionInfo.Parse` canonicalizes the non-hyphenated checksum algorithm tokens legacy
+producers wrote (`sha1`/`sha256`/`sha512` → the spec's `sha-1`/`sha-256`/`sha-512`), so the read
+path verifies them instead of rejecting the file. Found in the field the day the ASTAP solve path
+shipped: an XFM Browse+solve pass over 2019-era SGP files failed all 106 with "Unrecognized XISF
+checksum algorithm 'sha1'" before ASTAP ever ran — valid legacy input, not a contract violation.
+Canonicalizing at the single parse site (rather than aliasing in `ComputeChecksumHex`) means
+`ChecksumName` is always spec-form and a re-save rewrites the attribute to the spec token for free.
+Pinned by NIST-vector `[Theory]` cases for all three aliases.
+
 ## 2026-08-06 — WinForms diagnostics satellite (`diagnostics-winforms-satellite`)
 
 New **`Astronomy.Diagnostics.WinForms`**: per-framework dialog shells over the UI-free

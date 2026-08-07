@@ -56,7 +56,11 @@ public readonly struct BlockCompressionInfo
     /// <summary>Bytes-per-sample shuffle item size; 1 when there is no shuffle.</summary>
     public int ItemSize { get; init; }
 
-    /// <summary>Checksum algorithm token (e.g. "sha-1"), or "" when none.</summary>
+    /// <summary>
+    /// Checksum algorithm token in canonical hyphenated form (e.g. "sha-1"), or "" when none.
+    /// <see cref="Parse"/> canonicalizes the legacy non-hyphenated aliases ("sha1"/"sha256"/"sha512")
+    /// emitted by older producers, so a re-save writes the spec token.
+    /// </summary>
     public string ChecksumName { get; init; }
 
     /// <summary>Lowercase-hex checksum digest, or "" when none.</summary>
@@ -86,7 +90,8 @@ public readonly struct BlockCompressionInfo
     /// Parse the raw <c>compression</c> and <c>checksum</c> attribute strings. Either may be null/empty.
     /// <para><c>compression</c> grammar: <c>codec:uncompressedSize[:itemSize]</c> (itemSize present only
     /// for "+sh" variants).</para>
-    /// <para><c>checksum</c> grammar: <c>algorithm:hexDigest</c>.</para>
+    /// <para><c>checksum</c> grammar: <c>algorithm:hexDigest</c>. Legacy non-hyphenated algorithm
+    /// aliases ("sha1"/"sha256"/"sha512") are canonicalized to the spec tokens.</para>
     /// An unrecognized codec token parses as <see cref="BlockCodec.Other"/> (read-side detection must not
     /// abort on codecs this library does not decode), but a malformed attribute for a <em>known</em> codec —
     /// wrong field count (including sub-block forms, which no supported producer emits), non-numeric or
@@ -105,7 +110,7 @@ public readonly struct BlockCompressionInfo
                 throw new InvalidDataException(
                     $"Malformed XISF checksum attribute '{checksumAttr}' (expected \"algorithm:hexDigest\").");
             }
-            checksumName = c[0].Trim().ToLowerInvariant();
+            checksumName = CanonicalChecksumToken(c[0].Trim().ToLowerInvariant());
             checksumHex = c[1].Trim().ToLowerInvariant();
         }
 
@@ -191,6 +196,16 @@ public readonly struct BlockCompressionInfo
     /// <summary>The <c>checksum</c> attribute value to write, or null when none.</summary>
     public string? ToChecksumAttribute() =>
         HasChecksum ? $"{ChecksumName}:{ChecksumHex}" : null;
+
+    // Legacy non-hyphenated aliases (old PixInsight/SGP-era producers) map to the XISF spec tokens;
+    // anything else passes through untouched for ComputeChecksumHex to accept or reject.
+    private static string CanonicalChecksumToken(string token) => token switch
+    {
+        "sha1" => "sha-1",
+        "sha256" => "sha-256",
+        "sha512" => "sha-512",
+        _ => token
+    };
 
     private static BlockCodec CodecFromToken(string token) => token switch
     {
