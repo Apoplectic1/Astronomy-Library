@@ -9,6 +9,24 @@ backstop — this is the human-legible layer above it.
 **Entry format:** `## YYYY-MM-DD — <what landed>` (a month-only `YYYY-MM` is fine when the exact day
 wasn't recorded). Newest first; add new entries directly below this charter, never at the bottom.
 
+## 2026-08-07 — Surgical block rewrite (`block-rewriter`)
+
+New **`XisfBlockRewriter.RewriteAsync(sourcePath, targetPath, codec[, zstdLevel])`**: re-store a
+monolithic XISF's primary image block under a different codec (`BlockCodec.None` writes it
+uncompressed and strips `compression`/`checksum`; a base family compresses via
+`XisfBlockCompression` and records SHA-1) while preserving the XML header **byte-for-byte**
+except the attributes the block change forces — the primary's `compression`/`checksum`, every
+shifted attachment's `location`, and the signature's XML-length field. Header edits are textual
+(never a re-serialization); attachments after the swapped block shift with preserved bytes;
+layout honors a declared `XISF:BlockAlignmentSize`; the write is temp-file + atomic replace
+(in-place when `targetPath == sourcePath`). A declared source checksum is verified before
+re-encoding — a corrupt block fails the rewrite instead of being re-certified under a fresh
+digest. Returns the written block's `BlockCompressionInfo` + offset/size + XML length so callers
+holding cached geometry can refresh it. `XisfXmlLoader` gained an internal raw-text load;
+`XisfImageReader`'s geometry/sample-format parsers are now internal-shared. Pinned by ten tests:
+round-trips (fresh→zstd-19, zlib-no-checksum→zstd-19, compressed→None), byte-preservation,
+trailing-attachment shift, alignment, corrupt-checksum refusal, temp-file hygiene.
+
 ## 2026-08-07 — Verify-only block integrity check (`checksum-verifier`)
 
 New **`XisfChecksumVerifier.VerifyAsync`**: locate the primary image attachment, hash the stored

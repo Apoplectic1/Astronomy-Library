@@ -15,9 +15,9 @@ The PCL wrapper is a deep but **settled / parked** subsystem; its design records
 
 Latest three only. **Full shipped history: [`CHANGELOG.md`](CHANGELOG.md)** (append-only, dated, newest first).
 
+- **2026-08-07** — `XisfBlockRewriter.RewriteAsync`: surgical re-store of a monolithic XISF's primary block under a new codec (or `None`), XML header byte-preserved except `compression`/`checksum`/`location` + length field, temp + atomic replace, declared checksums verified before re-encoding. Consumers pick codec and target — first callers are XFM's browse hygiene and its solver temp-input path.
 - **2026-08-06** — legacy XISF checksum aliases accepted on read: `BlockCompressionInfo.Parse` canonicalizes `sha1`/`sha256`/`sha512` to the spec's hyphenated tokens (2019-era SGP files failed XFM's new solve path with "Unrecognized XISF checksum algorithm 'sha1'"); re-saves now write the spec token for free.
 - **2026-08-02** — AL published: public mirror https://github.com/Apoplectic1/Astronomy-Library (new `README.md` + `RELEASING.md`, shared portfolio rules, publish = push `main` + tag, no installer/assets); MinVer via `Directory.Build.props` stamps tag-derived versions on every managed assembly; sibling https://github.com/Apoplectic1/PCL mirror carries the vendored tree.
-- **2026-08-01** — TS epoch codes are *translated*, never cast, at the TS boundary: NINA/TS order JNOW=0 / B1950=1 — the reverse of the catalog's lookup — so `SafeEpoch`'s raw cast silently swapped non-J2000 epochs. Latent (every real target is J2000); found by the IS repo's docs audit, pinned by a new `[Theory]`.
 
 ## Open: `WcsOrientation.FramingAngleDegrees` — queued for the second orientation consumer
 

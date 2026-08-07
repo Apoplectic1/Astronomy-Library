@@ -128,7 +128,8 @@ public static class XisfImageReader
 
     // "width:height:channels" — all three mandatory and positive for the pixel-read contract
     // (the header reader's metadata-only path needs just width/height and keeps its laxer parse).
-    private static (int Width, int Height, int Channels) ParseGeometry(string? geometry, string filePath)
+    // Internal: shared with XisfBlockRewriter, which validates the same primary-image contract.
+    internal static (int Width, int Height, int Channels) ParseGeometry(string? geometry, string filePath)
     {
         if (string.IsNullOrWhiteSpace(geometry))
         {
@@ -151,7 +152,8 @@ public static class XisfImageReader
         return (width, height, channels);
     }
 
-    private static (string Token, int BytesPerSample) ParseSampleFormat(string? sampleFormat, string filePath)
+    // Internal: shared with XisfBlockRewriter, which needs the shuffle item size for re-encoding.
+    internal static (string Token, int BytesPerSample) ParseSampleFormat(string? sampleFormat, string filePath)
     {
         if (string.IsNullOrWhiteSpace(sampleFormat))
         {

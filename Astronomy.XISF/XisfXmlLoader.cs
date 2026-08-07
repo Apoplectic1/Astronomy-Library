@@ -25,6 +25,20 @@ internal static class XisfXmlLoader
     internal static async Task<(XDocument Doc, XNamespace Ns)> LoadAsync(
         FileStream fs, string filePath, CancellationToken ct)
     {
+        (XDocument doc, XNamespace ns, _, _) = await LoadWithTextAsync(fs, filePath, ct).ConfigureAwait(false);
+        return (doc, ns);
+    }
+
+    /// <summary>
+    /// As <see cref="LoadAsync"/>, but also returns the XML section's exact text and its on-disk byte
+    /// length — for callers that must edit the header without re-serializing it (byte-preserving rewrites).
+    /// </summary>
+    /// <exception cref="InvalidDataException">
+    /// Bad signature, implausible XML section size, or malformed XML.
+    /// </exception>
+    internal static async Task<(XDocument Doc, XNamespace Ns, string XmlText, int XmlByteLength)> LoadWithTextAsync(
+        FileStream fs, string filePath, CancellationToken ct)
+    {
         // Signature + XML length header (first 16 bytes).
         byte[] sigBuf = new byte[SignatureSize];
         await fs.ReadExactlyAsync(sigBuf, 0, SignatureSize, ct).ConfigureAwait(false);
@@ -67,6 +81,6 @@ internal static class XisfXmlLoader
         XElement root = doc.Root
             ?? throw new InvalidDataException($"XISF XML has no root element at '{filePath}'.");
 
-        return (doc, root.GetDefaultNamespace());
+        return (doc, root.GetDefaultNamespace(), xmlString, xmlSize);
     }
 }
