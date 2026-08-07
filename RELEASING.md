@@ -54,9 +54,11 @@ TargetPlanner and TargetSchedulerManager installers, built locally in those repo
   `X.Y.Z` stamps that exist on this mirror. Consumer `release.ps1` scripts enforce this with
   an abort gate (dirty Library tree, or `-alpha` in the embedded stamp).
 
-Latest published tag: **`v1.5.1`** (legacy XISF checksum aliases accepted on read —
-`sha1`/`sha256`/`sha512` canonicalized to the spec tokens; unblocked XFM's solve path on 2019-era
-SGP files). Prior: `v1.5.0` (XISF Tier 3 — symmetric zlib/lz4/lz4hc/zstd ±shuffle block
+Latest published tag: **`v1.5.2`** (docs-only: ROADMAP queues `WcsOrientation.FramingAngleDegrees`
+for the second orientation consumer; library code unchanged from v1.5.1 — tagged so consumer
+payloads stamp clean while XFM v2.3.0 packs). Prior: `v1.5.1` (legacy XISF checksum aliases
+accepted on read — `sha1`/`sha256`/`sha512` canonicalized to the spec tokens; unblocked XFM's
+solve path on 2019-era SGP files); `v1.5.0` (XISF Tier 3 — symmetric zlib/lz4/lz4hc/zstd ±shuffle block
 codecs, all five spec checksums, `XisfImageReader` verified image read; `Astronomy.Core.Astrometry.WcsOrientation`
 CD-matrix → position angle/parity; new `Astronomy.Diagnostics.WinForms` satellite carrying the
 shared Ctrl+N `DiagnosticsDialog`. First consumers: XFM's ASTAP plate solving + codec adoption, TP's
