@@ -9,6 +9,19 @@ backstop — this is the human-legible layer above it.
 **Entry format:** `## YYYY-MM-DD — <what landed>` (a month-only `YYYY-MM` is fine when the exact day
 wasn't recorded). Newest first; add new entries directly below this charter, never at the bottom.
 
+## 2026-08-07 — Verify-only block integrity check (`checksum-verifier`)
+
+New **`XisfChecksumVerifier.VerifyAsync`**: locate the primary image attachment, hash the stored
+bytes, compare against the declared checksum — no decompression, no pixel allocation, strictly
+cheaper than `XisfImageReader.ReadImageAsync` (whose read path verifies as a side effect).
+Verification is a detection operation, so a digest disagreement returns a
+`XisfChecksumVerdict.Mismatch` result (with declared-vs-computed detail) rather than throwing;
+the three-way verdict (`Verified` / `NoChecksum` / `Mismatch`) keeps "can't confirm" distinct
+from "confirmed bad". Structural violations (bad signature/XML, truncated attachment) still
+throw. First consumer: XFM's Verify SHA browse checkbox (its ROADMAP #6). Reuses the reader's
+location parser (now internal-shared); pinned by verified/mismatch/no-checksum/truncated tests
+across zlib and zstd blocks.
+
 ## 2026-08-07 — `Compress` gains an optional zstd level (`zstd-level`)
 
 `XisfBlockCompression.Compress(raw, itemSize, codec, level: null)`: the new optional parameter

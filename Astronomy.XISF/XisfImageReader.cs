@@ -178,7 +178,8 @@ public static class XisfImageReader
 
     // "attachment:offset:size" with positive integers; anything else (including inline/embedded
     // locations, which no supported producer emits for the primary image) fails fast.
-    private static (long Offset, long Size) ParseLocation(string? location, string filePath)
+    // Internal: shared with XisfChecksumVerifier, which locates the same primary-image block.
+    internal static (long Offset, long Size) ParseLocation(string? location, string filePath)
     {
         if (string.IsNullOrWhiteSpace(location))
         {
