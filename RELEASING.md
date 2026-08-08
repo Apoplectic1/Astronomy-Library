@@ -54,10 +54,14 @@ TargetPlanner and TargetSchedulerManager installers, built locally in those repo
   `X.Y.Z` stamps that exist on this mirror. Consumer `release.ps1` scripts enforce this with
   an abort gate (dirty Library tree, or `-alpha` in the embedded stamp).
 
-Latest published tag: **`v1.6.0`** (`Astronomy.XISF.XisfBlockRewriter` — surgical re-store of a
+Latest published tag: **`v1.6.1`** (docs-only: v1.6.0 release bookkeeping; library code
+unchanged from v1.6.0 — tagged so consumer payloads stamp clean while XFM v2.4.1 packs. This
+tag rides *on* the bookkeeping commit, adopting fold-bookkeeping-into-the-released-commit so
+post-release height-1 states stop forcing docs-only tags). Prior:
+`v1.6.0` (`Astronomy.XISF.XisfBlockRewriter` — surgical re-store of a
 monolithic XISF's primary block under a new codec, XML byte-preserved except the block
 attributes; plus the checksum verifier + optional zstd `Compress` level that landed with the
-same arc. First consumers: XFM v2.4.0's browse hygiene + solver temp-XISF input). Prior:
+same arc. First consumers: XFM v2.4.0's browse hygiene + solver temp-XISF input);
 `v1.5.2` (docs-only: ROADMAP queues `WcsOrientation.FramingAngleDegrees`
 for the second orientation consumer; library code unchanged from v1.5.1 — tagged so consumer
 payloads stamp clean while XFM v2.3.0 packs); `v1.5.1` (legacy XISF checksum aliases
