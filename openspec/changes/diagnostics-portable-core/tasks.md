@@ -37,7 +37,7 @@
 
 ## 7. Consumer window (sibling repos, after the AL tag)
 
-- [ ] 7.1 TSM: delete `Support\DiagnosticsWindow.cs`, reference `Astronomy.Diagnostics.WinUI`, re-wire Ctrl+N to `ShowOrFocus(owner, contextProvider, iconPath)`, raise TFM to `net10.0-windows10.0.26100.0`; build + run
-- [ ] 7.2 TP: raise TFM to `net10.0-windows10.0.26100.0`; build + run
-- [ ] 7.3 Run `..\build-all.ps1` cross-repo DRC
-- [ ] 7.4 Manual verification (feature-correct, not just code-correct): Ctrl+N flow in TSM and TP — open, capture, delayed capture, checkpoint OK, cancel/close-X terminator, singleton re-invoke
+- [x] 7.1 TSM: delete `Support\DiagnosticsWindow.cs`, reference `Astronomy.Diagnostics.WinUI`, re-wire Ctrl+N to `ShowOrFocus(owner, contextProvider, iconPath)`, raise TFM to `net10.0-windows10.0.26100.0`; build + run — TSM commit `406c284` (both call sites via one `ShowDiagnostics()` helper; Tests TFM raised too; 423/423, 0 warnings)
+- [x] 7.2 TP: raise TFM to `net10.0-windows10.0.26100.0`; build + run — TP commit `63adfa0` (SkiaSharp floor rationale updated in csproj comment; 184/184, 0 warnings)
+- [x] 7.3 Run `..\build-all.ps1` cross-repo DRC — GREEN: TP PASS, TSM PASS, contract tests 61 passed / 6 documented skips
+- [ ] 7.4 Manual verification (feature-correct, not just code-correct): Ctrl+N flow in TSM and TP — open, capture, delayed capture, checkpoint OK, cancel/close-X terminator, singleton re-invoke — **user's pass; the ported WinUI shell's first on-screen render. AL tag publish waits on this (decided 2026-08-10: tag the verified commit)**
