@@ -7,7 +7,7 @@ consumers + tests in the same breath); the implementation behind it can churn fr
 grep-verified real usage (2026-06-28; refreshed 2026-07-07, re-audited 2026-07-24); keep current as the contract evolves.
 
 **How this is validated** (docs *describe* the contract; these *verify* it):
-- **Structural — free:** both consumers `ProjectReference` the Library (source), so a breaking API
+- **Structural — free:** every consumer `ProjectReference`s the Library (source), so a breaking API
   change is a **consumer build break**. The cross-repo constellation build is that check — see
   `VERIFICATION.md` § *Cross-repo contract verification*.
 - **Semantic — pinned by `Astronomy.Contracts.Tests`:** the compiler can't see the assumptions in
@@ -25,14 +25,15 @@ grep-verified real usage (2026-06-28; refreshed 2026-07-07, re-audited 2026-07-2
 
 ---
 
-## Consumers (only two, today)
+## Consumers (three, today)
 
 | Consumer | Host | ProjectRefs (direct) | Actually uses |
 |---|---|---|---|
-| **TargetPlanner (TP)** | WinForms | Core, NINA, Diagnostics | Core (broad), `NINA.Persistence`, XISF (assembly flows transitively via NINA; TP *code* calls 4 members directly — see the XISF row below), Diagnostics. **Catalog present transitively but unused.** PCL deliberately *not* referenced (avoids `unsafe` in the WinForms host). |
-| **TargetSchedulerManager (TSM)** | WinUI | Catalog, Diagnostics, **Core** | Catalog (broad), Diagnostics, Core (narrow — `Locations`, `Horizons`, `Night`, `Session`, `Targets`; added 2026-07-23, commit `a48b2fa`). XISF only *inside* Catalog's scanner. **NINA / PCL not referenced.** |
+| **TargetPlanner (TP)** | WinForms | Core, NINA, Diagnostics (+ `.WinForms` shell → `.Windows` transitively) | Core (broad), `NINA.Persistence`, XISF (assembly flows transitively via NINA; TP *code* calls 4 members directly — see the XISF row below), Diagnostics (`Log` + `DiagnosticsDialog`). **Catalog present transitively but unused.** PCL deliberately *not* referenced (avoids `unsafe` in the WinForms host). |
+| **TargetSchedulerManager (TSM)** | WinUI | Catalog, Diagnostics (+ `.WinUI` shell → `.Windows` transitively, since 2026-08-10), **Core** | Catalog (broad), Diagnostics (`Log` + `DiagnosticsWindow`), Core (narrow — `Locations`, `Horizons`, `Night`, `Session`, `Targets`; added 2026-07-23, commit `a48b2fa`). XISF only *inside* Catalog's scanner. **NINA / PCL not referenced.** |
+| **XisfFileManager (XFM)** | WinForms | XISF, Core, Diagnostics (+ `.WinForms` shell → `.Windows` transitively) | XISF (reader/codecs/`XisfBlockRewriter` — adopted v2.4.0, 2026-08; the checksum-alias and block-rewrite work shipped for it), Core (`Astrometry` — plate-solve support), Diagnostics (`Log` + `DiagnosticsDialog`). **Catalog / NINA / PCL not referenced.** *(Added to this table 2026-08-10 — XFM had adopted AL without the datasheet, the DRC, or the parent map recording it.)* |
 
-Both consume **by `ProjectReference` (source) — no DLL, no NuGet.** That's the free continuity check.
+All three consume **by `ProjectReference` (source) — no DLL, no NuGet.** That's the free continuity check.
 
 **Not consumers** (despite portfolio proximity — important to be honest about):
 - **XisfFileManager** — has its own independent XISF/SQLite stack; *migration to Library is
@@ -55,8 +56,9 @@ Catalog → XISF, Core          (Core edge added 2026-07-29 — FieldFootprint)
 NINA    → Core, XISF, Catalog
 PCL     → Core  (+ native Astronomy.PCL.Native, build-only)
 
-TP  → Core, NINA, Diagnostics      (XISF + Catalog transitive via NINA)
-TSM → Catalog, Diagnostics, Core   (XISF transitive via Catalog)
+TP  → Core, NINA, Diagnostics (+.WinForms)   (XISF + Catalog transitive via NINA)
+TSM → Catalog, Diagnostics (+.WinUI), Core   (XISF transitive via Catalog)
+XFM → XISF, Core, Diagnostics (+.WinForms)
 ```
 No consumer→consumer references. Note: **Catalog does NOT depend on Core** (its `Schema.Target` is its own POCO).
 
@@ -65,17 +67,16 @@ No consumer→consumer references. Note: **Catalog does NOT depend on Core** (it
 > Summary level; for member-level `file:line` usage, grep the consumer for the type name.
 
 - **Astronomy.Diagnostics (the four-assembly stack — layering contract:
-  `openspec/specs/diagnostics-platform-layering/`)** — *used by BOTH*: `Log` (Init · StartNewSession
+  `openspec/specs/diagnostics-platform-layering/`)** — *used by all three apps*: `Log` (Init · StartNewSession
   · Info/Warn/Error · Diag/IsDiagEnabled ·
   **LogFolderPath** — TP-only, and TP passes it to a *recursive directory delete*, so its meaning
   must never widen past the app's own log folder), `AppLogIdentity` (+ `VersionAssembly`,
   2026-08-10 — the plugin-host `build=` stamp source; null = entry assembly), `DiagDefault`.
-  **Since 2026-08-10 the Ctrl+N dialog itself is Library surface**: TP drives
+  **Since 2026-08-10 the Ctrl+N dialog itself is Library surface**: TP and XFM drive
   `Astronomy.Diagnostics.WinForms.DiagnosticsDialog.ShowOrFocus(owner, contextProvider)` (shipped
-  2026-08-06); TSM ports to
+  2026-08-06); TSM drives
   `Astronomy.Diagnostics.WinUI.DiagnosticsWindow.ShowOrFocus(owner, contextProvider, iconPath?)`
-  in its next release window (until then it still drives `ObservationSession.Begin` directly with
-  its app-side window). `ObservationSession` (`Begin` — **takes a required platform `capture` delegate since
+  (ported from its app-side window, shipped TSM v1.5.1 2026-08-10). `ObservationSession` (`Begin` — **takes a required platform `capture` delegate since
   2026-08-10**, on Windows `ScreenCapture.ToPng` from
   `Astronomy.Diagnostics.Windows` · `CaptureAsync` · `CompleteAsync` · `Cancel` ·
   `Id`/`CaptureCount`/`IsTerminated`) + `ObservationCapture` (`Path`/`StatusText`/`Succeeded`)
