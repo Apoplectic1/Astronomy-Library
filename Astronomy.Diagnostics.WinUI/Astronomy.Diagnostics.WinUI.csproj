@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Zero-warning ratchet (2026-08-01, portfolio-wide): a new warning is a build break. -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!-- 10.0.19041.0 is the FLOOR WinUI/WindowsAppSDK permits, deliberately NOT any consumer app's SDK
+         version (apps float high, library layers floor low — diagnostics-platform-layering spec): a WinUI
+         consumer at any SDK >= 19041 can reference this satellite without raising its own TFM. -->
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <RootNamespace>Astronomy.Diagnostics.WinUI</RootNamespace>
+    <AssemblyName>Astronomy.Diagnostics.WinUI</AssemblyName>
+    <UseWinUI>true</UseWinUI>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Deterministic>true</Deterministic>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <AnalysisLevel>latest</AnalysisLevel>
+    <AnalysisMode>Recommended</AnalysisMode>
+    <!-- CA1031: the dialog's fire-and-forget handlers swallow-and-log by the diagnostics best-effort
+         contract. CS1591 matches the sibling shells. -->
+    <NoWarn>$(NoWarn);CS1591;CA1031</NoWarn>
+    <!-- AnyCPU enables a standalone `dotnet build`; the SLN-driven build is x64. Matches the core. -->
+    <Platforms>AnyCPU;x64</Platforms>
+  </PropertyGroup>
+
+  <!-- WinUI satellite over the UI-free Astronomy.Diagnostics core: the per-framework dialog shell for
+       WinUI consumers, sibling of Astronomy.Diagnostics.WinForms. Version lockstep: WinUI consumers must
+       reference a WindowsAppSDK >= this pin (recorded in CONSUMERS.md); upgrade the pin alongside the
+       first consumer that moves. -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.3.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Astronomy.Diagnostics\Astronomy.Diagnostics.csproj" />
+    <!-- The Windows capture backend (ScreenCapture) — the platform piece the net10.0 core deliberately lacks. -->
+    <ProjectReference Include="..\Astronomy.Diagnostics.Windows\Astronomy.Diagnostics.Windows.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -18,15 +18,16 @@ namespace Astronomy.Contracts.Tests;
 [Collection("LogProcessGlobal")]
 public sealed class ObservationSessionContractTests
 {
-    // Zero-size bounds: ScreenCapture.ToPng's non-positive-size guard returns null BEFORE touching the
-    // filesystem, so the real capture path is exercised with zero side effects (important pre-Init,
-    // where the screenshot path would be relative to the working dir).
+    // Wired the way real consumers wire it: capture = ScreenCapture.ToPng. Zero-size bounds keep it
+    // side-effect-free — ToPng's non-positive-size guard returns null BEFORE touching the filesystem
+    // (important pre-Init, where the screenshot path would be relative to the working dir).
     private static ObservationSession MakeSession() =>
         ObservationSession.Begin(
             contextProvider: () => "k=v",
             ownerBounds: () => (0, 0, 0, 0),
             hideOverlay: () => { },
             showOverlay: () => { },
+            capture: (bounds, path) => ScreenCapture.ToPng(bounds.X, bounds.Y, bounds.Width, bounds.Height, path),
             settleDelayMs: 0);
 
     // ---------------------------------------------------------------------------
@@ -79,6 +80,7 @@ public sealed class ObservationSessionContractTests
             ownerBounds: () => { delegateCalls++; return (0, 0, 0, 0); },
             hideOverlay: () => delegateCalls++,
             showOverlay: () => delegateCalls++,
+            capture: (bounds, path) => { delegateCalls++; return null; },
             settleDelayMs: 0);
         session.Cancel();
         delegateCalls = 0;

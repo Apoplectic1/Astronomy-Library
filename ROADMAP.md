@@ -15,9 +15,9 @@ The PCL wrapper is a deep but **settled / parked** subsystem; its design records
 
 Latest three only. **Full shipped history: [`CHANGELOG.md`](CHANGELOG.md)** (append-only, dated, newest first).
 
+- **2026-08-10** — Diagnostics platform layering (`diagnostics-portable-core`): core retargeted to TFM-neutral `net10.0` (Android/Linux-referenceable; platform APIs now fail the build), `ScreenCapture` extracted to new `Astronomy.Diagnostics.Windows`, `ObservationSession.Begin` takes the platform `capture` delegate, `AppLogIdentity.VersionAssembly` fixes the plugin-host `build=` stamp (IS-in-NINA), and the WinUI Ctrl+N shell ported from TSM as new `Astronomy.Diagnostics.WinUI` (WindowsAppSDK lockstep → `CONSUMERS.md`). TSM/TP consumer window pending.
 - **2026-08-07** — `XisfBlockRewriter.RewriteAsync`: surgical re-store of a monolithic XISF's primary block under a new codec (or `None`), XML header byte-preserved except `compression`/`checksum`/`location` + length field, temp + atomic replace, declared checksums verified before re-encoding. Consumers pick codec and target — first callers are XFM's browse hygiene and its solver temp-input path.
 - **2026-08-06** — legacy XISF checksum aliases accepted on read: `BlockCompressionInfo.Parse` canonicalizes `sha1`/`sha256`/`sha512` to the spec's hyphenated tokens (2019-era SGP files failed XFM's new solve path with "Unrecognized XISF checksum algorithm 'sha1'"); re-saves now write the spec token for free.
-- **2026-08-02** — AL published: public mirror https://github.com/Apoplectic1/Astronomy-Library (new `README.md` + `RELEASING.md`, shared portfolio rules, publish = push `main` + tag, no installer/assets); MinVer via `Directory.Build.props` stamps tag-derived versions on every managed assembly; sibling https://github.com/Apoplectic1/PCL mirror carries the vendored tree.
 
 ## Open: `WcsOrientation.FramingAngleDegrees` — queued for the second orientation consumer
 
@@ -98,14 +98,25 @@ design.** (Moved here from `CHANGELOG.md` on 2026-07-24: forward scope belongs i
 
 When XFM eventually migrates to Astronomy.XISF as its sole reader, the additional `KeywordList` accessors (FocalLength, Camera, EGAIN, MasterFrame metadata, weight keywords, etc.) port over alongside Tier 2.
 
-## Open: Astronomy.Diagnostics.WinUI — parked until ISM
+## Open: AppDialog-layer graduation — parked until ISM
 
-Captured 2026-08-06 with the WinForms satellite (`Astronomy.Diagnostics.WinForms`). A WinUI
-counterpart is deliberately **not** built yet: TSM is the only WinUI consumer (no dedup to win), and
-the genuinely reusable WinUI asset is TSM's `AppDialog` behavior layer (drag, Ctrl+N, lone-button
-centering) with the diagnostics dialog as one rider — graduating that is a bigger design than a
-diagnostics errand. Revisit when ISM (the second WinUI app) actually needs it; scope the question
-then as "AppDialog-layer graduation", not "diagnostics dialog copy".
+Rescoped 2026-08-10: the diagnostics dialog itself **shipped** as `Astronomy.Diagnostics.WinUI`
+(`diagnostics-portable-core` — code inspection showed TSM's `DiagnosticsWindow` never actually
+depended on the `AppDialog` layer, so the 2026-08-06 parking rationale applied only to the larger
+prize). What stays parked is that larger prize: TSM's `AppDialog` behavior layer (drag, Ctrl+N
+wiring, lone-button centering) as a general WinUI dialog substrate. Revisit when ISM (the second
+WinUI app) actually needs it — with two real consumers, TSM's implementation as the proven
+reference and ISM's requirements as the generalization test. An `Astronomy.WinUI`-shaped design
+exercise, not a diagnostics errand.
+
+## Open: Diagnostics platform satellites — build with their consumers
+
+The 2026-08-10 layering (TFM-neutral core + platform capture backends + per-framework shells —
+`openspec/specs/diagnostics-platform-layering/`) leaves the future legs deliberately unbuilt: a
+`.Wpf` shell only if IS (NINA plugin, WPF host) wants the *interactive* observation dialog rather
+than programmatic `Log` + capture at scheduler decision points (likely sufficient); an `.Android`
+capture backend when the ISM Android port picks its UI stack (MediaProjection needs a runtime
+permission prompt — capture-as-delegate absorbs that). The core needs no changes for either.
 
 ## Open: Astronomy.NINA Phases C-D
 

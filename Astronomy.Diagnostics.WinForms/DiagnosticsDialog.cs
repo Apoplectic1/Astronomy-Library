@@ -165,6 +165,7 @@ public sealed class DiagnosticsDialog : Form
                 Show();
                 mNotes.Focus();
             },
+            capture: (bounds, path) => ScreenCapture.ToPng(bounds.X, bounds.Y, bounds.Width, bounds.Height, path),
             settleDelayMs: 0);
 
         Text = "Diagnostics (id=" + mSession.Id + ")";

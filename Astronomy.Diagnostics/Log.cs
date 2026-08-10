@@ -29,6 +29,9 @@ public static class Log
     private static readonly object sGate = new();
     private static bool sEnabled;
     private static string sPath = string.Empty;
+    // null = standalone app (entry assembly is the consumer); set by a plugin-hosted consumer whose
+    // entry assembly is the host executable — see AppLogIdentity.VersionAssembly.
+    private static Assembly? sVersionAssembly;
     // null sentinel = "all channels enabled"; empty set = "none"; otherwise the explicitly enabled channels.
     private static HashSet<string>? sEnabledCategories = new(StringComparer.OrdinalIgnoreCase);
 
@@ -45,6 +48,7 @@ public static class Log
             string root = identity.RootOverride
                 ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), identity.AppName);
             sPath = Path.Combine(root, "Logs", identity.LogFileName);
+            sVersionAssembly = identity.VersionAssembly;
             sEnabledCategories = ResolveEnabledCategories(identity);
         }
     }
@@ -203,7 +207,7 @@ public static class Log
     {
         try
         {
-            Assembly? asm = Assembly.GetEntryAssembly();
+            Assembly? asm = sVersionAssembly ?? Assembly.GetEntryAssembly();
             string? infoVer = asm?.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
             if (!string.IsNullOrWhiteSpace(infoVer)) return infoVer;
             return asm?.GetName().Version?.ToString() ?? "unknown";

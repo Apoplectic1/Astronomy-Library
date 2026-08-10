@@ -17,9 +17,11 @@ public sealed record ObservationCapture(string? Path, string StatusText)
 /// orchestration both consumer dialogs used to hand-roll — the hide → settle → grab → reshow capture
 /// choreography, capture counting, the guarded context-provider call, and the exactly-one-terminator
 /// guarantee (<c>USER_OBS_END</c> via <see cref="CompleteAsync"/> or <c>USER_OBS_CANCEL</c> via
-/// <see cref="Cancel"/>). The dialog object, its singleton, and its controls stay app-side: the app hands
-/// <see cref="Begin"/> three delegates (owner bounds, hide overlay, show overlay) because this library
-/// references neither WinForms nor WinUI.
+/// <see cref="Cancel"/>). The dialog object, its singleton, and its controls stay caller-side: the caller
+/// hands <see cref="Begin"/> four delegates (owner bounds, hide overlay, show overlay, capture) because
+/// this library is platform-neutral — it references no UI framework and no platform capture API. On
+/// Windows the capture delegate is typically <c>ScreenCapture.ToPng</c> from
+/// <c>Astronomy.Diagnostics.Windows</c>; another platform supplies its own backend.
 ///
 /// <para><b>Threading contract.</b> Call <see cref="CaptureAsync"/> / <see cref="CompleteAsync"/> from the
 /// UI thread. The awaits deliberately keep the caller's <see cref="SynchronizationContext"/> (no
@@ -52,29 +54,34 @@ public sealed class ObservationSession
     private bool mBusy;   // UI-thread precondition makes a plain bool sufficient (no interlock).
 
     /// <summary>
-    /// Start a session: mints the 4-char id and logs <c>USER_OBS_START</c>. The app calls this once per
-    /// opened dialog (its window singleton is what prevents a second concurrent session).
+    /// Start a session: mints the 4-char id and logs <c>USER_OBS_START</c>. The caller invokes this once
+    /// per opened dialog (its window singleton is what prevents a second concurrent session).
     /// <paramref name="ownerBounds"/> returns the owner window's screen rectangle in physical pixels;
     /// <paramref name="hideOverlay"/> / <paramref name="showOverlay"/> hide and restore the observation
     /// dialog itself (show typically also re-activates and refocuses the notes box).
+    /// <paramref name="capture"/> is the platform's screen grab: bounds + destination path in, saved path
+    /// out (or <c>null</c> on failure) — it must be best-effort like the rest of the session (on Windows,
+    /// <c>ScreenCapture.ToPng</c> from <c>Astronomy.Diagnostics.Windows</c> already is).
     /// </summary>
     public static ObservationSession Begin(
         Func<string> contextProvider,
         Func<(int X, int Y, int Width, int Height)> ownerBounds,
         Action hideOverlay,
         Action showOverlay,
+        Func<(int X, int Y, int Width, int Height), string, string?> capture,
         int settleDelayMs = 450)
     {
         ArgumentNullException.ThrowIfNull(contextProvider);
         ArgumentNullException.ThrowIfNull(ownerBounds);
         ArgumentNullException.ThrowIfNull(hideOverlay);
         ArgumentNullException.ThrowIfNull(showOverlay);
+        ArgumentNullException.ThrowIfNull(capture);
         ArgumentOutOfRangeException.ThrowIfNegative(settleDelayMs);
 
         var session = new ObservationSession(
             contextProvider, ownerBounds, hideOverlay, showOverlay, settleDelayMs,
             Log.NewObservationScreenshotPath,
-            (bounds, path) => ScreenCapture.ToPng(bounds.X, bounds.Y, bounds.Width, bounds.Height, path));
+            capture);
         Log.UserObservationStart(session.Id);
         return session;
     }
@@ -219,7 +226,8 @@ public sealed class ObservationSession
         }
         catch (Exception ex)
         {
-            // ScreenCapture.ToPng is itself best-effort; this guard covers the ownerBounds/path delegates.
+            // A well-behaved capture backend is itself best-effort; this guard covers the
+            // ownerBounds/path delegates and any capture that breaks that contract.
             Log.Warn($"ObservationSession id={Id}: capture threw", ex);
         }
 

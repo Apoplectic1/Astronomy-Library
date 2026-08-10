@@ -25,6 +25,9 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Astronomy.Diagnostics\Astronomy.Diagnostics.csproj" />
+    <!-- For the ScreenCapture smoke test (best-effort contract; no assumptions about the machine's
+         session state — see ScreenCaptureSmokeTests). -->
+    <ProjectReference Include="..\Astronomy.Diagnostics.Windows\Astronomy.Diagnostics.Windows.csproj" />
   </ItemGroup>
 
 </Project>

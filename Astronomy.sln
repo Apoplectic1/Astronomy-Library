@@ -51,6 +51,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Astronomy.Contracts.Tests",
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Astronomy.Diagnostics.WinForms", "Astronomy.Diagnostics.WinForms\Astronomy.Diagnostics.WinForms.csproj", "{36471F6F-8839-44C4-998D-72E2D21C8BDD}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Astronomy.Diagnostics.Windows", "Astronomy.Diagnostics.Windows\Astronomy.Diagnostics.Windows.csproj", "{9D97A5C6-31FC-43FA-9A96-1F9C2EA5D389}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Astronomy.Diagnostics.WinUI", "Astronomy.Diagnostics.WinUI\Astronomy.Diagnostics.WinUI.csproj", "{FFDA71BB-F274-48DF-BFA8-A38DE800AD43}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -321,6 +325,30 @@ Global
 		{36471F6F-8839-44C4-998D-72E2D21C8BDD}.Release|Any CPU.Build.0 = Release|Any CPU
 		{36471F6F-8839-44C4-998D-72E2D21C8BDD}.Release|x86.ActiveCfg = Release|Any CPU
 		{36471F6F-8839-44C4-998D-72E2D21C8BDD}.Release|x86.Build.0 = Release|Any CPU
+		{9D97A5C6-31FC-43FA-9A96-1F9C2EA5D389}.Debug|x64.ActiveCfg = Debug|x64
+		{9D97A5C6-31FC-43FA-9A96-1F9C2EA5D389}.Debug|x64.Build.0 = Debug|x64
+		{9D97A5C6-31FC-43FA-9A96-1F9C2EA5D389}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9D97A5C6-31FC-43FA-9A96-1F9C2EA5D389}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9D97A5C6-31FC-43FA-9A96-1F9C2EA5D389}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{9D97A5C6-31FC-43FA-9A96-1F9C2EA5D389}.Debug|x86.Build.0 = Debug|Any CPU
+		{9D97A5C6-31FC-43FA-9A96-1F9C2EA5D389}.Release|x64.ActiveCfg = Release|x64
+		{9D97A5C6-31FC-43FA-9A96-1F9C2EA5D389}.Release|x64.Build.0 = Release|x64
+		{9D97A5C6-31FC-43FA-9A96-1F9C2EA5D389}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9D97A5C6-31FC-43FA-9A96-1F9C2EA5D389}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9D97A5C6-31FC-43FA-9A96-1F9C2EA5D389}.Release|x86.ActiveCfg = Release|Any CPU
+		{9D97A5C6-31FC-43FA-9A96-1F9C2EA5D389}.Release|x86.Build.0 = Release|Any CPU
+		{FFDA71BB-F274-48DF-BFA8-A38DE800AD43}.Debug|x64.ActiveCfg = Debug|x64
+		{FFDA71BB-F274-48DF-BFA8-A38DE800AD43}.Debug|x64.Build.0 = Debug|x64
+		{FFDA71BB-F274-48DF-BFA8-A38DE800AD43}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FFDA71BB-F274-48DF-BFA8-A38DE800AD43}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FFDA71BB-F274-48DF-BFA8-A38DE800AD43}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{FFDA71BB-F274-48DF-BFA8-A38DE800AD43}.Debug|x86.Build.0 = Debug|Any CPU
+		{FFDA71BB-F274-48DF-BFA8-A38DE800AD43}.Release|x64.ActiveCfg = Release|x64
+		{FFDA71BB-F274-48DF-BFA8-A38DE800AD43}.Release|x64.Build.0 = Release|x64
+		{FFDA71BB-F274-48DF-BFA8-A38DE800AD43}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FFDA71BB-F274-48DF-BFA8-A38DE800AD43}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FFDA71BB-F274-48DF-BFA8-A38DE800AD43}.Release|x86.ActiveCfg = Release|Any CPU
+		{FFDA71BB-F274-48DF-BFA8-A38DE800AD43}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

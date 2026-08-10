@@ -1,3 +1,4 @@
+using System.Reflection;
 using Astronomy.Diagnostics;
 using Xunit;
 
@@ -52,24 +53,78 @@ public sealed class ObservationSessionTests : IDisposable
         Func<string> ctx = () => "";
         Func<(int, int, int, int)> bounds = () => (0, 0, 1, 1);
         Action nop = () => { };
+        Func<(int, int, int, int), string, string> cap = (b, path) => path;
 
-        Assert.Throws<ArgumentNullException>(() => ObservationSession.Begin(null, bounds, nop, nop));
-        Assert.Throws<ArgumentNullException>(() => ObservationSession.Begin(ctx, null, nop, nop));
-        Assert.Throws<ArgumentNullException>(() => ObservationSession.Begin(ctx, bounds, null, nop));
-        Assert.Throws<ArgumentNullException>(() => ObservationSession.Begin(ctx, bounds, nop, null));
-        Assert.Throws<ArgumentOutOfRangeException>(() => ObservationSession.Begin(ctx, bounds, nop, nop, settleDelayMs: -1));
+        Assert.Throws<ArgumentNullException>(() => ObservationSession.Begin(null, bounds, nop, nop, cap));
+        Assert.Throws<ArgumentNullException>(() => ObservationSession.Begin(ctx, null, nop, nop, cap));
+        Assert.Throws<ArgumentNullException>(() => ObservationSession.Begin(ctx, bounds, null, nop, cap));
+        Assert.Throws<ArgumentNullException>(() => ObservationSession.Begin(ctx, bounds, nop, null, cap));
+        Assert.Throws<ArgumentNullException>(() => ObservationSession.Begin(ctx, bounds, nop, nop, null));
+        Assert.Throws<ArgumentOutOfRangeException>(() => ObservationSession.Begin(ctx, bounds, nop, nop, cap, settleDelayMs: -1));
     }
 
     [Fact]
     public void Begin_MintsFourCharId_AndLogsStart()
     {
         ObservationSession session = ObservationSession.Begin(
-            () => "", () => (0, 0, 1, 1), () => { }, () => { });
+            () => "", () => (0, 0, 1, 1), () => { }, () => { }, (b, path) => path);
 
         Assert.Equal(4, session.Id.Length);
         Assert.Contains($"USER_OBS_START id={session.Id}", LogText());
         Assert.False(session.IsTerminated);
         Assert.Equal(0, session.CaptureCount);
+    }
+
+    [Fact]
+    public async Task Begin_CallerSuppliedCapture_ReceivesBoundsAndLibraryMintedPath()
+    {
+        (int, int, int, int) seenBounds = default;
+        string seenPath = null;
+        ObservationSession session = ObservationSession.Begin(
+            () => "", () => (10, 20, 30, 40), () => { }, () => { },
+            (b, path) => { seenBounds = b; seenPath = path; return path; });
+
+        ObservationCapture cap = await session.CaptureAsync();
+
+        Assert.True(cap.Succeeded);
+        Assert.Equal((10, 20, 30, 40), seenBounds);
+        // The path is minted by the library (obs-<id>-<stamp>.png under the screenshots folder) — the
+        // caller's capture only decides how pixels get there.
+        Assert.StartsWith(Log.ScreenshotsFolderPath, seenPath, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains($"obs-{session.Id}-", seenPath);
+        Assert.Contains($"USER_OBS_CAP id={session.Id} screenshot={seenPath}", LogText());
+    }
+
+    // ------------------------------------------------------------------ Version stamp (AppLogIdentity.VersionAssembly)
+
+    [Fact]
+    public void Init_VersionAssembly_StampsSuppliedAssembly()
+    {
+        // The plugin-host case: entry assembly would be the host executable; the identity names the
+        // consumer's own assembly instead.
+        Assembly own = typeof(ObservationSessionTests).Assembly;
+        Log.Init(new AppLogIdentity("BenchApp", "bench.log", "BENCH_DIAG", DiagDefault.None,
+            RootOverride: mRoot, VersionAssembly: own));
+
+        Log.UserObservationStart("vsup");
+
+        string expected = own.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
+            ?? own.GetName().Version?.ToString() ?? "unknown";
+        Assert.Contains($"USER_OBS_START id=vsup build={expected}", LogText());
+    }
+
+    [Fact]
+    public void Init_NoVersionAssembly_StampsEntryAssemblyDefault()
+    {
+        // Standalone-app default, unchanged behavior. Under xUnit v3 the test project is its own exe,
+        // so the entry assembly is this test assembly.
+        Assembly entry = Assembly.GetEntryAssembly();
+        string expected = entry?.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
+            ?? entry?.GetName().Version?.ToString() ?? "unknown";
+
+        Log.UserObservationStart("vdef");   // ctor's Init had no VersionAssembly
+
+        Assert.Contains($"USER_OBS_START id=vdef build={expected}", LogText());
     }
 
     // ------------------------------------------------------------------ Capture

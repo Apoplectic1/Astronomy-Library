@@ -64,21 +64,31 @@ No consumer→consumer references. Note: **Catalog does NOT depend on Core** (it
 
 > Summary level; for member-level `file:line` usage, grep the consumer for the type name.
 
-- **Astronomy.Diagnostics** — *used by BOTH*: `Log` (Init · StartNewSession
+- **Astronomy.Diagnostics (the four-assembly stack — layering contract:
+  `openspec/specs/diagnostics-platform-layering/`)** — *used by BOTH*: `Log` (Init · StartNewSession
   · Info/Warn/Error · Diag/IsDiagEnabled ·
   **LogFolderPath** — TP-only, and TP passes it to a *recursive directory delete*, so its meaning
-  must never widen past the app's own log folder), `AppLogIdentity`, `DiagDefault`, and — since
-  2026-07-24 — `ObservationSession` (`Begin` · `CaptureAsync` ·
-  `CompleteAsync` · `Cancel` · `Id`/`CaptureCount`/`IsTerminated`) + `ObservationCapture`
-  (`Path`/`StatusText`/`Succeeded`): the shared observation-dialog orchestration both apps' thin
-  UI shells drive. **The session adoption moved three members out of the external pinout the same
-  day it added itself**: `Log.UserObservation*`, `Log.NewObservationScreenshotPath` and
-  `ScreenCapture.ToPng` are now called only *inside* `ObservationSession` — in-assembly
-  composition, not consumer surface (like `Log.FilePath`, which feeds the session's status text).
-  (`Log.ScreenshotsFolderPath` has no *external* caller — it stays on the dead-surface list, but it is
-  reached in-assembly as the composition root of the screenshot chain, `ScreenshotsFolderPath` →
-  `NewObservationScreenshotPath` → `ObservationSession`, exactly parallel to `Log.FilePath`. Not safe to
-  delete outright.)
+  must never widen past the app's own log folder), `AppLogIdentity` (+ `VersionAssembly`,
+  2026-08-10 — the plugin-host `build=` stamp source; null = entry assembly), `DiagDefault`.
+  **Since 2026-08-10 the Ctrl+N dialog itself is Library surface**: TP drives
+  `Astronomy.Diagnostics.WinForms.DiagnosticsDialog.ShowOrFocus(owner, contextProvider)` (shipped
+  2026-08-06); TSM ports to
+  `Astronomy.Diagnostics.WinUI.DiagnosticsWindow.ShowOrFocus(owner, contextProvider, iconPath?)`
+  in its next release window (until then it still drives `ObservationSession.Begin` directly with
+  its app-side window). `ObservationSession` (`Begin` — **takes a required platform `capture` delegate since
+  2026-08-10**, on Windows `ScreenCapture.ToPng` from
+  `Astronomy.Diagnostics.Windows` · `CaptureAsync` · `CompleteAsync` · `Cancel` ·
+  `Id`/`CaptureCount`/`IsTerminated`) + `ObservationCapture` (`Path`/`StatusText`/`Succeeded`)
+  remain pinned surface — the shells are Library-side now, but IS (programmatic, no dialog) and
+  the contract bench drive the session directly. `Log.UserObservation*` and
+  `Log.NewObservationScreenshotPath` stay in-assembly composition, not consumer surface (like
+  `Log.FilePath`, which feeds the session's status text; `Log.ScreenshotsFolderPath` likewise —
+  dead-surface list, but the composition root of the screenshot chain. Not safe to delete
+  outright.)
+  **WindowsAppSDK lockstep**: `Astronomy.Diagnostics.WinUI` pins `Microsoft.WindowsAppSDK`
+  (currently **2.3.1**, TFM floor `net10.0-windows10.0.19041.0`); WinUI consumers (TSM, ISM) must
+  reference a WindowsAppSDK **≥ the pin** — NuGet unifies upward at app build, so drift fails as a
+  restore warning, not silent breakage. Upgrade the pin alongside the first consumer that moves.
 - **Astronomy.Catalog** — *TSM*: `Scan.ImageLibraryScanner.ScanAsync` + `ImageLibraryReport`;
   `Scan.MosaicConvention.PanelLabel`; `Scan.FilterPurpose` + `Scan.FilterPurposeClassifier.Classify`;
   `Build.TargetResolver.Resolve` + `ResolveOptions` +
@@ -185,10 +195,11 @@ or registered in `NotCleanlyTestableAssumptions.cs` with the reason (see *How th
 
 25. `ObservationSession` logs **exactly one START** (at `Begin`) and **exactly one terminator**
    (END via `CompleteAsync`, or CANCEL via `Cancel`) per id; terminators are idempotent and latch
-   `IsTerminated`; post-termination captures/completes are no-ops that never touch the app's
-   delegates. Delegates run on the **`CaptureAsync`/`CompleteAsync` caller's** synchronization
-   context (no context is captured at `Begin`) — **call from the UI thread**. (Both dialogs wire
-   `Cancel` to their close-X fallback; whichever terminator fires first wins.)
+   `IsTerminated`; post-termination captures/completes are no-ops that never touch the caller's
+   delegates — including the platform `capture` delegate `Begin` requires since 2026-08-10.
+   Delegates run on the **`CaptureAsync`/`CompleteAsync` caller's** synchronization
+   context (no context is captured at `Begin`) — **call from the UI thread**. (Both dialog shells
+   wire `Cancel` to their close-X fallback; whichever terminator fires first wins.)
 
 ### Contract facts not yet numbered
 

@@ -25,6 +25,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Astronomy.Diagnostics\Astronomy.Diagnostics.csproj" />
+    <!-- The Windows capture backend (ScreenCapture) — the platform piece the net10.0 core deliberately lacks. -->
+    <ProjectReference Include="..\Astronomy.Diagnostics.Windows\Astronomy.Diagnostics.Windows.csproj" />
   </ItemGroup>
 
 </Project>

@@ -9,6 +9,31 @@ backstop — this is the human-legible layer above it.
 **Entry format:** `## YYYY-MM-DD — <what landed>` (a month-only `YYYY-MM` is fine when the exact day
 wasn't recorded). Newest first; add new entries directly below this charter, never at the bottom.
 
+## 2026-08-10 — Diagnostics platform layering (`diagnostics-portable-core`)
+
+Diagnostics restructured into a **four-assembly layered stack** (normative contract:
+`openspec/specs/diagnostics-platform-layering/`), motivated by two coming consumers: the ISM
+Android port (a `net10.0-windows` library is un-referenceable from an Android TFM — compile wall)
+and IS as a WPF guest in NINA's process (where `Assembly.GetEntryAssembly()` stamps the *host's*
+version). What landed:
+
+- **`Astronomy.Diagnostics` → `net10.0` (TFM-neutral)**; `System.Drawing.Common` dropped. A
+  platform API creeping into the core now fails the build — the neutrality is compiler-enforced.
+- **New `Astronomy.Diagnostics.Windows`** (`net10.0-windows`): `ScreenCapture` moved here — the
+  Win32 capture backend all Windows shells share.
+- **BREAKING: `ObservationSession.Begin` requires the platform `capture` delegate** (the internal
+  test seam, promoted). Windows callers pass `ScreenCapture.ToPng`; other platforms bring their own.
+- **`AppLogIdentity.VersionAssembly`** (null = entry assembly): plugin-hosted consumers stamp
+  their own `build=`, standalone apps unchanged.
+- **New `Astronomy.Diagnostics.WinUI`** (`net10.0-windows10.0.19041.0` — the WinUI floor, not any
+  app's SDK; `Microsoft.WindowsAppSDK` 2.3.1, lockstep recorded in `CONSUMERS.md`):
+  `DiagnosticsWindow` ported from TSM and de-apped (icon → caller parameter, `UiTask` inlined) —
+  TSM's port pending; ISM gets Ctrl+N free on day one. The AppDialog-layer graduation stays parked
+  (`ROADMAP.md`) — inspection showed the dialog never depended on it.
+- Tests: `Begin` wiring + `VersionAssembly` + contract-shaped `ScreenCapture` smoke coverage;
+  `Contracts.Tests` re-wired the way consumers wire (assumption #25 wording updated). Coordinated
+  consumer errand queued: TSM port + TP/TSM TFM unification at `10.0.26100.0`.
+
 ## 2026-08-07 — Surgical block rewrite (`block-rewriter`)
 
 New **`XisfBlockRewriter.RewriteAsync(sourcePath, targetPath, codec[, zstdLevel])`**: re-store a

@@ -36,6 +36,9 @@
     <ProjectReference Include="..\Astronomy.XISF\Astronomy.XISF.csproj" />
     <ProjectReference Include="..\Astronomy.Catalog\Astronomy.Catalog.csproj" />
     <ProjectReference Include="..\Astronomy.Diagnostics\Astronomy.Diagnostics.csproj" />
+    <!-- The Windows capture backend: consumers hand ScreenCapture.ToPng to ObservationSession.Begin
+         (diagnostics-platform-layering), so the contract bench wires the session the way they do. -->
+    <ProjectReference Include="..\Astronomy.Diagnostics.Windows\Astronomy.Diagnostics.Windows.csproj" />
     <ProjectReference Include="..\Astronomy.NINA\Astronomy.NINA.csproj" />
   </ItemGroup>
 
