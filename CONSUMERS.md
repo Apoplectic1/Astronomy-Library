@@ -89,6 +89,10 @@ No consumer→consumer references. Note: **Catalog does NOT depend on Core** (it
   (currently **2.3.1**, TFM floor `net10.0-windows10.0.19041.0`); WinUI consumers (TSM, ISM) must
   reference a WindowsAppSDK **≥ the pin** — NuGet unifies upward at app build, so drift fails as a
   restore warning, not silent breakage. Upgrade the pin alongside the first consumer that moves.
+  **When wiring a new AL project into a consumer, also add it to that consumer's sln/slnx** — the
+  apps list cross-repo AL projects explicitly, and a `ProjectReference` alone builds green while
+  Solution Explorer silently omits the project (bit both apps 2026-08-10; the trap is documented in
+  each app's `VERIFICATION.md`).
 - **Astronomy.Catalog** — *TSM*: `Scan.ImageLibraryScanner.ScanAsync` + `ImageLibraryReport`;
   `Scan.MosaicConvention.PanelLabel`; `Scan.FilterPurpose` + `Scan.FilterPurposeClassifier.Classify`;
   `Build.TargetResolver.Resolve` + `ResolveOptions` +
