@@ -41,6 +41,25 @@ touching legal** (flip-split pieces touch by construction and are semantically d
 `Union` output alone stays fully merged) — `add-interval-algebra`'s unarchived spec delta
 amended in place. Verified: 1061 tests green (15 new).
 
+## 2026-08-11 — contract assumptions #26–#29: the unnumbered facts are pinned
+
+The four facts carried in `CONSUMERS.md` § *Contract facts not yet numbered* (two since 2026-07-07,
+two added by the 2026-08-11 maintain sweep when XFM arrived without its pins) are now **numbered
+assumptions with citing bench tests** — the section is retired and the ROADMAP item closed. New in
+`Astronomy.Contracts.Tests` (bench 61 → 79 passing, 6 registered skips unchanged):
+**#26** Catalog cancellation throws, no partial result (`CatalogCancellationContractTests` — reader
+per-row check needs a row to bite, resolver phase-boundary, scanner; each with a pre-cancelled
+token); **#27** write-back's four-part join key credited by pairing
+(`WriteBackJoinKeyContractTests` — same-purpose different-duration plans resolve to separate writes
+never manual, an unplanned duration bucket surfaces as a note and never folds into a neighbour,
+no-pairing-frames is a real `DiskCount = 0` write, filter joins ordinal-ignore-case); **#28** XISF
+codec semantics (`XisfCodecContractTests` — checksum covers the stored bytes and rejects the raw
+digest, raw-LZ4 decode hard-errors on a wrong declared size, unknown token parses as `Other` while
+`Decompress`/`ToCompressionAttribute` throw naming it); **#29** `WcsOrientation` conventions
+(`WcsOrientationContractTests` — determinant-sign parity, a NINA-pinned real-matrix PA vector,
+the both-axes-mirror ≡ 180°-rotation ambiguity, PA always in half-open [0, 360)). Deliberate overlap
+with the module suites per the bench scope rule (the label and failure message are the point).
+
 ## 2026-08-11 — XML-doc neutrality sweep: the last 8 consumer-UI-terminology leaks fixed
 
 The report-only axis from the 2026-07-24 audit finally ran (site list: `docs/2026-07-29-maintain-report.md`

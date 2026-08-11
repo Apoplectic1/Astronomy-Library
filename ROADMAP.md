@@ -15,9 +15,9 @@ The PCL wrapper is a deep but **settled / parked** subsystem; its design records
 
 Latest three only. **Full shipped history: [`CHANGELOG.md`](CHANGELOG.md)** (append-only, dated, newest first).
 
+- **2026-08-11** — Contract assumptions **#26–#29** pinned: the "not yet numbered" facts (Catalog cancellation-throws, write-back join key + pairing credit, XISF codec semantics, `WcsOrientation` conventions) each gained a citing bench test in `Astronomy.Contracts.Tests` (61 → 79 passing) and a number in `CONSUMERS.md`; the holding section is retired and the ROADMAP item closed.
 - **2026-08-11** — XML-doc neutrality sweep: the last 8 consumer-UI-terminology sites in `///` docs reworded caller-neutral (`NightCache`, `ObserverInfo`, `BestSession`, `FramingCluster`) + `DiagnosticsDialog`'s stale "three delegates" → four. Zero consumer-UI vocabulary remains across the nine shipped assemblies; ROADMAP item closed.
 - **2026-08-11** — `ARCHITECTURE.md` split executed (option a, per-module files): mechanics now live in `docs/architecture/<module>.md` with the root file demoted to the index, and **all 26 promotions held by the same day's maintain sweep landed in the new homes** (Tier-3 XISF mechanics, the epoch translation table, the OK-time capture contract, four PCL interop rules, six Core conventions, seven Catalog rules, the bench scope rule).
-- **2026-08-11** — Scanner fail-fast on coordinate-less units: the silent (0,0) fallback flagged by the same day's maintain sweep is gone — a unit none of whose readable frames carries RA/DEC now aborts the scan with `InvalidDataException` naming the directory; a frame silent on one coordinate still never aborts. Real-library smoke scan passes the gate.
 
 ## Open: `WcsOrientation.FramingAngleDegrees` — queued for the second orientation consumer
 
@@ -31,23 +31,6 @@ third-party readers a framing angle labeled as a PA). **Build when the second co
 (TSM's `°(M)` rescan framings work) — and that consumer must read orientation *through this type*,
 not raw `OBJCTROT`; the named-property protection only covers AL-path readers. XFM's format-time
 0.1° rounding dance stays XFM-side (display quantization, not domain math).
-
-## Open: pin the unnumbered contract facts
-
-*(Retitled 2026-08-11 — was "pin **two** unnumbered contract facts"; XFM's arrival added two more.)*
-Behaviours consumers already depend on are documented in `CONSUMERS.md` § *Contract facts not yet
-numbered* but not pinned as numbered assumptions, because numbering them requires a bench test or a
-`NotCleanlyTestableAssumptions.cs` registry entry (the covered-or-registered rule), which the docs sweeps
-that found them could not make: **(a)** Catalog cancellation throws and never returns a partial
-graph/report — compiler-invisible if it regresses, since every token parameter is optional (today only
-`Resolve_ObservesCancellation` in `Astronomy.Catalog.Tests` guards it); **(b)** write-back's four-part
-join key `(target, filter, purpose, whole-second exposure)` — a silent-wrong-result surface, since a
-duration mismatch writes `DiskCount = 0` to a live TS plan; **(c)** the XISF codec-layer semantics XFM
-bakes in (checksums over stored bytes; LZ4 raw block format; tolerant-parse/strict-use) and **(d)** the
-`WcsOrientation` conventions (N-toward-E PA, determinant-sign parity) — both added 2026-08-11 when the
-sweep found the third consumer had arrived without its pins (normative specs exist:
-`openspec/specs/xisf-block-compression/`, `wcs-orientation/`). Give each a bench test (preferred) or a
-registry entry, then promote to numbered assumptions.
 
 ## Open: parked PCL wrapper-extension plan — premise needs re-checking
 

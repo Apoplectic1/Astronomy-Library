@@ -257,41 +257,37 @@ explicitly rejected because the list's value is one assumption per line with one
    context (no context is captured at `Begin`) — **call from the UI thread**. (Both dialog shells
    wire `Cancel` to their close-X fallback; whichever terminator fires first wins.)
 
-### Contract facts not yet numbered
+**Promoted 2026-08-11 (the facts formerly under "Contract facts not yet numbered" — each now
+bench-pinned):**
 
-Behaviours consumers already depend on, documented here but **not yet pinned as numbered
-assumptions** — numbering them requires a bench test or a registry entry, which is a code change (see
-`ROADMAP.md` § *Open: pin the unnumbered contract facts*):
-
-- **Cancellation throws; no partial result is ever returned.** Every long-running Catalog entry point
-  takes an optional `CancellationToken` and genuinely observes it: `TargetSchedulerReader.ReadPlanData`
-  and the `Read*` family (forwarded to the private `Query<T>` choke point, checked **per row**),
-  `TargetResolver.Resolve` (each phase boundary, plus per TS target in the anchoring pass — the one
-  super-linear loop), `CatalogBuilder.BuildAsync`, and `ImageLibraryScanner.ScanAsync`. A cancelled call
-  throws rather than returning a truncated graph or report. Because the parameters are optional, a
-  regression here is **compiler-invisible** — nothing breaks if the token silently stops being observed.
-  (Guarded today by `Resolve_ObservesCancellation` in `Astronomy.Catalog.Tests`, not by the bench.)
-- **Write-back's join key is (target, filter, purpose, whole-second exposure), credited by pairing.** A
-  plan receives the disk count at exactly its `round(ExposureSeconds ?? template default)` bucket (filter
-  compared ordinal-ignore-case), and **within the bucket only frames whose capture configuration pairs
-  with the plan's template count** (`CaptureConfigPairing` — gain/offset/binning value equality after
-  plan-side normalization; a camera-default sentinel `-1` pairs with nothing) and whose framing serves the
-  target's rotation (2026-08-04, `pairing-credited-write-back`). Same-purpose plans at different durations
-  resolve to separate writes rather than manual; a disk bucket with no plan at that duration — or frames
-  whose configuration no plan pairs with — surfaces as an `UnplannedFrames` `ReconcileNote` and is never
-  folded into a neighbouring plan; and no pairing frames at the plan's spec is a real `DiskCount = 0`
-  write ("spec unmet"), not a skip. This is a silent-wrong-result surface — a duration or configuration
-  mismatch writes 0 to a live TS plan.
-- **The XISF codec-layer semantics XFM bakes in** (added 2026-08-11 — the third consumer arrived at
-  v2.4.0 without its pins): checksums cover the **stored/post-compression** bytes; LZ4 is the **raw**
-  block format, so decode is impossible without the declared uncompressed size; and
-  `BlockCompressionInfo.Parse` is tolerant on an unknown token (returns `BlockCodec.Other` so
-  inspect-only reads keep working) while `Decompress`/`Format` throw naming it — the
-  tolerant-parse/strict-use split is the contract, not an oversight. Normative:
-  `openspec/specs/xisf-block-compression/` (do not restate it here).
-- **The `WcsOrientation` conventions XFM bakes in**: position angle is North-toward-East `[0,360)`,
-  parity comes from the CD-matrix determinant sign, and a both-axes mirror is indistinguishable from
-  a 180° rotation by construction. Normative: `openspec/specs/wcs-orientation/`.
+26. **Cancellation throws; no partial result is ever returned.** Every long-running Catalog entry point
+   takes an optional `CancellationToken` and genuinely observes it: `TargetSchedulerReader.ReadPlanData`
+   and the `Read*` family (forwarded to the private `Query<T>` choke point, checked **per row**),
+   `TargetResolver.Resolve` (each phase boundary, plus per TS target in the anchoring pass — the one
+   super-linear loop), `CatalogBuilder.BuildAsync`, and `ImageLibraryScanner.ScanAsync`. A cancelled call
+   throws rather than returning a truncated graph or report. Because the parameters are optional, a
+   regression here is **compiler-invisible** — nothing breaks if the token silently stops being observed.
+27. **Write-back's join key is (target, filter, purpose, whole-second exposure), credited by pairing.** A
+   plan receives the disk count at exactly its `round(ExposureSeconds ?? template default)` bucket (filter
+   compared ordinal-ignore-case), and **within the bucket only frames whose capture configuration pairs
+   with the plan's template count** (`CaptureConfigPairing` — gain/offset/binning value equality after
+   plan-side normalization; a camera-default sentinel `-1` pairs with nothing) and whose framing serves the
+   target's rotation (2026-08-04, `pairing-credited-write-back`). Same-purpose plans at different durations
+   resolve to separate writes rather than manual; a disk bucket with no plan at that duration — or frames
+   whose configuration no plan pairs with — surfaces as an `UnplannedFrames` `ReconcileNote` and is never
+   folded into a neighbouring plan; and no pairing frames at the plan's spec is a real `DiskCount = 0`
+   write ("spec unmet"), not a skip. This is a silent-wrong-result surface — a duration or configuration
+   mismatch writes 0 to a live TS plan.
+28. **The XISF codec-layer semantics XFM bakes in**: checksums cover the **stored/post-compression**
+   bytes; LZ4 is the **raw** block format, so decode is impossible without the declared uncompressed
+   size (a size disagreement is a hard error); and `BlockCompressionInfo.Parse` is tolerant on an
+   unknown token (returns `BlockCodec.Other` so inspect-only reads keep working) while
+   `Decompress`/`ToCompressionAttribute` throw naming it — the tolerant-parse/strict-use split is the
+   contract, not an oversight. Normative: `openspec/specs/xisf-block-compression/` (not restated here).
+29. **The `WcsOrientation` conventions XFM bakes in** (persisted to `OBJCTROT`, so a convention change
+   silently rewrites every solved orientation on disk): position angle is North-toward-East `[0,360)`,
+   parity comes from the CD-matrix determinant sign, and a both-axes mirror is indistinguishable from
+   a 180° rotation by construction. Normative: `openspec/specs/wcs-orientation/`.
 
 ## Fragility flags
 - **Three public `Target` types** — `Core.Targets.Target` (class), `NINA.Target` (class), `Catalog.Schema.Target` (record). Naming-overload hazard; consumers alias around it.

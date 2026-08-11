@@ -35,6 +35,15 @@ namespace Astronomy.Contracts.Tests;
 ///                                        gate-internal refraction half is registered below)
 ///   #25 ObservationSession lifecycle ... ObservationSessionContractTests (state machine;
 ///                                        log-line assertions live in Astronomy.Diagnostics.Tests)
+///   #26 Catalog cancellation throws .... CatalogCancellationContractTests (reader per-row,
+///                                        resolver phase-boundary, scanner; promoted 2026-08-11
+///                                        from "Contract facts not yet numbered")
+///   #27 Write-back join key + pairing .. WriteBackJoinKeyContractTests (duration buckets,
+///                                        never-fold, real-zero write, case-insensitive filter)
+///   #28 XISF codec semantics ........... XisfCodecContractTests (checksum-over-stored, raw-LZ4
+///                                        declared size, tolerant-parse/strict-use)
+///   #29 WcsOrientation conventions ..... WcsOrientationContractTests (determinant-sign parity,
+///                                        NINA real-matrix PA vector, 180° mirror ambiguity)
 ///
 /// NOT cleanly unit-testable (placeholders below mirror this list):
 ///
