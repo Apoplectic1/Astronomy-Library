@@ -28,9 +28,9 @@
 
 ## 3. Docs and consumers
 
-- [ ] 3.1 AL `ARCHITECTURE.md` API-tour rows for `UtcInterval` / `Intervals`; note the
+- [x] 3.1 AL `ARCHITECTURE.md` API-tour rows for `UtcInterval` / `Intervals`; note the
   producers' return-type change in the same rows (docs ride the code commit)
-- [ ] 3.2 AL `ROADMAP.md` shipped digest + CLAUDE.md follow-ups refresh; cross-note that IS
+- [x] 3.2 AL `ROADMAP.md` shipped digest + CLAUDE.md follow-ups refresh; cross-note that IS
   ROADMAP "AL gaps to close for IS" item 1 is satisfied by this change
 - [x] 3.3 Rebuild TP / TSM / XFM against the updated Library working tree (recompile-only
   expected — no direct call sites); fix any surprise the blast-radius check missed

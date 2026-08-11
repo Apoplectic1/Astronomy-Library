@@ -69,6 +69,24 @@ mode and modal WinForms dialogs — the two states a consumer-side `ProcessCmdKe
 a second call throws (fail-fast, matching `ObservationSession.Begin`). Consumers: TP + XFM swapped
 same day; TSM (WinUI) keeps its accelerator + `AppDialog` hook, which is the same coverage there.
 
+## 2026-08-11 — interval algebra: `UtcInterval` + `Intervals` ops; producers converge (BREAKING)
+
+The first IS-motivated Library change (IS ROADMAP "AL gaps to close for IS" item 1; openspec change
+`add-interval-algebra`). `Time/UtcInterval` — readonly record struct, UTC-only fail-fast ctor,
+half-open `[Start, End)` — plus `Time/Intervals` (`Intersect` / `Union` / `Subtract` / `Clip` over
+ordered-disjoint-merged lists, input-validated with a throw on violation). Generic half-open
+subtraction covers all six relative positions of TS's `MaximumAltitudeClipper` reference pattern by
+construction; named tests pin the correspondence. **BREAKING, value-identical:** every public
+tuple-interval API converged on the shared type — `VisibilityWindows.For`,
+`MoonSeparation.IntervalsAboveDeg`, `SunSeparation.IntervalsBelowDeg`,
+`BestSession.ResolveCandidates` / `PlaceBest` / `PlaceCentered` (return now `UtcInterval?`), the
+`SessionSolvers.*In` candidate parameters — same instants, new element type; sweep emission points
+gained zero-length guards (no representation for an empty interval). This resolves the 2026-05-18
+review's declined finding on the five tuple APIs the day its "defer to a v2 window" premise was
+flagged stale, while its C2 sibling (don't unify the *sweeps*) stands. Verified: 1046 tests green
+(36 new), TP / TSM / XFM rebuilt clean with zero edits (TP's `ChartCacheStore` consumption is
+pass-through; `Start`/`End` property names carried over).
+
 ## 2026-08-11 — WinForms shell invoke-time capture: shipped and REVERTED same day
 
 `371c204` made `DiagnosticsDialog.ShowOrFocus` (Astronomy.Diagnostics.WinForms) grab the owner
