@@ -53,11 +53,11 @@ All three consume **by `ProjectReference` (source) — no DLL, no NuGet.** That'
 portfolio's **single clock source**. New consumer code takes an `IClock` (or an explicit
 `DateTime utc` parameter, the Core convention) instead of reading `DateTime.UtcNow` /
 `DateTime.Now`; existing app-side ambient reads migrate opportunistically (owner: the user).
-Inventory (corrected same day — the first count missed `DateTimeOffset` variants): TP 0, XFM 0;
-TSM's `MainViewModel` adopted the seam 2026-08-11 (TSM commit `906d607` — all four VM reads,
-including the planning-input `UtcNow` that mattered), leaving five service-layer reads
-(`TsJournal` ×2, `TsSync` ×2, `ReconciliationLoader` ×1) tracked in TSM's ROADMAP for
-opportunistic constructor threading.
+Inventory: **all three apps at zero ambient reads** as of 2026-08-11 — TP and XFM were already
+clean; TSM adopted the seam in two same-day passes (VM `Clock` property, commit `906d607`; then
+service-layer `IClock` ctor threading through `TsJournal`/`TsSync`/`ReconciliationLoader`,
+commit `fc37a6a`, grep-verified zero remaining). ISM inherits the seam when it copies TSM's
+sync/journal shapes.
 
 **Not consumers** (despite portfolio proximity — important to be honest about):
 - **IntervalScheduler (IS)** — design docs only, no project, zero references (planned consumer).
