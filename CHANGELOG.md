@@ -9,6 +9,19 @@ backstop — this is the human-legible layer above it.
 **Entry format:** `## YYYY-MM-DD — <what landed>` (a month-only `YYYY-MM` is fine when the exact day
 wasn't recorded). Newest first; add new entries directly below this charter, never at the bottom.
 
+## 2026-08-11 — `DiagnosticsHotkey`: shared Ctrl+N wiring for WinForms consumers
+
+New `DiagnosticsHotkey.Register(owner, contextProvider)` in `Astronomy.Diagnostics.WinForms`:
+installs an application-level `IMessageFilter` that opens (or focuses) `DiagnosticsDialog` on
+Ctrl+N. Hoisted from TP (its `Support/DiagnosticsKeyFilter.cs`, deleted) so hotkey **routing** is
+uniform by construction across WinForms consumers, the same move TSM made dialog-side with
+`AppDialog`: a filter sees every thread `WM_KEYDOWN` before dispatch, covering MenuStrip menu
+mode and modal WinForms dialogs — the two states a consumer-side `ProcessCmdKey` override misses
+(TP obs f231; XFM carried exactly that override and had the latent gap). Native modal loops
+(common dialogs, `MessageBox`) remain out of reach by Win32 design. Register-once contract —
+a second call throws (fail-fast, matching `ObservationSession.Begin`). Consumers: TP + XFM swapped
+same day; TSM (WinUI) keeps its accelerator + `AppDialog` hook, which is the same coverage there.
+
 ## 2026-08-11 — WinForms shell invoke-time capture: shipped and REVERTED same day
 
 `371c204` made `DiagnosticsDialog.ShowOrFocus` (Astronomy.Diagnostics.WinForms) grab the owner
