@@ -9,6 +9,25 @@ backstop — this is the human-legible layer above it.
 **Entry format:** `## YYYY-MM-DD — <what landed>` (a month-only `YYYY-MM` is fine when the exact day
 wasn't recorded). Newest first; add new entries directly below this charter, never at the bottom.
 
+## 2026-08-11 — meridian primitives: `Meridian` + `MeridianSide` (IS gap 2)
+
+The second IS-motivated change (IS ROADMAP "AL gaps to close for IS" item 2; openspec change
+`add-meridian-primitives`), closing the dossier's `MeridianFlipTime` assignment. New
+`Session/Meridian` — pure composition over `TransitTime`/`SiderealTime`, no new astronomy:
+`HourAngleAt` (signed `[-12, +12)`), `SideAt` (**sky-side** `MeridianSide.East/West` — ASCOM
+pier-side vocabulary deliberately kept out; the mapping and its inversion trap belong to the
+mount adapter), `TransitsIn` (a >sidereal-day window yields multiple), `FlipTimeIn` (searches
+transits from `session.Start − allowance`, so a pre-session transit whose flip lands in-session
+is found; negative allowances legal), and `SplitAtFlip` (same-side pieces for the interval
+solver). Two findings hardened during apply: transit-search seeds advance by one minute, not
+one tick (LST jitter stutters a one-tick advance into ~14 repeats of the same transit), and
+`SplitAtFlip` suppresses splits leaving a piece under 1 s (the ~0.1 ms transit-recomputation
+jitter would otherwise emit micro-slivers on every replanning re-split). Consequence for the
+interval algebra: the canonical-list contract relaxed from "merged" to **ordered + disjoint,
+touching legal** (flip-split pieces touch by construction and are semantically distinct;
+`Union` output alone stays fully merged) — `add-interval-algebra`'s unarchived spec delta
+amended in place. Verified: 1061 tests green (15 new).
+
 ## 2026-08-11 — XML-doc neutrality sweep: the last 8 consumer-UI-terminology leaks fixed
 
 The report-only axis from the 2026-07-24 audit finally ran (site list: `docs/2026-07-29-maintain-report.md`

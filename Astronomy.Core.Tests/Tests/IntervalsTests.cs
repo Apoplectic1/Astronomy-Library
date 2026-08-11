@@ -202,12 +202,16 @@ namespace Astronomy.Core.Tests.Tests
         }
 
         [Fact]
-        public void Ops_TouchingInput_Throws()
+        public void Ops_TouchingInput_Accepted()
         {
-            // Touching elements are one interval under half-open semantics; an
-            // uncoalesced list is a producer bug, not a valid input.
+            // Touching elements are distinct intervals (e.g. same-side flip-split
+            // pieces) -- legal input, preserved by non-union ops, coalesced by Union.
             var touching = new[] { I(1, 3), I(3, 5) };
-            Assert.Throws<ArgumentException>(() => Intervals.Subtract(touching, Array.Empty<UtcInterval>()));
+            Assert.Equal(touching, Intervals.Subtract(touching, Array.Empty<UtcInterval>()));
+            // The touching boundary survives intersection -- the elements stay
+            // distinct (a flip-split solver depends on exactly this).
+            Assert.Equal(new[] { I(2, 3), I(3, 4) }, Intervals.Intersect(touching, new[] { I(2, 4) }));
+            Assert.Equal(new[] { I(1, 5) }, Intervals.Union(touching, Array.Empty<UtcInterval>()));
         }
 
         [Fact]

@@ -24,16 +24,25 @@ no representation of an empty interval — emptiness is expressed as an empty in
 - **WHEN** an interval is constructed with end equal to or before start
 - **THEN** construction throws
 
-### Requirement: Interval lists are ordered, disjoint, and merged
+### Requirement: Interval lists are ordered and disjoint
 
-Every interval list returned by the algebra operations SHALL be ordered ascending by start,
-pairwise disjoint, and merged (no two intervals overlap or touch end-to-start). Operations
-SHALL accept any input list satisfying this invariant and SHALL preserve it in their output.
+Every interval list accepted or returned by the algebra operations SHALL be ordered
+ascending by start and pairwise disjoint. Elements MAY touch end-to-start — adjacent
+distinct intervals are a legitimate currency (e.g. same-side pieces split at a meridian
+flip) and SHALL NOT be rejected or silently coalesced by non-union operations.
+*(Amended 2026-08-11 by `add-meridian-primitives`: the original "merged — touching is an
+error" input rule collided with flip-split output, whose pieces touch by construction.)*
+Union's output SHALL additionally be merged: no two result elements overlap or touch.
 
 #### Scenario: Union merges overlapping and touching intervals
 
 - **WHEN** union is applied to lists containing overlapping or exactly-touching intervals
-- **THEN** the result coalesces them into single intervals and satisfies the invariant
+- **THEN** the result coalesces them into single intervals
+
+#### Scenario: Touching input is accepted by non-union operations
+
+- **WHEN** a list whose elements touch end-to-start is passed to subtract or intersect
+- **THEN** the operation runs normally, treating the touching elements as distinct
 
 ### Requirement: Intersection
 

@@ -12,13 +12,16 @@ namespace Astronomy.Core.Time
     /// <remarks>
     /// <para>
     /// <b>Canonical-list contract:</b> every input list must be ordered ascending by
-    /// <see cref="UtcInterval.Start"/>, pairwise disjoint, and merged — no two elements
-    /// overlap <em>or touch</em> end-to-start (touching intervals are one interval under
-    /// half-open semantics and must be coalesced). Every operation validates its inputs
-    /// and throws on violation rather than repairing them: a non-canonical list means a
-    /// producer or intermediate step has a bug, and a silently "fixed" wrong input is
+    /// <see cref="UtcInterval.Start"/> and pairwise disjoint. Elements MAY touch
+    /// end-to-start: adjacent-but-distinct intervals are a legitimate currency (e.g.
+    /// same-side pieces split at a meridian flip — see
+    /// <c>Session.Meridian.SplitAtFlip</c>), so touching is not treated as an
+    /// un-coalesced bug. <see cref="Union"/>'s <em>output</em> additionally coalesces
+    /// overlapping and touching runs. Every operation validates its inputs and throws
+    /// on violation rather than repairing them: an unordered or overlapping list means
+    /// a producer or intermediate step has a bug, and a silently "fixed" wrong input is
     /// far more expensive to find than an exception. All outputs satisfy the same
-    /// invariant, so results compose without re-validation cost concerns (n is
+    /// contract, so results compose without re-validation cost concerns (n is
     /// single-digit per night for every current producer).
     /// </para>
     /// <para>
@@ -185,7 +188,9 @@ namespace Astronomy.Core.Time
         // The canonical-list contract gate. O(n) per call -- trivial at the Library's
         // per-night interval counts, and the throw converts a latent producer bug into
         // a loud failure at the first composition instead of a silently wrong plan.
-        private static void RequireCanonical(IReadOnlyList<UtcInterval> list, string paramName)
+        // Internal so sibling interval consumers (Session.Meridian.SplitAtFlip) validate
+        // through the same contract.
+        internal static void RequireCanonical(IReadOnlyList<UtcInterval> list, string paramName)
         {
             ArgumentNullException.ThrowIfNull(list, paramName);
             for (int i = 0; i < list.Count; i++)
@@ -200,13 +205,14 @@ namespace Astronomy.Core.Time
                         paramName);
                 }
 
-                if (i > 0 && list[i].Start <= list[i - 1].End)
+                if (i > 0 && list[i].Start < list[i - 1].End)
                 {
                     throw new ArgumentException(
                         $"Elements {i - 1} and {i} violate the canonical-list contract " +
-                        $"(ordered, disjoint, merged): {list[i - 1]} then {list[i]}. " +
-                        "Overlapping or touching intervals must be coalesced (Union) " +
-                        "before composing.",
+                        $"(ordered ascending, pairwise disjoint): {list[i - 1]} then " +
+                        $"{list[i]}. Overlapping intervals mean a producer bug -- " +
+                        "coalesce deliberate overlaps with Union before composing. " +
+                        "(Touching end-to-start is legal.)",
                         paramName);
                 }
             }
