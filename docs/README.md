@@ -8,6 +8,11 @@ dated, and left as history; not edited in place the way the reference docs are.
 docs/*.md` then grep. Nothing routes to individual files here except where a reference doc cites one
 by name.
 
+**Exception — `architecture/` is reference tier, not journal.** The per-module architecture files
+(`docs/architecture/<module>.md`, split from the root `ARCHITECTURE.md` 2026-08-11) are current
+truth edited in place, indexed by the root `ARCHITECTURE.md`. The dated-record conventions of this
+directory do not apply to them.
+
 ## What goes where
 
 | It is… | Home |

@@ -9,6 +9,26 @@ backstop — this is the human-legible layer above it.
 **Entry format:** `## YYYY-MM-DD — <what landed>` (a month-only `YYYY-MM` is fine when the exact day
 wasn't recorded). Newest first; add new entries directly below this charter, never at the bottom.
 
+## 2026-08-11 — ARCHITECTURE split: per-module files + the 26 held promotions land
+
+The split booked by the 2026-07-29 maintain sweep, executed as adjudicated **option (a)**: subsystem
+mechanics moved verbatim to one file per buildable module under `docs/architecture/` (solution, core,
+xisf, diagnostics, catalog, nina, contracts-tests, pcl) and the root `ARCHITECTURE.md` became a thin
+index (~4 KB) whose rows resolve existing "§ *Astronomy.X*" references. With healthy per-module homes,
+**all 26 promotions held by the 2026-08-11 maintain sweep landed** (`docs/2026-08-11-maintain-report.md`
+§ *Held graduates* records each claim/target/disposition): six Core conventions (WcsOrientation +
+its spec route-in, efficiency bar, rename-vs-reshape, rotation nullable-vs-not, signed-dec
+double-flip, the three-layer test strategy), the full XISF Tier-3 mechanics block (module shape,
+producer interop, alias-at-parse, write-side sha-1 asymmetry, rewriter textual-edit contract, zstd
+encode-side level), seven Catalog rules (epoch translation table, schema field rules, sentinel
+metadata, directory-is-identity, both-planes pairing, sentinel asymmetry + `TemplateSentinel`,
+write-back-groups-every-plan), the DiagnosticsHotkey + OK-time capture contract, four PCL interop
+rules (same-thread last-error, no in-place write, buffer granularity, no-ownership-transfer C ABI),
+and the bench scope rule. Also folded in: `Time/UtcInterval` + `Intervals` added to Core's folder map
+(the same-day interval-algebra commit `c3a6b89` carried no doc updates), and the thread-safety audit
+recorded as run-three-times. Router + `docs/README.md` updated (docs/architecture/ is reference tier,
+not journal); the ROADMAP split item closed.
+
 ## 2026-08-11 — scanner aborts on a coordinate-less unit (the (0,0) fallback is gone)
 
 The silent contract violation flagged by the same day's maintain sweep: a unit none of whose readable

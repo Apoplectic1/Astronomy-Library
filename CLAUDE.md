@@ -6,7 +6,7 @@
 
 **Reference docs** (current truth, edited in place — route by name):
 
-- **`ARCHITECTURE.md`** — subsystem mechanics, *how each module works*. Organized one section per buildable **module** — test/benchmark projects are covered inside their module's section (Solution overview, then Astronomy.Core + its API conventions/thread-safety/code-organization, .XISF, .Diagnostics, .Catalog, .NINA, .Contracts.Tests, .PCL/.Native + the PCL local-build and interop story). Grep by module name.
+- **`ARCHITECTURE.md`** — subsystem mechanics, *how each module works*. Since 2026-08-11 an **index**: the mechanics live one file per buildable module under **`docs/architecture/`** (solution · core — incl. API conventions/thread-safety/code-organization · xisf · diagnostics · catalog · nina · contracts-tests · pcl — incl. the local-build and interop story); test/benchmark projects are covered inside their module's file. A "`ARCHITECTURE.md` § *Astronomy.X*" reference elsewhere resolves through the index. Grep the module file, not the index.
 - **`ROADMAP.md`** — forward-looking design (open work, planned direction) + a three-line recently-shipped digest. Whole-library direction. Shipped history is *not* here — it's `CHANGELOG.md`.
 - **`VERIFICATION.md`** — how to **build / test / benchmark** and the build traps. Read before claiming a build or tests pass. The cross-repo contract DRC is `..\build-all.ps1`.
 - **`CONSUMERS.md`** — the Library's de-facto public **contract / datasheet**: what each downstream consumer depends on (the "pinned pinout").

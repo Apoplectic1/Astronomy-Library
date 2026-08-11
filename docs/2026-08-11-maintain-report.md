@@ -28,6 +28,11 @@ journal still holds ungraduated rationale, mostly embedded mid-entry in older CH
 for every hold (sources and full evidence: the canonical worker output, referenced per-item by its
 CHANGELOG/archive citation):
 
+> **Resolved same day.** The split ran 2026-08-11 (option a, per-module files under
+> `docs/architecture/`, root `ARCHITECTURE.md` demoted to the index) and **all 26 holds below landed
+> in the new homes** — see CHANGELOG § 2026-08-11 (ARCHITECTURE split). The list stays as the record
+> of what was held and why.
+
 1. **wcs-orientation-surface** → Core → `Astrometry/` · stub. `WcsOrientation.FromCdMatrix` (2026-08-06): CD matrix → PA (N-toward-E, [0,360)), image-axis rotation, parity from determinant sign, per-axis arcsec/px; NINA as strategy reference; domain of validity = normal + single-mirrored only; solver offsets stay with the calling wrapper. *(The DOMAIN provenance half was applied now — see below; the Astrometry/ folder-map line + "all ten folders" recheck waits for the split.)*
 2. **efficiency-bar** → Core API conventions · cross-ref (`xisf-codecs` design § Goals). Allocation posture: size-and-allocate-once per stage, plain `byte[]` APIs, no speculative Span/pooling until a profile says otherwise.
 3. **rename-vs-reshape** → Core API conventions · cross-ref (`ks-dmag-moon-gate` § D2). Meaning change ⇒ rename outright (the constellation-wide compile break is the point); reshape-in-place only when meaning is stable.

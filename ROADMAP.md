@@ -15,10 +15,9 @@ The PCL wrapper is a deep but **settled / parked** subsystem; its design records
 
 Latest three only. **Full shipped history: [`CHANGELOG.md`](CHANGELOG.md)** (append-only, dated, newest first).
 
+- **2026-08-11** — `ARCHITECTURE.md` split executed (option a, per-module files): mechanics now live in `docs/architecture/<module>.md` with the root file demoted to the index, and **all 26 promotions held by the same day's maintain sweep landed in the new homes** (Tier-3 XISF mechanics, the epoch translation table, the OK-time capture contract, four PCL interop rules, six Core conventions, seven Catalog rules, the bench scope rule).
 - **2026-08-11** — Scanner fail-fast on coordinate-less units: the silent (0,0) fallback flagged by the same day's maintain sweep is gone — a unit none of whose readable frames carries RA/DEC now aborts the scan with `InvalidDataException` naming the directory; a frame silent on one coordinate still never aborts. Real-library smoke scan passes the gate.
 - **2026-08-11** — `DiagnosticsHotkey.Register` (Astronomy.Diagnostics.WinForms): shared app-level Ctrl+N message filter, hoisted from TP — WinForms consumers (TP, XFM) get menu-mode + modal-dialog hotkey coverage by construction; register-once, throws on double wiring. Same day: invoke-time capture shipped and reverted (user decision) — the uniform cross-consumer contract is **capture at OK time only**; transient-UI shots stay on the delayed-capture workflow.
-- **2026-08-10** — Diagnostics platform layering (`diagnostics-portable-core`): core retargeted to TFM-neutral `net10.0` (Android/Linux-referenceable; platform APIs now fail the build), `ScreenCapture` extracted to new `Astronomy.Diagnostics.Windows`, `ObservationSession.Begin` takes the platform `capture` delegate, `AppLogIdentity.VersionAssembly` fixes the plugin-host `build=` stamp (IS-in-NINA), and the WinUI Ctrl+N shell ported from TSM as new `Astronomy.Diagnostics.WinUI` (WindowsAppSDK lockstep → `CONSUMERS.md`). Consumer windows landed 2026-08-10: TSM's dialog port + the TP/TSM/XFM TFM unification at `10.0.26100.0`.
-
 ## Open: `WcsOrientation.FramingAngleDegrees` — queued for the second orientation consumer
 
 Decided 2026-08-07 (XFM ROADMAP follow-up #9, where the full rationale lives): the PA ≡ PA+180
@@ -31,25 +30,6 @@ third-party readers a framing angle labeled as a PA). **Build when the second co
 (TSM's `°(M)` rescan framings work) — and that consumer must read orientation *through this type*,
 not raw `OBJCTROT`; the named-property protection only covers AL-path readers. XFM's format-time
 0.1° rounding dance stays XFM-side (display quantization, not domain math).
-
-## Open: split `ARCHITECTURE.md` — it crossed the size where one file still helps
-
-The 2026-07-29 maintain sweep grew it 38.4 → 48.9 KB (+27%), and three module sections now carry 38 of
-those 49 KB: **Astronomy.Core 14.0 KB, Astronomy.Catalog 13.7 KB, Astronomy.PCL 10.5 KB** (the other five
-total ~10 KB). Nothing in it is off-charter — it is one section per buildable module exactly as its
-charter says, which is *why* the fix is a structural split rather than a trim. It passed the
-promote-into-it test at 38 KB at the start of that sweep; it would not pass it at the start of the next
-one, and Catalog grows with every framing change.
-
-Options: (a) per-module files (`docs/architecture/<module>.md`) with `ARCHITECTURE.md` demoted to the
-module index — cleanest, most churn; (b) extract only the two heavyweights (Core, Catalog), leaving the
-small modules inline — least churn, asymmetric; (c) split Core's three subsections (conventions /
-thread-safety / code-organization) out as the API-conventions doc they effectively already are. Run it as
-its own adjudicated job **before** the next maintain sweep promotes into these sections, and land held
-promotions in the new homes. **The 2026-08-11 maintain sweep is now holding 26 adjudicated promotions
-against this split** (claims + targets + dispositions recorded in
-`docs/2026-08-11-maintain-report.md` § *Held graduates*) — the doc grew to 53.7 KB without them, so
-the split is the gating job for the whole backlog.
 
 ## Open: consumer UI terminology has leaked into public XML docs
 
@@ -208,7 +188,7 @@ The 2026-05-18 library review and its re-check both fully closed — every actio
 
 - **F5.7 Phase 3 — NINA-as-oracle parity.** The parity baseline currently freezes the Library's *own* post-CoordinateSharp output as a self-snapshot (catches drift, but not an independent-implementation check). Promoting it to "Library matches NINA within tolerance" needs a small `tools/NinaParityExtract` exe referencing `NINA.Astrometry` (with `NOVAS31.dll` co-located), calling `AstroUtil` directly to dodge `IProfileService`, emitting `ParityFixtures.BaselineSnapshot` initializers for a NINA-sourced sibling of the existing `ParityFixtures.Baselines` dictionary. ~30–60 min, native-DLL co-location the likeliest stumble. Lower-fidelity alternative: NOAA/USNO web baselines for the 9 fixtures. Full integration scope in the archived follow-ups doc.
 - **Standing do-not-"fix" warning** *(retitled 2026-08-11 — was "Docstring drift — resolved", a closed item narrating its own closure; the commits stay recoverable via the archived recheck)*: the review's deliberately-left residuals — single-value hemisphere extensions and the `360.985647` Meeus citation literal — stay as-is; do not "fix" them.
-- **The review's deliberately-declined findings are a roster of live do-not-"fix" decisions** (from `archive/2026-05-18-library-review-followups.md` § *Intentional non-actions* + `archive/2026-05-18-library-review.md` § *Counterpoints*, all the kind a later reviewer re-raises). **C2:** do *not* unify `MoonSeparation.IntervalsAboveDeg` with `BestSession.MoonClearIntersect` behind a shared generic `IntervalSweep` — the predicates differ in observation arity and the type gymnastics outweigh the readability win. **D1:** `TargetGeometry.HourAngleAtAltitude`'s `(latDeg, decDeg, altDeg)` parameter order differing from its siblings' `(haHours, latDeg, decDeg)` is intentional, governed by the "input drives the signature" rule. **E2:** `XisfFile`'s `Dispose`/finalizer bodies stay duplicated rather than collapsing into a `CloseNative()` (cosmetic only). **`MoonPosition`'s 60-term tables stay `private static readonly int[]`** — JIT-friendly indexing; `ImmutableArray<int>` adds an indirection the hot loop doesn't need and `ReadOnlySpan<int>` can't be a static field — squarely in the path of SIMD direction 2 below, so a future SIMD session must not "modernize" them first. **`MeeusUtility.HorizonDipDeg` stays in the Meeus namespace** (the citation surface belongs together). **The `(DateTime Start, DateTime End)` tuple element type across five public session APIs** was declined on a "defer to a v2-API window" premise that is now **stale** — the library evolves in place, no v2 windows — so that one item is pending re-adjudication under evolve-in-place, not settled. *(The fourth non-action, C4 — `LunarAge.DaysAt` throwing as the lone exception to a lenient rule — is obsolete: the 2026-07-24 UTC gate made throwing library-wide.)*
+- **The review's deliberately-declined findings are a roster of live do-not-"fix" decisions** (from `archive/2026-05-18-library-review-followups.md` § *Intentional non-actions* + `archive/2026-05-18-library-review.md` § *Counterpoints*, all the kind a later reviewer re-raises). **C2:** do *not* unify `MoonSeparation.IntervalsAboveDeg` with `BestSession.MoonClearIntersect` behind a shared generic `IntervalSweep` — the predicates differ in observation arity and the type gymnastics outweigh the readability win. **D1:** `TargetGeometry.HourAngleAtAltitude`'s `(latDeg, decDeg, altDeg)` parameter order differing from its siblings' `(haHours, latDeg, decDeg)` is intentional, governed by the "input drives the signature" rule. **E2:** `XisfFile`'s `Dispose`/finalizer bodies stay duplicated rather than collapsing into a `CloseNative()` (cosmetic only). **`MoonPosition`'s 60-term tables stay `private static readonly int[]`** — JIT-friendly indexing; `ImmutableArray<int>` adds an indirection the hot loop doesn't need and `ReadOnlySpan<int>` can't be a static field — squarely in the path of SIMD direction 2 below, so a future SIMD session must not "modernize" them first. **`MeeusUtility.HorizonDipDeg` stays in the Meeus namespace** (the citation surface belongs together). **The `(DateTime Start, DateTime End)` tuple element type across five public session APIs** — *resolved 2026-08-11, same day its "defer to a v2-API window" premise was flagged stale*: the interval-algebra change (`c3a6b89`, BREAKING) replaced the tuple with `Time.UtcInterval` across the producers, exactly the evolve-in-place move the stale premise had deferred. *(The fourth non-action, C4 — `LunarAge.DaysAt` throwing as the lone exception to a lenient rule — is obsolete: the 2026-07-24 UTC gate made throwing library-wide.)*
 
 ## Publish to GitHub — CLOSED 2026-08-02 (executed; one residual re-opened below)
 
