@@ -1,11 +1,11 @@
-# interval-algebra — delta spec
+# interval-algebra
 
 ## Purpose
 
 The UTC time-interval value type and set operations (intersect, union, subtract, clip) that
 `Astronomy.Core`'s interval producers return and downstream interval solvers compose.
 
-## ADDED Requirements
+## Requirements
 
 ### Requirement: Interval construction is UTC-only and fail-fast
 
@@ -30,8 +30,6 @@ Every interval list accepted or returned by the algebra operations SHALL be orde
 ascending by start and pairwise disjoint. Elements MAY touch end-to-start — adjacent
 distinct intervals are a legitimate currency (e.g. same-side pieces split at a meridian
 flip) and SHALL NOT be rejected or silently coalesced by non-union operations.
-*(Amended 2026-08-11 by `add-meridian-primitives`: the original "merged — touching is an
-error" input rule collided with flip-split output, whose pieces touch by construction.)*
 Union's output SHALL additionally be merged: no two result elements overlap or touch.
 
 #### Scenario: Union merges overlapping and touching intervals
@@ -93,7 +91,7 @@ with that single bound.
 The library's public interval-producing APIs (target visibility windows per night,
 moon-separation-above-threshold intervals, sun-separation-below-threshold intervals) SHALL
 return the shared interval type, carrying interval values identical to those previously
-returned as start/end tuples, and their outputs SHALL satisfy the ordered-disjoint-merged
+returned as start/end tuples, and their outputs SHALL satisfy the ordered-disjoint
 invariant. No tuple-returning interval API SHALL remain public.
 
 #### Scenario: Visibility windows compose with the algebra directly
