@@ -11,7 +11,7 @@ namespace Astronomy.Core.Time
     /// <remarks>
     /// <para>
     /// Convention: <see cref="Utc"/> is by definition <see cref="DateTimeKind.Utc"/>.
-    /// Construct via <see cref="FromLocal"/> or <see cref="Now"/> rather than the primary
+    /// Construct via <see cref="FromLocal"/> or <see cref="Now(TimeZoneInfo)"/> rather than the primary
     /// constructor when starting from a local-frame instant -- they handle the DST-aware
     /// conversion against <paramref name="Zone"/>. The primary constructor stores what you
     /// give it and does not validate kind.
@@ -49,7 +49,9 @@ namespace Astronomy.Core.Time
 
         /// <summary>
         /// Builds an <see cref="ObservationMoment"/> at the current wall-clock instant,
-        /// expressed in <paramref name="zone"/>.
+        /// expressed in <paramref name="zone"/>. This is the Library's one sanctioned
+        /// ambient-clock read — clock-driven consumers use the <see cref="IClock"/>
+        /// overload instead.
         /// </summary>
         /// <exception cref="ArgumentNullException">
         /// <paramref name="zone"/> is <see langword="null"/>.
@@ -58,6 +60,21 @@ namespace Astronomy.Core.Time
         {
             ArgumentNullException.ThrowIfNull(zone);
             return new ObservationMoment(DateTime.UtcNow, zone);
+        }
+
+        /// <summary>
+        /// Builds an <see cref="ObservationMoment"/> at <paramref name="clock"/>'s current
+        /// instant, expressed in <paramref name="zone"/> — the clock-driven form, with no
+        /// ambient-clock read.
+        /// </summary>
+        /// <exception cref="ArgumentNullException">
+        /// <paramref name="zone"/> or <paramref name="clock"/> is <see langword="null"/>.
+        /// </exception>
+        public static ObservationMoment Now(TimeZoneInfo zone, IClock clock)
+        {
+            ArgumentNullException.ThrowIfNull(zone);
+            ArgumentNullException.ThrowIfNull(clock);
+            return new ObservationMoment(clock.UtcNow, zone);
         }
     }
 }

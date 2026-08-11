@@ -9,6 +9,17 @@ backstop — this is the human-legible layer above it.
 **Entry format:** `## YYYY-MM-DD — <what landed>` (a month-only `YYYY-MM` is fine when the exact day
 wasn't recorded). Newest first; add new entries directly below this charter, never at the bottom.
 
+## 2026-08-11 — injectable clock: `IClock` + `SystemClock` (IS gap 3)
+
+The third IS-motivated change (IS ROADMAP "AL gaps to close for IS" item 3; openspec change
+`add-injectable-clock`), giving the IS dossier's injectable-clock decision its one AL home:
+`Time/IClock` (`UtcNow`, always `DateTimeKind.Utc` — flows into the UTC-gated math without
+conversion) + stateless `SystemClock.Instance`, and an `ObservationMoment.Now(zone, clock)`
+overload so clock-driven consumers never touch the ambient path. Test fakes deliberately stay
+consumer-side. The thread-safety census's ambient-clock exception widens from one sanctioned
+site to two (`ObservationMoment.Now(zone)` + `SystemClock.UtcNow`). Verified: 533 Core tests
+green (3 new).
+
 ## 2026-08-11 — meridian primitives: `Meridian` + `MeridianSide` (IS gap 2)
 
 The second IS-motivated change (IS ROADMAP "AL gaps to close for IS" item 2; openspec change
