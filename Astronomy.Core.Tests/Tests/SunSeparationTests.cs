@@ -62,7 +62,7 @@ namespace Astronomy.Core.Tests.Tests
             DateTime start = new DateTime(2026, 6, 21, 0, 0, 0, DateTimeKind.Utc);
             DateTime end   = start.AddHours(24);
 
-            IReadOnlyList<(DateTime Start, DateTime End)> ivs =
+            IReadOnlyList<Astronomy.Core.Time.UtcInterval> ivs =
                 SunSeparation.IntervalsBelowDeg(nearSun, TestLocations.PennsPark, start, end, maxSepDeg: 5.0);
 
             Assert.NotEmpty(ivs);
@@ -79,7 +79,7 @@ namespace Astronomy.Core.Tests.Tests
             // An anti-solar target stays ~180 deg away; no interval below 30 deg.
             Target far = AntiSunTargetSummer();
             DateTime start = new DateTime(2026, 6, 21, 0, 0, 0, DateTimeKind.Utc);
-            IReadOnlyList<(DateTime Start, DateTime End)> ivs =
+            IReadOnlyList<Astronomy.Core.Time.UtcInterval> ivs =
                 SunSeparation.IntervalsBelowDeg(far, TestLocations.PennsPark, start, start.AddHours(24), maxSepDeg: 30.0);
             Assert.Empty(ivs);
         }

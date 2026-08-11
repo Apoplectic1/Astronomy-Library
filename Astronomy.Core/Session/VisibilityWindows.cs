@@ -42,7 +42,7 @@ namespace Astronomy.Core.Session
         /// </para>
         /// </remarks>
         /// <returns>
-        /// Intervals as <c>(Start, End)</c> tuples, both <see cref="DateTimeKind.Utc"/>.
+        /// Canonical <see cref="UtcInterval"/> list (ordered, disjoint, merged).
         /// Empty list if the target never clears the horizon, never rises, or if the night
         /// window is invalid (polar day / polar night).
         /// </returns>
@@ -50,20 +50,20 @@ namespace Astronomy.Core.Session
         /// Any of <paramref name="target"/>, <paramref name="location"/>, or
         /// <paramref name="horizon"/> is <see langword="null"/>.
         /// </exception>
-        public static IReadOnlyList<(DateTime Start, DateTime End)> For(
+        public static IReadOnlyList<UtcInterval> For(
             Target target, Location location, NightWindow night, IHorizonProfile horizon)
         {
             ArgumentNullException.ThrowIfNull(target);
             ArgumentNullException.ThrowIfNull(location);
             ArgumentNullException.ThrowIfNull(horizon);
 
-            if (!night.IsValid) return new List<(DateTime, DateTime)>();
+            if (!night.IsValid) return new List<UtcInterval>();
 
             var scalarWindows = ForScalar(target, location, night, horizon.MinAltitude);
             if (horizon is ScalarHorizonProfile) return scalarWindows;
             if (scalarWindows.Count == 0)        return scalarWindows;
 
-            var refined = new List<(DateTime Start, DateTime End)>();
+            var refined = new List<UtcInterval>();
             foreach (var outer in scalarWindows)
             {
                 RefineAgainstProfile(target, location, horizon, outer.Start, outer.End, refined);
@@ -72,10 +72,10 @@ namespace Astronomy.Core.Session
         }
 
         // Closed-form analytic path: target above scalar horizonDeg ∩ [dusk, dawn].
-        private static List<(DateTime Start, DateTime End)> ForScalar(
+        private static List<UtcInterval> ForScalar(
             Target target, Location location, NightWindow night, double horizonDeg)
         {
-            var result = new List<(DateTime Start, DateTime End)>();
+            var result = new List<UtcInterval>();
 
             var (latDeg, lonDegEast) = location.AsSignedDegrees();
             var (decDeg, raHours) = target.AsSignedRaDec();
@@ -95,7 +95,7 @@ namespace Astronomy.Core.Session
             if (double.IsPositiveInfinity(haHorizon))
             {
                 // Circumpolar above horizon: full night is one visibility window.
-                result.Add((duskUtc, dawnUtc));
+                result.Add(new UtcInterval(duskUtc, dawnUtc));
                 return result;
             }
 
@@ -111,7 +111,7 @@ namespace Astronomy.Core.Session
 
                 DateTime startUtc = duskUtc.AddHours((s - lstDusk) * solarPerSidereal);
                 DateTime endUtc   = duskUtc.AddHours((e - lstDusk) * solarPerSidereal);
-                result.Add((startUtc, endUtc));
+                result.Add(new UtcInterval(startUtc, endUtc));
             }
 
             return result;
@@ -123,7 +123,7 @@ namespace Astronomy.Core.Session
         private static void RefineAgainstProfile(
             Target target, Location location, IHorizonProfile horizon,
             DateTime outerLo, DateTime outerHi,
-            List<(DateTime Start, DateTime End)> result)
+            List<UtcInterval> result)
         {
             bool prevAbove = IsAboveProfile(target, location, horizon, outerLo);
             DateTime subStart = prevAbove ? outerLo : default;
@@ -139,13 +139,15 @@ namespace Astronomy.Core.Session
                 {
                     DateTime crossing = BisectCrossing(target, location, horizon, tPrev, tNext);
                     if (nextAbove) subStart = crossing;
-                    else           result.Add((subStart, crossing));
+                    // A crossing landing exactly on subStart would be a zero-length
+                    // window -- no time above the profile, so nothing to emit.
+                    else if (crossing > subStart) result.Add(new UtcInterval(subStart, crossing));
                     prevAbove = nextAbove;
                 }
                 tPrev = tNext;
             }
 
-            if (prevAbove) result.Add((subStart, outerHi));
+            if (prevAbove && outerHi > subStart) result.Add(new UtcInterval(subStart, outerHi));
         }
 
         private static bool IsAboveProfile(

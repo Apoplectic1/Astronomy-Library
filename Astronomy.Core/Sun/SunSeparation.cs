@@ -90,7 +90,7 @@ namespace Astronomy.Core.Sun
         /// <exception cref="ArgumentOutOfRangeException">
         /// <paramref name="endUtc"/> is not strictly after <paramref name="startUtc"/>.
         /// </exception>
-        public static IReadOnlyList<(DateTime Start, DateTime End)> IntervalsBelowDeg(
+        public static IReadOnlyList<UtcInterval> IntervalsBelowDeg(
             Target target, Location location, DateTime startUtc, DateTime endUtc, double maxSepDeg)
         {
             ArgumentNullException.ThrowIfNull(target);
@@ -101,7 +101,7 @@ namespace Astronomy.Core.Sun
             if (e <= s)
                 throw new ArgumentOutOfRangeException(nameof(endUtc), "endUtc must be strictly after startUtc");
 
-            var result = new List<(DateTime Start, DateTime End)>();
+            var result = new List<UtcInterval>();
             TimeSpan sampleSize = TimeSpan.FromMinutes(10);
 
             DateTime tPrev = s;
@@ -123,7 +123,10 @@ namespace Astronomy.Core.Sun
                         currentStart = crossing;
                     else if (currentStart.HasValue)
                     {
-                        result.Add((currentStart.Value, crossing));
+                        // Zero-length guard: an interpolated crossing exactly on the
+                        // open start carries no below-threshold time.
+                        if (crossing > currentStart.Value)
+                            result.Add(new UtcInterval(currentStart.Value, crossing));
                         currentStart = null;
                     }
                 }
@@ -134,8 +137,8 @@ namespace Astronomy.Core.Sun
                 tCur = tCur.Add(sampleSize);
             }
 
-            if (currentStart.HasValue)
-                result.Add((currentStart.Value, e));
+            if (currentStart.HasValue && e > currentStart.Value)
+                result.Add(new UtcInterval(currentStart.Value, e));
 
             return result;
         }

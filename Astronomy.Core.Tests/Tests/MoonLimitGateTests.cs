@@ -219,7 +219,7 @@ namespace Astronomy.Core.Tests.Tests
             var strict  = MoonLimitProfile.Custom(toleranceMag: 0.1, centerNm: 540.0);
             var relaxed = MoonLimitProfile.Custom(toleranceMag: 1.5, centerNm: 540.0);
 
-            static double TotalHours(System.Collections.Generic.IReadOnlyList<(DateTime Start, DateTime End)> w)
+            static double TotalHours(System.Collections.Generic.IReadOnlyList<Astronomy.Core.Time.UtcInterval> w)
             {
                 double h = 0;
                 foreach (var (s, e) in w) h += (e - s).TotalHours;

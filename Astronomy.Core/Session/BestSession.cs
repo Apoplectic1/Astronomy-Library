@@ -8,6 +8,7 @@ using Astronomy.Core.Moon;
 using Astronomy.Core.Night;
 using Astronomy.Core.Sun;
 using Astronomy.Core.Targets;
+using Astronomy.Core.Time;
 
 namespace Astronomy.Core.Session
 {
@@ -108,7 +109,7 @@ namespace Astronomy.Core.Session
             // Moon-aware path: intersect each visibility window with moon-clear sub-
             // intervals. Profile-null and profile-Disabled short-circuit to the legacy
             // path -- the byte-identical guarantee for the v1 default.
-            IReadOnlyList<(DateTime Start, DateTime End)> candidates = visibility;
+            IReadOnlyList<UtcInterval> candidates = visibility;
             if (profile != null && profile.Enabled)
             {
                 candidates = MoonClearIntersect(target, location, visibility, profile);
@@ -163,7 +164,7 @@ namespace Astronomy.Core.Session
         /// Any of <paramref name="target"/>, <paramref name="location"/>, or
         /// <paramref name="horizon"/> is <see langword="null"/>.
         /// </exception>
-        public static IReadOnlyList<(DateTime Start, DateTime End)> ResolveCandidates(
+        public static IReadOnlyList<UtcInterval> ResolveCandidates(
             Target target, Location location, NightWindow night, IHorizonProfile horizon,
             MoonLimitProfile? profile = null)
         {
@@ -244,7 +245,7 @@ namespace Astronomy.Core.Session
         /// </exception>
         public static (DateTime Start, DateTime End, double Quality)? PlaceBest(
             Target target, Location location,
-            IReadOnlyList<(DateTime Start, DateTime End)> windows,
+            IReadOnlyList<UtcInterval> windows,
             TimeSpan minDuration, TimeSpan maxDuration,
             Func<double, double>? altitudeQuality = null)
         {
@@ -287,7 +288,7 @@ namespace Astronomy.Core.Session
         /// Strict-centered session length. Must be positive.
         /// </param>
         /// <returns>
-        /// A <c>(Start, End)</c> tuple (UTC) for the centered session, or
+        /// The centered session as a <see cref="UtcInterval"/>, or
         /// <see langword="null"/> if no window contains the centered placement.
         /// Non-positive <paramref name="duration"/> also returns <see langword="null"/>
         /// (degenerate "no fit possible" case; see <see cref="For"/>).
@@ -296,9 +297,9 @@ namespace Astronomy.Core.Session
         /// Any of <paramref name="target"/>, <paramref name="location"/>, or
         /// <paramref name="windows"/> is <see langword="null"/>.
         /// </exception>
-        public static (DateTime Start, DateTime End)? PlaceCentered(
+        public static UtcInterval? PlaceCentered(
             Target target, Location location,
-            IReadOnlyList<(DateTime Start, DateTime End)> windows,
+            IReadOnlyList<UtcInterval> windows,
             TimeSpan duration)
         {
             ArgumentNullException.ThrowIfNull(target);
@@ -317,7 +318,7 @@ namespace Astronomy.Core.Session
                 DateTime centeredStart = transitUtc - halfDuration;
                 DateTime centeredEnd = centeredStart + duration;
                 if (centeredStart >= win.Start && centeredEnd <= win.End)
-                    return (centeredStart, centeredEnd);
+                    return new UtcInterval(centeredStart, centeredEnd);
             }
 
             return null;
@@ -335,7 +336,7 @@ namespace Astronomy.Core.Session
         // (closed-form, ~25× faster than the Simpson lambda path).
         private static (DateTime Start, DateTime End, double Quality)? PlaceBestInternal(
             Target target, Location location,
-            IReadOnlyList<(DateTime Start, DateTime End)> windows,
+            IReadOnlyList<UtcInterval> windows,
             TimeSpan minDuration, TimeSpan maxDuration,
             Func<double, double>? altitudeQuality)
         {
@@ -409,12 +410,12 @@ namespace Astronomy.Core.Session
         // SkyBrightness.KsMoonDeltaMag. Moon altitude is refraction-lifted
         // (Saemundsson) before the K-S call -- the Sky-chart apparent-altitude
         // convention; ObserveAt itself stays geometric (CONSUMERS #3).
-        internal static IReadOnlyList<(DateTime Start, DateTime End)> MoonClearIntersect(
+        internal static IReadOnlyList<UtcInterval> MoonClearIntersect(
             Target target, Location location,
-            IReadOnlyList<(DateTime Start, DateTime End)> visibility,
+            IReadOnlyList<UtcInterval> visibility,
             MoonLimitProfile profile)
         {
-            var result = new List<(DateTime Start, DateTime End)>();
+            var result = new List<UtcInterval>();
             TimeSpan sampleSize = TimeSpan.FromMinutes(1);
 
             // Site inputs are per-night constants: zenith dark-sky mag from the Bortle
@@ -486,8 +487,11 @@ namespace Astronomy.Core.Session
                         }
                         else if (clearStart.HasValue)
                         {
-                            // Was clear, now rejected: close the open sub-interval at the crossing.
-                            result.Add((clearStart.Value, crossing));
+                            // Was clear, now rejected: close the open sub-interval at the
+                            // crossing. A crossing landing exactly on the open start is a
+                            // zero-length clear span -- no clear time, nothing to emit.
+                            if (crossing > clearStart.Value)
+                                result.Add(new UtcInterval(clearStart.Value, crossing));
                             clearStart = null;
                         }
                     }
@@ -498,7 +502,8 @@ namespace Astronomy.Core.Session
                     tCur = tCur.Add(sampleSize);
                 }
 
-                if (clearStart.HasValue) result.Add((clearStart.Value, win.End));
+                if (clearStart.HasValue && win.End > clearStart.Value)
+                    result.Add(new UtcInterval(clearStart.Value, win.End));
             }
 
             return result;

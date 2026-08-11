@@ -5,6 +5,7 @@ using Astronomy.Core.Moon;
 using Astronomy.Core.Night;
 using Astronomy.Core.Session;
 using Astronomy.Core.Targets;
+using Astronomy.Core.Time;
 using Xunit;
 
 namespace Astronomy.Core.Tests.Tests
@@ -31,7 +32,7 @@ namespace Astronomy.Core.Tests.Tests
         {
             var loc = MakeLocation();
             DateTime t0 = new DateTime(2026, 11, 15, 2, 0, 0, DateTimeKind.Utc);
-            var window = (Start: t0, End: t0.AddHours(5));
+            var window = new UtcInterval(t0, t0.AddHours(5));
             var windows = new[] { window };
 
             var result = SessionSolvers.LongestDurationIn(Target.Default, loc, windows);
@@ -48,8 +49,8 @@ namespace Astronomy.Core.Tests.Tests
         {
             var loc = MakeLocation();
             DateTime t0 = new DateTime(2026, 11, 15, 2, 0, 0, DateTimeKind.Utc);
-            var shortWin = (Start: t0,                           End: t0.AddHours(2));
-            var longWin  = (Start: t0.AddHours(3),               End: t0.AddHours(8));
+            var shortWin = new UtcInterval(t0,                           t0.AddHours(2));
+            var longWin  = new UtcInterval(t0.AddHours(3),               t0.AddHours(8));
             var windows = new[] { shortWin, longWin };
 
             var result = SessionSolvers.LongestDurationIn(Target.Default, loc, windows);
@@ -66,7 +67,7 @@ namespace Astronomy.Core.Tests.Tests
         {
             var loc = MakeLocation();
             DateTime t0 = new DateTime(2026, 11, 15, 2, 0, 0, DateTimeKind.Utc);
-            var window = (Start: t0, End: t0.AddHours(8));
+            var window = new UtcInterval(t0, t0.AddHours(8));
             var windows = new[] { window };
 
             var cap = TimeSpan.FromHours(3);
@@ -81,7 +82,7 @@ namespace Astronomy.Core.Tests.Tests
         public void LongestDurationIn_EmptyCandidates_ReturnsNull()
         {
             var loc = MakeLocation();
-            var windows = Array.Empty<(DateTime, DateTime)>();
+            var windows = Array.Empty<UtcInterval>();
 
             var result = SessionSolvers.LongestDurationIn(Target.Default, loc, windows);
 
@@ -92,7 +93,7 @@ namespace Astronomy.Core.Tests.Tests
         public void LongestDurationIn_NullArgs_Throws()
         {
             var loc = MakeLocation();
-            var windows = new[] { (Start: DateTime.UtcNow, End: DateTime.UtcNow.AddHours(2)) };
+            var windows = new[] { new UtcInterval(DateTime.UtcNow, DateTime.UtcNow.AddHours(2)) };
 
             Assert.Throws<ArgumentNullException>(() =>
                 SessionSolvers.LongestDurationIn(null, loc, windows));
@@ -277,8 +278,8 @@ namespace Astronomy.Core.Tests.Tests
             var loc = MakeLocation();
             DateTime transitSeed = TransitTime.UtcAtOrAfter(
                 Target.Default, loc, new DateTime(2026, 11, 15, 0, 0, 0, DateTimeKind.Utc));
-            var window = (Start: transitSeed - TimeSpan.FromHours(2),
-                          End:   transitSeed + TimeSpan.FromHours(2));
+            var window = new UtcInterval(transitSeed - TimeSpan.FromHours(2),
+                          transitSeed + TimeSpan.FromHours(2));
 
             DateTime transitForWindow = TransitTime.UtcAtOrAfter(Target.Default, loc, window.Start);
             TimeSpan leftRoom = transitForWindow - window.Start;
@@ -305,8 +306,8 @@ namespace Astronomy.Core.Tests.Tests
             DateTime transit = TransitTime.UtcAtOrAfter(
                 Target.Default, loc, new DateTime(2026, 11, 15, 0, 0, 0, DateTimeKind.Utc));
             // Window 2-6 hours BEFORE transit -- entirely pre-transit.
-            var window = (Start: transit - TimeSpan.FromHours(6),
-                          End:   transit - TimeSpan.FromHours(2));
+            var window = new UtcInterval(transit - TimeSpan.FromHours(6),
+                          transit - TimeSpan.FromHours(2));
             var windows = new[] { window };
 
             var result = SessionSolvers.LongestDurationCenteredIn(Target.Default, loc, windows);
@@ -325,8 +326,8 @@ namespace Astronomy.Core.Tests.Tests
                 Target.Default, loc, new DateTime(2026, 11, 15, 0, 0, 0, DateTimeKind.Utc));
             // Window 1h before transit and 4h after -- closer wall is 1h (left),
             // so longest centered D = 2 * 1h ≈ 2h.
-            var window = (Start: transitSeed - TimeSpan.FromHours(1),
-                          End:   transitSeed + TimeSpan.FromHours(4));
+            var window = new UtcInterval(transitSeed - TimeSpan.FromHours(1),
+                          transitSeed + TimeSpan.FromHours(4));
 
             DateTime transitForWindow = TransitTime.UtcAtOrAfter(Target.Default, loc, window.Start);
             TimeSpan leftRoom = transitForWindow - window.Start;
@@ -355,8 +356,8 @@ namespace Astronomy.Core.Tests.Tests
             DateTime transitSeed = TransitTime.UtcAtOrAfter(
                 Target.Default, loc, new DateTime(2026, 11, 15, 0, 0, 0, DateTimeKind.Utc));
             // Window allowing up to 6h centered; cap to 3h.
-            var window = (Start: transitSeed - TimeSpan.FromHours(3),
-                          End:   transitSeed + TimeSpan.FromHours(3));
+            var window = new UtcInterval(transitSeed - TimeSpan.FromHours(3),
+                          transitSeed + TimeSpan.FromHours(3));
 
             DateTime transitForWindow = TransitTime.UtcAtOrAfter(Target.Default, loc, window.Start);
             var cap = TimeSpan.FromHours(3);
@@ -374,7 +375,7 @@ namespace Astronomy.Core.Tests.Tests
         public void LongestDurationCenteredIn_EmptyCandidates_ReturnsNull()
         {
             var loc = MakeLocation();
-            var windows = Array.Empty<(DateTime, DateTime)>();
+            var windows = Array.Empty<UtcInterval>();
 
             var result = SessionSolvers.LongestDurationCenteredIn(Target.Default, loc, windows);
 
@@ -385,7 +386,7 @@ namespace Astronomy.Core.Tests.Tests
         public void LongestDurationCenteredIn_NullArgs_Throws()
         {
             var loc = MakeLocation();
-            var windows = new[] { (Start: DateTime.UtcNow, End: DateTime.UtcNow.AddHours(2)) };
+            var windows = new[] { new UtcInterval(DateTime.UtcNow, DateTime.UtcNow.AddHours(2)) };
 
             Assert.Throws<ArgumentNullException>(() =>
                 SessionSolvers.LongestDurationCenteredIn(null, loc, windows));

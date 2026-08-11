@@ -5,6 +5,7 @@ using Astronomy.Core.Moon;
 using Astronomy.Core.Night;
 using Astronomy.Core.Session;
 using Astronomy.Core.Targets;
+using Astronomy.Core.Time;
 using Xunit;
 
 namespace Astronomy.Core.Tests.Tests
@@ -197,8 +198,8 @@ namespace Astronomy.Core.Tests.Tests
             // so PlaceBest sees transit-AFTER. Without the altitude-comparison fix it
             // would push session against window.End (lowest altitude); the fix pushes
             // against window.Start (highest altitude).
-            var window = (Start: transitUtc + TimeSpan.FromHours(2),
-                          End:   transitUtc + TimeSpan.FromHours(6));
+            var window = new UtcInterval(transitUtc + TimeSpan.FromHours(2),
+                          transitUtc + TimeSpan.FromHours(6));
             var windows = new[] { window };
 
             var result = BestSession.PlaceBest(
@@ -223,8 +224,8 @@ namespace Astronomy.Core.Tests.Tests
             var dur = TimeSpan.FromHours(2);
 
             // Window 6-2 hours BEFORE transit: pre-transit rising arc.
-            var window = (Start: transitUtc - TimeSpan.FromHours(6),
-                          End:   transitUtc - TimeSpan.FromHours(2));
+            var window = new UtcInterval(transitUtc - TimeSpan.FromHours(6),
+                          transitUtc - TimeSpan.FromHours(2));
             var windows = new[] { window };
 
             var result = BestSession.PlaceBest(
@@ -247,11 +248,11 @@ namespace Astronomy.Core.Tests.Tests
             var dur = TimeSpan.FromHours(2);
 
             // High-altitude window: 2 hours bracketing transit.
-            var highWindow = (Start: transitUtc - TimeSpan.FromHours(1),
-                              End:   transitUtc + TimeSpan.FromHours(1));
+            var highWindow = new UtcInterval(transitUtc - TimeSpan.FromHours(1),
+                              transitUtc + TimeSpan.FromHours(1));
             // Low-altitude window: 2 hours, 6 hours before transit (target is much lower).
-            var lowWindow  = (Start: transitUtc - TimeSpan.FromHours(7),
-                              End:   transitUtc - TimeSpan.FromHours(5));
+            var lowWindow  = new UtcInterval(transitUtc - TimeSpan.FromHours(7),
+                              transitUtc - TimeSpan.FromHours(5));
 
             var windows = new[] { lowWindow, highWindow };
             var result = BestSession.PlaceBest(Target.Default, loc, windows, dur, dur, SinAltQuality);
@@ -275,8 +276,8 @@ namespace Astronomy.Core.Tests.Tests
             var dur = TimeSpan.FromHours(2);
 
             // Window wide enough to contain the centered session [transit - 1h, transit + 1h].
-            var window = (Start: transitSeed - TimeSpan.FromHours(2),
-                          End:   transitSeed + TimeSpan.FromHours(2));
+            var window = new UtcInterval(transitSeed - TimeSpan.FromHours(2),
+                          transitSeed + TimeSpan.FromHours(2));
             var windows = new[] { window };
 
             // PlaceCentered re-resolves transit from window.Start; floating-point in
@@ -304,8 +305,8 @@ namespace Astronomy.Core.Tests.Tests
 
             // Window entirely before transit: TransitTime.UtcAtOrAfter(window.Start)
             // returns the upcoming transit, which is past window.End.
-            var window = (Start: transitUtc - TimeSpan.FromHours(3),
-                          End:   transitUtc - TimeSpan.FromHours(1));
+            var window = new UtcInterval(transitUtc - TimeSpan.FromHours(3),
+                          transitUtc - TimeSpan.FromHours(1));
             var windows = new[] { window };
 
             var result = BestSession.PlaceCentered(Target.Default, loc, windows, dur);
@@ -326,8 +327,8 @@ namespace Astronomy.Core.Tests.Tests
 
             // Window only 2 hours wide; centered session [transit - 2h, transit + 2h]
             // spills past both edges.
-            var window = (Start: transitUtc - TimeSpan.FromHours(1),
-                          End:   transitUtc + TimeSpan.FromHours(1));
+            var window = new UtcInterval(transitUtc - TimeSpan.FromHours(1),
+                          transitUtc + TimeSpan.FromHours(1));
             var windows = new[] { window };
 
             var result = BestSession.PlaceCentered(Target.Default, loc, windows, dur);
@@ -339,7 +340,7 @@ namespace Astronomy.Core.Tests.Tests
         public void PlaceCentered_NullArgs_Throws()
         {
             var loc = MakeLocation();
-            var windows = new[] { (Start: DateTime.UtcNow, End: DateTime.UtcNow.AddHours(2)) };
+            var windows = new[] { new UtcInterval(DateTime.UtcNow, DateTime.UtcNow.AddHours(2)) };
             var dur = TimeSpan.FromHours(1);
 
             Assert.Throws<ArgumentNullException>(() =>
@@ -355,7 +356,7 @@ namespace Astronomy.Core.Tests.Tests
         {
             // Degenerate "no fit possible" -- non-positive duration returns null.
             var loc = MakeLocation();
-            var windows = new[] { (Start: DateTime.UtcNow, End: DateTime.UtcNow.AddHours(2)) };
+            var windows = new[] { new UtcInterval(DateTime.UtcNow, DateTime.UtcNow.AddHours(2)) };
 
             Assert.Null(BestSession.PlaceCentered(Target.Default, loc, windows, TimeSpan.Zero));
             Assert.Null(BestSession.PlaceCentered(Target.Default, loc, windows, TimeSpan.FromHours(-1)));

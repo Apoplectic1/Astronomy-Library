@@ -4,6 +4,7 @@ using Astronomy.Core.Astrometry;
 using Astronomy.Core.Locations;
 using Astronomy.Core.Night;
 using Astronomy.Core.Targets;
+using Astronomy.Core.Time;
 
 namespace Astronomy.Core.Moon
 {
@@ -96,18 +97,18 @@ namespace Astronomy.Core.Moon
         /// <returns>
         /// Empty list if the moon is below the threshold for the entire night, the night is
         /// invalid (polar day / polar night), or the target is never clear of the moon.
-        /// Otherwise one or more contiguous <c>(Start, End)</c> UTC intervals.
+        /// Otherwise a canonical <see cref="UtcInterval"/> list (ordered, disjoint, merged).
         /// </returns>
         /// <exception cref="ArgumentNullException">
         /// <paramref name="target"/> or <paramref name="location"/> is <see langword="null"/>.
         /// </exception>
-        public static IReadOnlyList<(DateTime Start, DateTime End)> IntervalsAboveDeg(
+        public static IReadOnlyList<UtcInterval> IntervalsAboveDeg(
             Target target, Location location, NightWindow night, double minSepDeg)
         {
             ArgumentNullException.ThrowIfNull(target);
             ArgumentNullException.ThrowIfNull(location);
 
-            var result = new List<(DateTime Start, DateTime End)>();
+            var result = new List<UtcInterval>();
             if (!night.IsValid) return result;
 
             DateTime startUtc = night.AstronomicalDusk;
@@ -135,7 +136,11 @@ namespace Astronomy.Core.Moon
                     }
                     else if (currentStart.HasValue)
                     {
-                        result.Add((currentStart.Value, crossing));
+                        // An interpolated crossing landing exactly on the open start
+                        // would be a zero-length interval -- no clear time, nothing
+                        // to emit.
+                        if (crossing > currentStart.Value)
+                            result.Add(new UtcInterval(currentStart.Value, crossing));
                         currentStart = null;
                     }
                 }
@@ -146,9 +151,9 @@ namespace Astronomy.Core.Moon
                 tCur = tCur.Add(sampleSize);
             }
 
-            if (currentStart.HasValue)
+            if (currentStart.HasValue && endUtc > currentStart.Value)
             {
-                result.Add((currentStart.Value, endUtc));
+                result.Add(new UtcInterval(currentStart.Value, endUtc));
             }
 
             return result;

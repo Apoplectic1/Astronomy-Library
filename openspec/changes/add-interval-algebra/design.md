@@ -71,9 +71,12 @@ violations (global rule #16), no back-compat (global rule #15).
 - [Latent invariant violation in an existing producer surfaces as a new throw] → that is the
   desired fail-fast behavior; the swap commits run the full Core test suite, so any such case
   surfaces at implementation time, not at a consumer.
-- [TP/TSM/XFM build against AL via project reference and see a signature change] → verified:
-  no direct call sites of the four converged APIs outside the Library; recompile is the only
-  effect. TP CLAUDE.md's convention wording updates when TP next touches AL surface.
+- [TP/TSM/XFM build against AL via project reference and see a signature change] → *(corrected
+  during apply, 2026-08-11)*: TP's `ChartCacheStore` **does** call `ResolveCandidates` /
+  `PlaceBest` / `PlaceCentered` — but strictly pass-through (`var` + `.Count` + `.Start`/`.End`
+  property reads, names `UtcInterval` matches), so recompile-only held. Verified empirically:
+  TP, TSM, and XFM all rebuilt clean with zero edits. The producers themselves have no external
+  call sites. TP CLAUDE.md's convention wording updates when TP next touches AL surface.
 
 ## Migration Plan
 

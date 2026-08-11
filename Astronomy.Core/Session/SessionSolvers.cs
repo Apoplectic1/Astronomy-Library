@@ -5,6 +5,7 @@ using Astronomy.Core.Locations;
 using Astronomy.Core.Moon;
 using Astronomy.Core.Night;
 using Astronomy.Core.Targets;
+using Astronomy.Core.Time;
 
 namespace Astronomy.Core.Session
 {
@@ -121,7 +122,7 @@ namespace Astronomy.Core.Session
         /// </exception>
         public static (DateTime Start, DateTime End, TimeSpan Duration)? LongestDurationIn(
             Target target, Location location,
-            IReadOnlyList<(DateTime Start, DateTime End)> candidates,
+            IReadOnlyList<UtcInterval> candidates,
             TimeSpan? cap = null,
             Func<double, double>? altitudeQuality = null)
         {
@@ -300,7 +301,7 @@ namespace Astronomy.Core.Session
         /// </returns>
         public static (DateTime Start, DateTime End, TimeSpan Duration)? LongestDurationCenteredIn(
             Target target, Location location,
-            IReadOnlyList<(DateTime Start, DateTime End)> candidates,
+            IReadOnlyList<UtcInterval> candidates,
             TimeSpan? cap = null)
         {
             ArgumentNullException.ThrowIfNull(target);
@@ -385,7 +386,7 @@ namespace Astronomy.Core.Session
         // validation passes. Skips re-validation.
         private static (DateTime Start, DateTime End, TimeSpan Duration)? LongestDurationInInternal(
             Target target, Location location,
-            IReadOnlyList<(DateTime Start, DateTime End)> candidates,
+            IReadOnlyList<UtcInterval> candidates,
             TimeSpan? cap,
             Func<double, double>? altitudeQuality)
         {
@@ -423,7 +424,7 @@ namespace Astronomy.Core.Session
         // closer wall distance) and track the largest across windows.
         private static (DateTime Start, DateTime End, TimeSpan Duration)? LongestDurationCenteredInInternal(
             Target target, Location location,
-            IReadOnlyList<(DateTime Start, DateTime End)> candidates,
+            IReadOnlyList<UtcInterval> candidates,
             TimeSpan? cap)
         {
             TimeSpan maxD = TimeSpan.Zero;
