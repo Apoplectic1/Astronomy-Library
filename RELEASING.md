@@ -69,11 +69,19 @@ repos (XFM since its v2.4.0 AL adoption).
   finds its map in-repo instead of reconstructing it from AL's history (decided 2026-07-24,
   `ks-dmag-moon-gate` § D6; one fully-executed instance so far).
 
-Latest published tag: **`v1.8.0`** (`DiagnosticsHotkey.Register` — shared app-level Ctrl+N
+Latest published tag: **`v1.9.0`** (the 2026-08-11 batch: the three IS-motivated Core additions —
+interval algebra `Time.UtcInterval` + `Intervals` with the session/moon/sun producers converged
+onto it (**BREAKING**, consumers survived via member-name compatibility — pinned in
+`CONSUMERS.md`), `Session.Meridian` + `MeridianSide`, and the injectable clock `IClock` +
+`SystemClock` (portfolio-wide single clock source) — plus the scanner's fail-fast on
+coordinate-less units (the (0,0) fallback removed), contract assumptions #26–#29 pinned +
+#15 reconciled (bench 83), the ARCHITECTURE per-module split, and the XML-doc neutrality sweep.
+DRC GREEN at publish). Prior:
+`v1.8.0` (`DiagnosticsHotkey.Register` — shared app-level Ctrl+N
 message filter for WinForms consumers, hoisted from TP: menu-mode + modal-dialog hotkey
 coverage by construction, register-once. The same day's invoke-time-capture ship-and-revert is
 recorded in CHANGELOG — the uniform cross-consumer contract stays capture-at-OK-time. First
-consumers: TP + XFM swapped same day). Prior:
+consumers: TP + XFM swapped same day);
 `v1.7.1` (docs-only: `CONSUMERS.md` records XFM as the third consumer; library code unchanged
 from v1.7.0 — tagged so all three app payloads realign on one stamp);
 `v1.7.0` (diagnostics platform layering, `diagnostics-portable-core` — TFM-neutral
