@@ -15,9 +15,9 @@ The PCL wrapper is a deep but **settled / parked** subsystem; its design records
 
 Latest three only. **Full shipped history: [`CHANGELOG.md`](CHANGELOG.md)** (append-only, dated, newest first).
 
+- **2026-08-11** — Scanner fail-fast on coordinate-less units: the silent (0,0) fallback flagged by the same day's maintain sweep is gone — a unit none of whose readable frames carries RA/DEC now aborts the scan with `InvalidDataException` naming the directory; a frame silent on one coordinate still never aborts. Real-library smoke scan passes the gate.
 - **2026-08-11** — `DiagnosticsHotkey.Register` (Astronomy.Diagnostics.WinForms): shared app-level Ctrl+N message filter, hoisted from TP — WinForms consumers (TP, XFM) get menu-mode + modal-dialog hotkey coverage by construction; register-once, throws on double wiring. Same day: invoke-time capture shipped and reverted (user decision) — the uniform cross-consumer contract is **capture at OK time only**; transient-UI shots stay on the delayed-capture workflow.
 - **2026-08-10** — Diagnostics platform layering (`diagnostics-portable-core`): core retargeted to TFM-neutral `net10.0` (Android/Linux-referenceable; platform APIs now fail the build), `ScreenCapture` extracted to new `Astronomy.Diagnostics.Windows`, `ObservationSession.Begin` takes the platform `capture` delegate, `AppLogIdentity.VersionAssembly` fixes the plugin-host `build=` stamp (IS-in-NINA), and the WinUI Ctrl+N shell ported from TSM as new `Astronomy.Diagnostics.WinUI` (WindowsAppSDK lockstep → `CONSUMERS.md`). Consumer windows landed 2026-08-10: TSM's dialog port + the TP/TSM/XFM TFM unification at `10.0.26100.0`.
-- **2026-08-07** — `XisfBlockRewriter.RewriteAsync`: surgical re-store of a monolithic XISF's primary block under a new codec (or `None`), XML header byte-preserved except `compression`/`checksum`/`location` + length field, temp + atomic replace, declared checksums verified before re-encoding. Consumers pick codec and target — first callers are XFM's browse hygiene and its solver temp-input path.
 
 ## Open: `WcsOrientation.FramingAngleDegrees` — queued for the second orientation consumer
 
@@ -235,19 +235,6 @@ lines across 4 files); **(b)** the "move into `TestLocations.PennsPark`" remedy 
 fixture itself hardcodes name + coordinates. Re-scope before executing; history publishes whole, so
 a real scrub of *committed history* means `git filter-repo` (a rewrite + force-push decision), while
 a forward-only scrub just stops the bleeding at the next tag.
-
-## Open: silent (0,0) coordinate fallback in the scanner — flagged code bug (2026-08-11 maintain)
-
-`ImageLibraryScanner` places a target whose frames carry **no RA/DEC at all** at RA 0h / Dec 0° — a
-real sky position — instead of aborting: the "caller can sanity-check downstream" comment at
-`Astronomy.Catalog/Scan/ImageLibraryScanner.cs:468-471` has no checking caller, and the value flows
-into `TargetResolver` coordinate matching and the reconcile join. This contradicts the documented
-contract (RA/DEC are "required-for-aggregation keywords", CHANGELOG § 2026-05-18 Phase A;
-`ARCHITECTURE.md` names `SkippedFiles` as the *one* deliberate fail-fast exception) and the
-portfolio fail-fast rule. Report-only per MAINTAIN; full evidence in
-`docs/2026-08-11-maintain-report.md` § *Code bug*. Fix direction is the user's call — likely
-abort-with-named-file, or route the target into `SkippedFiles`-style reporting rather than inventing
-coordinates.
 
 ## Open: K-S unphysical extinction-overdrive at low altitudes (urban regime)
 

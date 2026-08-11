@@ -9,7 +9,18 @@ backstop — this is the human-legible layer above it.
 **Entry format:** `## YYYY-MM-DD — <what landed>` (a month-only `YYYY-MM` is fine when the exact day
 wasn't recorded). Newest first; add new entries directly below this charter, never at the bottom.
 
-## 2026-08-11 — `DiagnosticsHotkey`: shared Ctrl+N wiring for WinForms consumers
+## 2026-08-11 — scanner aborts on a coordinate-less unit (the (0,0) fallback is gone)
+
+The silent contract violation flagged by the same day's maintain sweep: a unit none of whose readable
+frames carried RA/DEC was placed at RA 0h / Dec 0° — a real sky position flowing into `TargetResolver`
+coordinate matching and the reconcile join ("caller can sanity-check downstream"; no caller did).
+`ConsensusCoordinates` now **aborts the scan with `InvalidDataException`** naming the directory, the
+frame count, and the missing keyword(s); `Median`'s empty-list `return 0.0` fallback is removed
+outright per the fail-fast rule. The `SkippedFiles` tolerance is thereby narrowed to what it was
+always documented to be — **per-file** parse failures only; a frame silent on one coordinate still
+never aborts (consensus needs one carrier per coordinate, pinned by the new partial-coordinate test).
+Verified: the two new scanner tests + full Catalog suite (286) + contract bench green, and a gated
+smoke scan of the real image library passes the new gate — no real target trips it.
 
 New `DiagnosticsHotkey.Register(owner, contextProvider)` in `Astronomy.Diagnostics.WinForms`:
 installs an application-level `IMessageFilter` that opens (or focuses) `DiagnosticsDialog` on

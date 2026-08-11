@@ -136,7 +136,11 @@ frames carry **no RA/DEC at all** is silently placed at RA 0h / Dec 0°, a real 
 of aborting: `Astronomy.Catalog/Scan/ImageLibraryScanner.cs:468-471` ("Fallback (0, 0) if no frames
 carried coords — caller can sanity-check downstream") via `Median` returning `0.0` on an empty list
 at `:480-483`. No caller sanity-checks it; the value flows into `TargetResolver` coordinate matching
-and the reconcile join. Tracked in `ROADMAP.md` § *Open: silent (0,0) coordinate fallback*.
+and the reconcile join. ~~Tracked in `ROADMAP.md` § *Open: silent (0,0) coordinate fallback*.~~
+**Resolved same day** (user-directed): `ConsensusCoordinates` now aborts with
+`InvalidDataException` naming the directory + missing keyword(s); the `Median` empty-list fallback
+is removed; two new tests pin abort and the partial-coordinate tolerance; the real-library smoke
+scan passes the gate. See CHANGELOG § 2026-08-11.
 
 Two adjacent drifts were adjudicated **not** code bugs: `DiagnosticsDialog.cs:8-11`'s "three
 delegates" remark (four since 2026-08-10 — plain drift, no guarantee language; ARCHITECTURE is the

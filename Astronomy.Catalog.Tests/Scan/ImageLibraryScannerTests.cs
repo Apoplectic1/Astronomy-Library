@@ -184,6 +184,61 @@ public class ImageLibraryScannerTests
     }
 
     [Fact]
+    public async Task ScanAsync_UnitWithNoCoordinateFrames_AbortsNamingTheDirectory()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "tcm_nocoord_" + Guid.NewGuid().ToString("N"));
+        string filterDir = Path.Combine(root, "NGC 9999", "Captures", "Z183", "H");
+        Directory.CreateDirectory(filterDir);
+        // Parses cleanly (so it is NOT a SkippedFiles case) but carries neither RA nor DEC.
+        WriteSyntheticXisf(Path.Combine(filterDir, "a.xisf"), new Dictionary<string, string>
+        {
+            ["OBJECT"] = "Demo",
+            ["DATE-OBS"] = "2024-02-18T04:51:28",
+            ["EXPTIME"] = "300.0",
+        });
+        try
+        {
+            InvalidDataException ex = await Assert.ThrowsAsync<InvalidDataException>(
+                () => ImageLibraryScanner.ScanAsync(root, TestContext.Current.CancellationToken));
+            Assert.Contains("NGC 9999", ex.Message);
+            Assert.Contains("RA", ex.Message);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task ScanAsync_FrameMissingOnlyOneCoordinate_UsesTheCarriers()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "tcm_partcoord_" + Guid.NewGuid().ToString("N"));
+        string filterDir = Path.Combine(root, "M1 - Crab", "Captures", "Z183", "H");
+        Directory.CreateDirectory(filterDir);
+        WriteFrame(filterDir, "full.xisf", ra: 83.6, dec: 22.0, bin: 1);
+        // A frame silent on DEC does not abort — consensus needs only one carrier per coordinate.
+        WriteSyntheticXisf(Path.Combine(filterDir, "nodec.xisf"), new Dictionary<string, string>
+        {
+            ["OBJECT"] = "Demo",
+            ["RA"] = "83.6",
+            ["DATE-OBS"] = "2024-02-18T04:51:28",
+            ["EXPTIME"] = "300.0",
+        });
+        try
+        {
+            ImageLibraryReport report = await ImageLibraryScanner.ScanAsync(root, TestContext.Current.CancellationToken);
+
+            TargetReport t = Assert.Single(report.Targets);
+            Assert.Equal(83.6 / 15.0, t.RaHours, precision: 3);
+            Assert.Equal(22.0, t.DecDegrees, precision: 3);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task ScanUnitsAsync_NonexistentDir_Throws()
     {
         await Assert.ThrowsAsync<DirectoryNotFoundException>(

@@ -28,7 +28,10 @@ namespace Astronomy.Catalog.Scan;
 /// </para>
 /// <para>
 /// Per-target scans run in parallel. .xisf header parsing failures are recorded
-/// in <see cref="ImageLibraryReport.SkippedFiles"/> rather than aborting the scan.
+/// in <see cref="ImageLibraryReport.SkippedFiles"/> rather than aborting the scan — the one
+/// tolerated per-file degradation. A <em>unit</em> none of whose readable frames carries an RA or
+/// DEC keyword aborts the scan with <see cref="System.IO.InvalidDataException"/> naming the
+/// directory: coordinates are required for aggregation and the scanner never invents a position.
 /// </para>
 /// </remarks>
 public static class ImageLibraryScanner
@@ -256,7 +259,7 @@ public static class ImageLibraryScanner
 
         (string catalog, string? commonName) = TargetReport.SplitDirectoryName(label);
         string objectName = ConsensusObjectName(readings, catalog);
-        (double raHours, double decDegrees) = ConsensusCoordinates(readings);
+        (double raHours, double decDegrees) = ConsensusCoordinates(label, readings);
 
         // Framing pre-pass: every frame is assigned its framing cluster BEFORE the configuration grouping,
         // because a framing is a property of the unit's pointing history, not of one filter's frames —
@@ -452,7 +455,7 @@ public static class ImageLibraryScanner
     // -----------------------------------------------------------------------
 
     private static (double RaHours, double DecDegrees) ConsensusCoordinates(
-        IReadOnlyList<FrameReading> readings)
+        string label, IReadOnlyList<FrameReading> readings)
     {
         // FITS RA is decimal degrees; AL convention is decimal hours. Convert at boundary.
         List<double> ras = readings
@@ -466,8 +469,20 @@ public static class ImageLibraryScanner
             .Select(d => d!.Value)
             .ToList();
 
-        // Median is more robust than mode for noisy float coords. Fallback (0, 0)
-        // if no frames carried coords — caller can sanity-check downstream.
+        // RA/DEC are required-for-aggregation: a unit none of whose frames carry a coordinate has no
+        // position to report, and (0, 0) is a real sky position — invent nothing, abort the scan.
+        // (An individual frame missing a coordinate is fine; the consensus only needs one carrier.)
+        if (ras.Count == 0 || decs.Count == 0)
+        {
+            string missing = ras.Count == 0 && decs.Count == 0 ? "RA or DEC"
+                : ras.Count == 0 ? "RA" : "DEC";
+            throw new InvalidDataException(
+                $"Scan contract violation: none of the {readings.Count} readable frame(s) under '{label}' " +
+                $"carries a {missing} FITS keyword, so the unit has no sky position. Coordinates are " +
+                "required for aggregation; fix the frames or remove the directory from the library.");
+        }
+
+        // Median is more robust than mode for noisy float coords.
         double raDeg = Median(ras);
         double decDeg = Median(decs);
 
@@ -481,7 +496,6 @@ public static class ImageLibraryScanner
 
     private static double Median(List<double> values)
     {
-        if (values.Count == 0) return 0.0;
         double[] sorted = values.OrderBy(d => d).ToArray();
         int mid = sorted.Length / 2;
         return (sorted.Length & 1) == 1
