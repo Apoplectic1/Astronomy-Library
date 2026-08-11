@@ -20,4 +20,4 @@
 
 - [x] 3.1 `docs/architecture/core.md` Session row gains `Meridian` / `MeridianSide`; CHANGELOG
   entry (same commit as code)
-- [ ] 3.2 IS ROADMAP "AL gaps to close for IS" item 2 marked closed (IS repo cross-note)
+- [x] 3.2 IS ROADMAP "AL gaps to close for IS" item 2 marked closed (IS repo cross-note)
