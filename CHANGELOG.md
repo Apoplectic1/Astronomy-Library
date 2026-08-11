@@ -41,6 +41,18 @@ touching legal** (flip-split pieces touch by construction and are semantically d
 `Union` output alone stays fully merged) — `add-interval-algebra`'s unarchived spec delta
 amended in place. Verified: 1061 tests green (15 new).
 
+## 2026-08-11 — assumption #15 reconciled: the registry note was stale, the code is the contract
+
+The registry (`NotCleanlyTestableAssumptions.cs`) still carried #15 as "PolylineHorizonProfile
+preconditions are the CALLER's to honor — the type does not validate", contradicting CONSUMERS #15's
+fail-fast text. Verified against the ctor and **adjudicated (user): the code is the contract** — the
+registry note predated the fail-fast change. New `PolylineHorizonContractTests` pins #15 (length
+mismatch / empty / null throw; unsorted and out-of-range azimuths are normalized to `[0, 360)` and
+sorted, each knot reading back at its normalized azimuth); #15 moves from the registry's skip list to
+the covered list (bench 79 → 83 passing, skips 6 → 5; the registry keeps a struck note so old
+references reconcile). The "duplicates tolerated, last wins" clause stays deliberately unpinned —
+the sort is unstable, so which duplicate wins is unspecified behavior, not contract.
+
 ## 2026-08-11 — contract assumptions #26–#29: the unnumbered facts are pinned
 
 The four facts carried in `CONSUMERS.md` § *Contract facts not yet numbered* (two since 2026-07-07,

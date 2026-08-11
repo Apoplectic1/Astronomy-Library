@@ -24,6 +24,10 @@ namespace Astronomy.Contracts.Tests;
 ///   #10 Edit key guid-or-Id (TryParse) . TargetSchedulerContractTests
 ///   #13 MoonEphemeris.Sample exact count MoonContractTests
 ///   #14 ScanAsync missing-root throws .. ImageLibraryScannerContractTests
+///   #15 Polyline fail-fast inputs ...... PolylineHorizonContractTests (moved out of this
+///                                        registry 2026-08-11 — the "does not validate" note
+///                                        below predated the fail-fast ctor; code adjudicated
+///                                        as the contract)
 ///   #16 LunarAge non-UTC throws ........ MoonContractTests
 ///   #19 EffectiveExposure rule ......... EffectiveExposureContractTests
 ///   #20 ReadPlanEffectiveExposure ...... TargetSchedulerContractTests
@@ -61,13 +65,11 @@ namespace Astronomy.Contracts.Tests;
 ///         one is flaky. Real assurance is by inspection (no shared mutable state in the Meeus
 ///         path) — a stress test could only raise suspicion, never establish the contract.
 ///
-///   #15 PolylineHorizonProfile(az[], alt[]) — parallel arrays; length / monotonic / dedup
-///       preconditions are the CALLER's to honor.
-///       — A statement that the type does NOT validate (preconditions pushed to the caller).
-///         There is no defined library behavior to assert: malformed input is documented as
-///         caller error, not a guarded throw. Asserting "garbage in → some result" would pin
-///         an accident, not a contract. (If we instead decided it SHOULD throw, that's a
-///         design change to the type, not a contract test of current behavior.)
+///   #15 (MOVED to the covered list above, 2026-08-11) ~~PolylineHorizonProfile preconditions
+///       are the caller's to honor~~ — this note predated the fail-fast ctor (length mismatch
+///       and empty input throw ArgumentException; azimuths normalized + sorted internally);
+///       adjudicated 2026-08-11: the code is the contract, and PolylineHorizonContractTests
+///       now pins it. The number's registry slot is kept so notes referencing it reconcile.
 ///
 ///   #17 ObservationMoment.Zone must stay in lockstep with Location.TimeZoneInfo.
 ///       — A CROSS-OBJECT INVARIANT maintained by construction across two types over the
@@ -89,9 +91,6 @@ public sealed class NotCleanlyTestableAssumptions
 
     [Fact(Skip = "#12 Meeus Sample thread-safety is absence-of-a-race — a green concurrent run proves nothing and a red one is flaky; assured by inspection (no shared mutable state).")]
     public void Assumption12_Sample_ThreadSafety_NotDeterministicallyTestable() { }
-
-    [Fact(Skip = "#15 PolylineHorizonProfile preconditions are the CALLER's to honor — the type does not validate them, so there is no defined behavior to assert.")]
-    public void Assumption15_PolylineHorizon_CallerPreconditions() { }
 
     [Fact(Skip = "#17 ObservationMoment.Zone ↔ Location.TimeZoneInfo lockstep is a cross-object invariant maintained by the CONSUMER's construction, not a single Library in/out.")]
     public void Assumption17_ObservationMoment_ZoneLockstep_IsConsumerInvariant() { }
