@@ -13,4 +13,4 @@
 ## 2. Docs and closure
 
 - [x] 2.1 `docs/architecture/core.md` Time row + CHANGELOG entry (same commit as code)
-- [ ] 2.2 IS ROADMAP "AL gaps to close for IS" item 3 marked closed (IS repo cross-note)
+- [x] 2.2 IS ROADMAP "AL gaps to close for IS" item 3 marked closed (IS repo cross-note)
