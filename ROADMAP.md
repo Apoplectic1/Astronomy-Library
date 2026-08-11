@@ -15,9 +15,9 @@ The PCL wrapper is a deep but **settled / parked** subsystem; its design records
 
 Latest three only. **Full shipped history: [`CHANGELOG.md`](CHANGELOG.md)** (append-only, dated, newest first).
 
+- **2026-08-11** — WinForms diagnostics shell captures at invoke: `DiagnosticsDialog.ShowOrFocus` grabs the owner before the first `Show()` (synchronous at `settleDelayMs: 0`), so the shot keeps transient UI (open menus) alive; first `USER_OBS_CAP` of the session. WinUI shell port pending author verification (450 ms settle). Origin: TP obs f231.
 - **2026-08-10** — Diagnostics platform layering (`diagnostics-portable-core`): core retargeted to TFM-neutral `net10.0` (Android/Linux-referenceable; platform APIs now fail the build), `ScreenCapture` extracted to new `Astronomy.Diagnostics.Windows`, `ObservationSession.Begin` takes the platform `capture` delegate, `AppLogIdentity.VersionAssembly` fixes the plugin-host `build=` stamp (IS-in-NINA), and the WinUI Ctrl+N shell ported from TSM as new `Astronomy.Diagnostics.WinUI` (WindowsAppSDK lockstep → `CONSUMERS.md`). TSM/TP consumer window pending.
 - **2026-08-07** — `XisfBlockRewriter.RewriteAsync`: surgical re-store of a monolithic XISF's primary block under a new codec (or `None`), XML header byte-preserved except `compression`/`checksum`/`location` + length field, temp + atomic replace, declared checksums verified before re-encoding. Consumers pick codec and target — first callers are XFM's browse hygiene and its solver temp-input path.
-- **2026-08-06** — legacy XISF checksum aliases accepted on read: `BlockCompressionInfo.Parse` canonicalizes `sha1`/`sha256`/`sha512` to the spec's hyphenated tokens (2019-era SGP files failed XFM's new solve path with "Unrecognized XISF checksum algorithm 'sha1'"); re-saves now write the spec token for free.
 
 ## Open: `WcsOrientation.FramingAngleDegrees` — queued for the second orientation consumer
 

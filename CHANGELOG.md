@@ -9,6 +9,20 @@ backstop — this is the human-legible layer above it.
 **Entry format:** `## YYYY-MM-DD — <what landed>` (a month-only `YYYY-MM` is fine when the exact day
 wasn't recorded). Newest first; add new entries directly below this charter, never at the bottom.
 
+## 2026-08-11 — WinForms diagnostics shell: invoke-time capture
+
+`DiagnosticsDialog.ShowOrFocus` (Astronomy.Diagnostics.WinForms) now grabs the owner **before the
+dialog first shows**: a fresh open runs the session's hide → grab → reshow choreography with the
+never-shown dialog as the "hidden" state, so the reshow is the first real `Show()` and the shot
+contains the screen exactly as it was at the hotkey — including transient light-dismiss UI (open
+menus, dropdowns) that dies the moment the dialog activates. With the WinForms shell's
+`settleDelayMs: 0` the whole sequence is synchronous, so no pump-timing dependence. Logs as the
+session's first `USER_OBS_CAP`; re-pressing the hotkey on an open dialog still only focuses it.
+Origin: TP obs f231 (wanted a shot of an open MenuStrip dropdown — the consumer-side hotkey rework
+that reaches menu mode is TP `1b12b89`). Applies to every WinForms consumer (TP, XFM). The WinUI
+shell (TSM/ISM) does not have this yet — its 450 ms settle and light-dismiss timing need
+author-side verification before porting the same gesture.
+
 ## 2026-08-10 — Diagnostics platform layering (`diagnostics-portable-core`)
 
 Diagnostics restructured into a **four-assembly layered stack** (normative contract:
