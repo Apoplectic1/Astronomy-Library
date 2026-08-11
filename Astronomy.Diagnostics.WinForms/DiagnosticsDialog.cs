@@ -173,12 +173,8 @@ public sealed class DiagnosticsDialog : Form
 
     /// <summary>
     /// Show modeless over the given owner, or focus the existing instance if one is already open.
-    /// A fresh open grabs the owner <b>before</b> the dialog first shows — the moment of invocation
-    /// is the state worth keeping, and transient UI (an open menu, a dropdown) dies on the dialog's
-    /// activation, so the shot must precede it. The capture logs the session's first
-    /// <c>USER_OBS_CAP</c>; re-pressing the hotkey while the dialog is open only focuses it (the
-    /// Capture button covers mid-session shots). The <paramref name="contextProvider"/> is called
-    /// at OK time to capture the owner app's current state for the USER_OBS_END line.
+    /// The <paramref name="contextProvider"/> is called at OK time to capture the owner app's
+    /// current state for the USER_OBS_END line.
     /// </summary>
     public static void ShowOrFocus(Form owner, Func<string>? contextProvider)
     {
@@ -193,20 +189,8 @@ public sealed class DiagnosticsDialog : Form
 
         var dlg = new DiagnosticsDialog(owner, contextProvider);   // ObservationSession.Begin logs START
         sCurrent = dlg;
-        dlg.OpenWithInvokeCapture(owner);
-    }
-
-    // First show rides the session's hide → grab → reshow choreography: the never-shown dialog is
-    // already "hidden", the grab sees the screen exactly as it was at invocation, and the reshow
-    // (showOverlay) is the dialog's first real Show + notes focus. async void is safe per the
-    // never-throws policy below.
-    private async void OpenWithInvokeCapture(Form owner)
-    {
-        // Parent before the choreography's Show(): CenterParent placement and owner Z-order both
-        // resolve at handle creation, which happens inside showOverlay.
-        Owner = owner;
-        ObservationCapture cap = await mSession.CaptureAsync();
-        mStatus.Text = cap.StatusText;
+        dlg.Show(owner);
+        dlg.mNotes.Focus();
     }
 
     // async void is safe here: ObservationSession members never throw after Begin
