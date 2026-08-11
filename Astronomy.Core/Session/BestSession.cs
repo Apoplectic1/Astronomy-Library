@@ -267,8 +267,8 @@ namespace Astronomy.Core.Session
         /// <para>
         /// "Strict" means the session is exactly <c>[transit - duration/2, transit + duration/2]</c>
         /// -- no clamping, no wall-pushing. If that interval doesn't lie entirely inside
-        /// any candidate window, returns <see langword="null"/>. This matches the chart's
-        /// "Symmetric" semantics: the session must be symmetric about the meridian.
+        /// any candidate window, returns <see langword="null"/>. This is the caller's
+        /// symmetric-session mode: the session must be symmetric about the meridian.
         /// </para>
         /// <para>
         /// For each window, the next transit at-or-after <c>window.Start</c> is consulted

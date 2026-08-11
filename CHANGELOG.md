@@ -9,6 +9,22 @@ backstop — this is the human-legible layer above it.
 **Entry format:** `## YYYY-MM-DD — <what landed>` (a month-only `YYYY-MM` is fine when the exact day
 wasn't recorded). Newest first; add new entries directly below this charter, never at the bottom.
 
+## 2026-08-11 — XML-doc neutrality sweep: the last 8 consumer-UI-terminology leaks fixed
+
+The report-only axis from the 2026-07-24 audit finally ran (site list: `docs/2026-07-29-maintain-report.md`
+§ *Code bug*, minus the two Ctrl+N sites that became Library surface). All 8 remaining `///` sites
+reworded to caller-neutral language per `DOMAIN.md` § *Multi-consumer strategy*: `NightCache` (the
+"Graph path"/"Graph click" framing, the dangling TP `AltitudeSeries`/`LocationsCacheEquivalent`
+member refs, "Year / Sessions chart x-axis labels"), `ObserverInfo` ("chart-cache prepare loop" →
+"a caller's cache-prepare loop"), `BestSession` (the chart's "Symmetric" semantics → "the caller's
+symmetric-session mode"), `FramingCluster` ("the framing badge" → "a consumer's framing-disagreement
+indicator"). Rode along per the maintain sweep's K12 booking: `DiagnosticsDialog`'s stale "three
+delegates" remark corrected to four (drifted at the 2026-08-10 capture-delegate change). Doc-comments
+only — no behavior change; Core/Catalog/Diagnostics.WinForms rebuild clean (CS1591 ratchet
+enforcing on Core). A verification grep across all nine shipped assemblies finds zero remaining
+consumer-UI vocabulary; the two deliberately-generic mentions ("consumers (chart UIs, schedulers)",
+"below chart pixel resolution") stay, as cleared by the 2026-07-29 adjudication. ROADMAP item closed.
+
 ## 2026-08-11 — ARCHITECTURE split: per-module files + the 26 held promotions land
 
 The split booked by the 2026-07-29 maintain sweep, executed as adjudicated **option (a)**: subsystem

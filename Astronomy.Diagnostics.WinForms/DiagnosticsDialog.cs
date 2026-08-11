@@ -7,7 +7,7 @@ namespace Astronomy.Diagnostics.WinForms;
 /// Ctrl+N observation dialog — the WinForms shell over <see cref="ObservationSession"/>, which owns
 /// the orchestration (id, USER_OBS START/CAP/END/CANCEL sequencing, single-terminator guarantee,
 /// capture counting, status wording, hide → grab → reshow). This class keeps only framework glue:
-/// the Form, its controls, the singleton focus-existing rule, and the three delegates the session
+/// the Form, its controls, the singleton focus-existing rule, and the four delegates the session
 /// drives. Behaviors follow the portfolio's shared dialog conventions (converged 2026-07-24):
 /// Enter = newline, Ctrl+Enter = OK, delayed-capture button, shared status text.
 /// </summary>

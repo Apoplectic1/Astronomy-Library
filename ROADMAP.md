@@ -15,9 +15,10 @@ The PCL wrapper is a deep but **settled / parked** subsystem; its design records
 
 Latest three only. **Full shipped history: [`CHANGELOG.md`](CHANGELOG.md)** (append-only, dated, newest first).
 
+- **2026-08-11** — XML-doc neutrality sweep: the last 8 consumer-UI-terminology sites in `///` docs reworded caller-neutral (`NightCache`, `ObserverInfo`, `BestSession`, `FramingCluster`) + `DiagnosticsDialog`'s stale "three delegates" → four. Zero consumer-UI vocabulary remains across the nine shipped assemblies; ROADMAP item closed.
 - **2026-08-11** — `ARCHITECTURE.md` split executed (option a, per-module files): mechanics now live in `docs/architecture/<module>.md` with the root file demoted to the index, and **all 26 promotions held by the same day's maintain sweep landed in the new homes** (Tier-3 XISF mechanics, the epoch translation table, the OK-time capture contract, four PCL interop rules, six Core conventions, seven Catalog rules, the bench scope rule).
 - **2026-08-11** — Scanner fail-fast on coordinate-less units: the silent (0,0) fallback flagged by the same day's maintain sweep is gone — a unit none of whose readable frames carries RA/DEC now aborts the scan with `InvalidDataException` naming the directory; a frame silent on one coordinate still never aborts. Real-library smoke scan passes the gate.
-- **2026-08-11** — `DiagnosticsHotkey.Register` (Astronomy.Diagnostics.WinForms): shared app-level Ctrl+N message filter, hoisted from TP — WinForms consumers (TP, XFM) get menu-mode + modal-dialog hotkey coverage by construction; register-once, throws on double wiring. Same day: invoke-time capture shipped and reverted (user decision) — the uniform cross-consumer contract is **capture at OK time only**; transient-UI shots stay on the delayed-capture workflow.
+
 ## Open: `WcsOrientation.FramingAngleDegrees` — queued for the second orientation consumer
 
 Decided 2026-08-07 (XFM ROADMAP follow-up #9, where the full rationale lives): the PA ≡ PA+180
@@ -30,22 +31,6 @@ third-party readers a framing angle labeled as a PA). **Build when the second co
 (TSM's `°(M)` rescan framings work) — and that consumer must read orientation *through this type*,
 not raw `OBJCTROT`; the named-property protection only covers AL-path readers. XFM's format-time
 0.1° rounding dance stays XFM-side (display quantization, not domain math).
-
-## Open: consumer UI terminology has leaked into public XML docs
-
-`DOMAIN.md` § *Multi-consumer strategy* bans consumer **UI terminology** from the public surface and its
-`///` docs (app names like TP/TSM are fine — chart names, control names and per-app feature vocabulary are
-not). The 2026-07-24 docs audit recorded this axis as *report-only* and the sweep never ran, so ~8 sites
-still carry it — TP chart names and a TP member name in `NightCache`, "chart-cache prepare loop" in
-`ObserverInfo`, the chart's "Symmetric" semantics in `BestSession`, and "the framing badge" in
-`FramingCluster`. Full site list, verified line numbers, and suggested neutral wording:
-**`docs/2026-07-29-maintain-report.md`** § *Code bug*. Doc-only change to the library's XML comments; the
-same leak class as the "Optimal-chart series" catch in `CoarseVisibility.cs`. *(The `Ctrl+N` clause —
-`Log` + `ScreenCapture`, two of the original ten sites — left this item 2026-08-11: the hotkey became
-Library surface at v1.5.0/v1.7.0/v1.8.0 (`DiagnosticsDialog` / `DiagnosticsWindow` /
-`DiagnosticsHotkey.Register` publish Ctrl+N as the wiring's own documented contract), so those two
-sites now reference the library's own convention, not per-app vocabulary. `ScreenCapture` also moved
-to `Astronomy.Diagnostics.Windows/ScreenCapture.cs`.)*
 
 ## Open: pin the unnumbered contract facts
 

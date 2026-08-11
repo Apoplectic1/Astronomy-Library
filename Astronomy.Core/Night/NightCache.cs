@@ -12,15 +12,15 @@ namespace Astronomy.Core.Night
     /// <remarks>
     /// <para>
     /// <see cref="NightCalculator.ComputeNight"/> depends only on latitude, longitude, date, and
-    /// UTC offset -- it does not depend on the target being observed. When multiple targets are
-    /// graphed against the same <see cref="Location"/> (the multi-target Graph path), each
-    /// target's year build otherwise re-derives the same 365-day NightWindow series
+    /// UTC offset -- it does not depend on the target being observed. When a caller evaluates
+    /// multiple targets against the same <see cref="Location"/> (a multi-target planning pass),
+    /// each target's year build otherwise re-derives the same 365-day NightWindow series
     /// independently. This cache amortizes the work across targets.
     /// </para>
     /// <para>
-    /// This type amortizes that cost: build it once per Graph click, hand it to every target's
-    /// <c>AltitudeSeries</c>, and per-target year work becomes pure math (AltAz) that parallelizes
-    /// freely across threadpool cores.
+    /// This type amortizes that cost: build it once per planning pass, hand it to each target's
+    /// per-target computation, and the per-target year work becomes pure math (AltAz) that
+    /// parallelizes freely across threadpool cores.
     /// </para>
     /// <para>
     /// <b>Thread-safety:</b> the instance is immutable after construction; concurrent readers are
@@ -76,14 +76,14 @@ namespace Astronomy.Core.Night
         /// First day of <paramref name="seed"/>'s calendar month at midnight, with
         /// <see cref="DateTime.Kind"/> preserved. Used as the anchor for the 365-day
         /// year-cache grid: each per-night entry is at <c>startDay + i days + 12 h</c>,
-        /// so callers that key on the year start (cache invalidation,
-        /// <c>LocationsCacheEquivalent</c> in TP) can compare two seeds for
+        /// so callers that key on the year start (e.g. a consumer's cache-invalidation
+        /// equivalence check) can compare two seeds for
         /// "same year window?" by comparing their <c>ComputeYearStartDay</c>.
         /// </summary>
         /// <remarks>
         /// Pre-2026-05-04 the body was <c>seed.AddDays(-seed.Day)</c>, which produced
-        /// the LAST day of the PRIOR month (off-by-one). Year / Sessions chart x-axis
-        /// labels appeared shifted because each 30-day grid bin started a day before
+        /// the LAST day of the PRIOR month (off-by-one). Consumer date-axis labels
+        /// appeared shifted because each 30-day grid bin started a day before
         /// the labelled month. Fixed to <c>seed.AddDays(1 - seed.Day)</c>; the
         /// XML-doc claim now matches the implementation.
         /// </remarks>

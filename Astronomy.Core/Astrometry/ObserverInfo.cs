@@ -19,7 +19,7 @@ namespace Astronomy.Core.Astrometry
     /// <b>Value type.</b> Stored as a 24-byte <see langword="readonly"/> <see langword="struct"/>
     /// (three doubles) so passing it into AstroUtil hot paths does not allocate.
     /// Convertor's prior <c>sealed class</c> shape was the dominant per-call allocation
-    /// in the chart-cache prepare loop; conversion is byte-equivalent for callers because
+    /// in a caller's cache-prepare loop; conversion is byte-equivalent for callers because
     /// the type was already immutable and identity-free.
     /// </para>
     /// </remarks>

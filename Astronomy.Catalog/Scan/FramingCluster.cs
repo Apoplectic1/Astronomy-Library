@@ -45,7 +45,7 @@ public sealed class FramingCluster
     /// three genuinely displaced ones (0.05°–0.13° off centre) reporting and silences the rest. The threshold
     /// deliberately never gates a <b>disagreeing</b> framing, whose overlap can sit anywhere: a stray just
     /// past the 5° tolerance still covers ~95% of the plan's footprint, and silencing it for being close
-    /// would leave the framing badge pointing at a row with nothing to read.
+    /// would leave a consumer's framing-disagreement indicator pointing at a row with nothing to read.
     /// </remarks>
     public const double OnFootprintFraction = 0.95;
 
