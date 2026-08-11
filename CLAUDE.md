@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-**Charter / router.** `Astronomy` is an x64-only, Windows-only .NET 10 **multi-project library** (managed astronomy/coordinate math + XISF read + catalog reconciliation + NINA planning + a native PCL wrapper) consumed by the user's astrophotography apps. This file is the always-loaded **router** — it points at the canonical docs and carries only the gotchas load-bearing enough to know *before* touching the build.
+**Charter / router.** `Astronomy` is an x64-only (the only fully-wired sln config), predominantly Windows .NET 10 **multi-project library** — with a deliberately TFM-neutral `Astronomy.Diagnostics` core — (managed astronomy/coordinate math + XISF read/block re-store + catalog reconciliation + NINA planning + a native PCL wrapper) consumed by the user's astrophotography apps. This file is the always-loaded **router** — it points at the canonical docs and carries only the gotchas load-bearing enough to know *before* touching the build.
 
 ## Docs — where to look
 

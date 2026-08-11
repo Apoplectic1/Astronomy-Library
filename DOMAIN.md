@@ -18,6 +18,17 @@ this file routes to it and is the ready home for domain content that outgrows th
   self-contained. Native XISF pixel *read* is the vendored PixInsight **PCL** — no image math is
   exposed; the wrapper does no numerical work (see `archive/PCL-InterOp.md` for the wrapping
   decision, `ARCHITECTURE.md` § *Astronomy.PCL / Astronomy.PCL.Native* for the surface).
+- **Where NINA already solves a problem the Library needs, NINA is a *strategy reference, not a
+  source*.** Formulas are re-derived from their standard/public form (WCS trigonometry for
+  `Astrometry.WcsOrientation`; the XISF spec's tokens and levels for the block-codec layer) and then
+  pinned by NINA's published test vectors and call-identical interop fixtures — so AL carries no
+  NINA-licensed code, which became load-bearing on 2026-08-02 when this repo went public under MIT
+  while NINA's source carries MPL. `WcsOrientation`'s domain of validity is itself a domain fact:
+  it covers normal and single-mirrored images only (a both-axes mirror is indistinguishable from a
+  180° rotation by construction), and solver-specific offsets (e.g. ASTAP's 180°) stay with the
+  calling wrapper, never modeled here. The single deliberate exception to re-derive-don't-mirror is
+  `Astrometry.AstroUtil`, next bullet. (Derivation:
+  `openspec/changes/archive/2026-08-06-wcs-position-angle/proposal.md` — "MPL-untangled".)
 - **`Astrometry.AstroUtil` is deliberately a NINA-port *mirror surface*.** `GetMoonAltitude` /
   `GetMoonIllumination` / `GetMoonRiseAndSet` reproduce the shape of NINA's `NINA.Astrometry/AstroUtil.cs`
   so ported code drops in unchanged. Two standing consequences: **(a)** do not split the class into
@@ -48,9 +59,30 @@ this file routes to it and is the ready home for domain content that outgrows th
   terminology** (chart names, control names, per-app feature vocabulary) in the public surface or
   its XML docs. Portfolio **app names** (TP, TSM, XFM, … — the parent `..\CLAUDE.md` glossary
   vocabulary) are acceptable in `///` remarks as provenance/consumer notes; they are defined
-  portfolio-wide. (Decided 2026-07-24; note the publish-to-GitHub caveat — public readers lack the
-  glossary — tracked in `ROADMAP.md` § *Open: publish to GitHub*.) Who consumes what, and the
+  portfolio-wide. (Decided 2026-07-24. The condition it flagged is now live: the mirror has been
+  public since 2026-08-02 and public readers lack the glossary — neutrality rule at `RELEASING.md`
+  § *Content rules*.) Who consumes what, and the
   semantic contract they rely on, is `CONSUMERS.md` (the "pinned pinout").
+  Two further standing rules of the same strategy:
+  - **No library-side caching** — AL primitives are pure functions; memoization is the consumer's
+    job at the consumer's own scope (TP's `ChartCacheStore`, IS's planned cache). When compute is
+    lifted out of a consumer it is deliberately reshaped into a stateless primitive so the next
+    consumer adopts the same surface without re-porting; `NightCache` is the one sanctioned,
+    caller-owned-lifetime amortization helper, not a counter-example. (Derivation: `CHANGELOG.md`
+    § 2026-05-28, the MoonEphemeris/`AltitudeCurve.Sample` extraction.)
+  - **A per-framework Diagnostics satellite carries framework glue only** — the shell, its controls,
+    the session delegates — never an app-framework utility: a consumer helper the shell happens to
+    need is re-implemented privately inside the satellite (TSM's `UiTask.FireAndLog` was inlined,
+    not exported, 2026-08-10 § D3), the same scope rule that keeps TSM's `AppDialog` behavior layer
+    parked out of the library until a second WinUI consumer justifies it
+    (`openspec/changes/archive/2026-08-10-diagnostics-portable-core/design.md` § D3/D5).
+
+- **Stars-purpose frames count toward a filter's exposure goal by default**
+  (`ReconcilePolicy.Combined`) because the observing workflow shoots broadband RGB solely as
+  star-colour frames for otherwise-narrowband targets — those frames are real progress against that
+  filter's plan, not a separate product. `LightOnly` is retained as the strict-separation policy for
+  callers wanting purpose-pure accounting. (Mechanics: `ARCHITECTURE.md` § *Astronomy.Catalog* →
+  `Reconcile/`; derivation: `CHANGELOG.md` § 2026-06, goal-vs-actual reconciliation.)
 
 What belongs *here* as it accrues: observing-domain rationale not tied to one API (e.g. why the
 *geometric* primitives stay unrefracted while refracted altitude is a first-class output elsewhere,

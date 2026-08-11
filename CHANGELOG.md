@@ -153,6 +153,20 @@ checksum-over-stored-bytes all pinned by NINA-call-identical interop tests). Con
 TSM-side ASTAP plate-solve pipeline (read) and XFM's `adopt-al-xisf-compression` (encode — retires its
 vendored codec duplicate). XISF tests 91; full suite green.
 
+## 2026-08-06 — Editable `project.name` + altitude-clause handling (v1.4.0)
+
+*(Backfilled 2026-08-11 by the maintain sweep — this shipped unit had no CHANGELOG entry; derived
+from commits `769837c`..`b648e3a`, all 2026-08-06, published as **v1.4.0**.)*
+
+- **`project.name` joins `TsEditableSchema`** (Text field, `ba16dcd`) so a landed `minimumaltitude`
+  write can also rewrite an existing name's altitude clause.
+- **`minimumaltitude` Max clamps to 89.9, not 90** (`d0b97d9`): TS's `HorizonDefinition` asserts
+  `< 90` at plan time, so a 90 write would pass the editor and abort TS planning. Schema notes now
+  record TS-UI semantics — 0 = "Off" (`c1c3a90`) and the project-constraint choice lists (`698a5e2`).
+- **`MosaicConvention.StripAltitudeClause`**: name matching tolerates a trailing altitude clause —
+  the legacy `" - Above N"` form (`769837c`) and the short `" - N"` form with a required end-anchored
+  dash so a plain name like "Abell 2218" is never mistaken for a clause (`60736de`).
+
 ## 2026-08-04 — Write-back credits by the capture-configuration pairing rule
 
 `WriteBackPlanner` and `SingleTargetPlanner` no longer credit every frame in a plan's
@@ -915,8 +929,8 @@ What landed:
 
 **Why not NINA's own XISF code?** NINA.Image.FileFormat.XISF is coupled to `IImageData` / `IImageDataFactory` / `NINA.Profile.FileSaveInfo` / WPF, forces a full pixel decode on every read (`XISF.Load()` has no header-only path), and exposes FITS keywords as a weak `TryGetFITSProperty(key, out value)` dictionary. The user's existing XFM approach (XDocument + strongly-typed accessors, header-only by design) is the better fit for shared consumption across non-plugin apps.
 
-*(Tier 1 was the shipped scope. The forward scope for Tiers 2-4 has moved to `ROADMAP.md`
-§ **Open: Astronomy.XISF Tiers 2-4** — forward-looking work doesn't belong in the shipped history.)*
+*(Tier 1 was the shipped scope. The forward scope has moved to `ROADMAP.md`
+§ **Open: Astronomy.XISF Tiers 2 & 4** — forward-looking work doesn't belong in the shipped history.)*
 
 ## 2026-05-18 — Astronomy.NINA: Phase B Target shape
 
@@ -940,12 +954,11 @@ Fifth and sixth buildable projects added: `Astronomy.NINA` + `Astronomy.NINA.Tes
 - **Output records**: `ImageLibraryReport`, `TargetReport` (DirectoryName/Catalog/CommonName/ObjectName/RaHours/DecDegrees/Filters), `FilterAggregate`, `TypicalSettings`, `FilterPurpose` enum (Light/Stars). Sealed + immutable per AL convention.
 - **36 unit tests** + **smoke test** gated on `TP_SMOKE_IMAGE_LIBRARY` env var. Smoke run against Dan's `E:\Photography\Astro Photography\Processing` library: **70 targets, 14,015 frames, 1,228 hours of integration** in ~1s — sane data flowing end-to-end.
 
-**Forward roadmap (next-up phases, separate commits):**
+*(The forward roadmap that closed this entry — Phases C and D — moved to `ROADMAP.md`
+§ **Open: Astronomy.NINA Phases C-D** on 2026-07-24; forward-looking work doesn't belong in the
+shipped history.)*
 
-- **Phase C** — TargetPlanner migrates from `Astronomy.Core.Targets.Target` to `Astronomy.NINA.Target`; image library becomes a new TP target source; Sky chart surfaces per-target Filter (color tint + badge + per-target K-S filter bandwidth).
-- **Phase D** — `InputTargetAdapter` (bidirectional `Astronomy.NINA.Target ↔ NINA.InputTarget`); unblocks future NINA-sequence-JSON export from TP. Phase D introduces the `NINA.Plugin` NuGet dependency.
-
-**Resolved (2026-05-18):** `Astronomy.XISF` extraction landed (see the *2026-05-18 — Astronomy.XISF: Tier 1 extraction* entry above). Tier 1 (header-only read) shipped; Tiers 2-4 are tracked in `ROADMAP.md` § *Open: Astronomy.XISF Tiers 2-4*.
+**Resolved (2026-05-18):** `Astronomy.XISF` extraction landed (see the *2026-05-18 — Astronomy.XISF: Tier 1 extraction* entry above). Tier 1 (header-only read) shipped; Tiers 2 & 4 are tracked in `ROADMAP.md` § *Open: Astronomy.XISF Tiers 2 & 4*.
 
 
 ## 2026-05-11 — TFM narrowed to `net10.0-windows` (backfilled 2026-07-24)

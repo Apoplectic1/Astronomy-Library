@@ -43,14 +43,18 @@ dotnet test  Astronomy.NINA.Tests/Astronomy.NINA.Tests.csproj -p:Platform=x64
 dotnet build Astronomy.Catalog/Astronomy.Catalog.csproj
 dotnet test  Astronomy.Catalog.Tests/Astronomy.Catalog.Tests.csproj -p:Platform=x64
 dotnet build Astronomy.Diagnostics/Astronomy.Diagnostics.csproj
+dotnet build Astronomy.Diagnostics.Windows/Astronomy.Diagnostics.Windows.csproj
+dotnet build Astronomy.Diagnostics.WinForms/Astronomy.Diagnostics.WinForms.csproj
+dotnet build Astronomy.Diagnostics.WinUI/Astronomy.Diagnostics.WinUI.csproj
 dotnet test  Astronomy.Diagnostics.Tests/Astronomy.Diagnostics.Tests.csproj -p:Platform=x64
 
 # Contract bench (the CONSUMERS.md pinout) — pure-managed
 dotnet test Astronomy.Contracts.Tests/Astronomy.Contracts.Tests.csproj -p:Platform=x64
 
 # EVERY project in this repo builds with warnings-as-errors (since 2026-08-01, after 45 xUnit1051s
-# accumulated silently in test code): <TreatWarningsAsErrors> on all six test csprojs and all six
-# shipped csprojs, /WX (<TreatWarningAsError>) on Astronomy.PCL.Native's wrapper TUs. A new warning
+# accumulated silently in test code): <TreatWarningsAsErrors> on all six test csprojs and all NINE
+# shipped csprojs (incl. the three 2026-08 Diagnostics satellites .Windows/.WinForms/.WinUI),
+# /WX (<TreatWarningAsError>) on Astronomy.PCL.Native's wrapper TUs. A new warning
 # IS a build failure, not noise to scroll past — fix it or (rarely, with a comment) suppress it
 # deliberately; never turn the ratchet off. Sole exception: Astronomy.Core.Benchmarks (not shipped,
 # not test). In test code, pass TestContext.Current.CancellationToken to any ct-accepting call
@@ -112,7 +116,27 @@ relative-path arguments resolve. `Test_GetXisfKeywords..bat` (double-dot name; l
 
 **Trap to avoid (xUnit v3):** every test project is xUnit v3 — `OutputType=Exe` + `xunit.v3` + `xunit.runner.visualstudio` 4.0.0-pre + `Microsoft.NET.Test.Sdk` 18.x — and v3 **generates the assembly entry point**, so a test project can't also define its own `Main` (that's why benchmarks live in a separate `Astronomy.Core.Benchmarks` exe). **Never let `xunit.v3` land on a non-test project:** its `mtp-v1` targets force `OutputType=Exe`, and a "Manage NuGet Packages for Solution → all projects" action sprays it silently — the build only breaks later when a version bump enforces the check (this bit four production projects on 2026-06-21). A non-test project that genuinely needs xUnit types references `xunit.v3.extensibility.core` instead.
 
+**Trap to avoid (MinVer needs git history):** version stamps are derived from git history at build
+time, so a build from a source zip, a tag-less clone, or a shallow checkout silently stamps the
+fallback `-alpha` prerelease instead of the real version — and the consumer `release.ps1` gates abort
+on an `-alpha` stamp in the embedded Library payload, so a history-less build doesn't just mislabel a
+DLL, it trips the AL-releases-first gate. Build from a full clone with tags whenever the stamp
+matters (→ `RELEASING.md` § *Distribution*).
+
 **Trap to avoid (Debug cannot see native ISA regressions):** `/Od` suppresses auto-vectorization, so an escalated instruction-set flag in the PCL tree emits **nothing** in Debug — the entire Debug test suite is structurally blind to it, and every recipe above defaults to Debug. The AVX2 floor (the 4800U has no AVX-512) can only be verified on a **Release** `Astronomy.PCL.Native.dll` with `dumpbin`. Re-check it after any PCL toolset pass or re-snapshot; a green Debug run proves nothing about it. (Policy + history → `ARCHITECTURE.md` § *PCL local build*.)
+
+**The managed hot paths have a hardware floor too — and it is checkable without a rebuild.** Core's
+Meeus / `TargetGeometry` / `SkyBrightness` hot paths are lowered to `Math.FusedMultiplyAdd`, which
+RyuJIT emits as a single `vfmadd*sd` only where hardware FMA3 exists; on a machine without it the
+software fallback stays correct but runs ~10-50× slower than plain `a*b+c` — so the Zen 2 floor
+(AVX2 + FMA, no AVX-512) that governs `Astronomy.PCL.Native` also governs whether the *pure-managed*
+library performs as measured (→ `docs/2026-05-12-fma-benchmark-findings.md`). To verify what the JIT
+actually emitted, no csproj change is needed (RyuJIT decides per method at JIT time):
+- BenchmarkDotNet's `HardwareIntrinsics=` header line must show `+FMA`;
+- `DOTNET_JitDisasm=<MethodName>` dumps the emitted x64 so `vfmadd*sd` can be confirmed;
+- `DOTNET_EnableHWIntrinsic=0` / `DOTNET_EnableAVX512F=0` / `DOTNET_PreferredVectorBitWidth=256`
+  reproduce a lower-ISA machine in place.
+(Knob derivations: `archive/2026-06-21-simd-investigation.md` § *Toolchain & runtime*.)
 
 **Assert with tolerances, never bit-exact.** `Astronomy.Core`'s polynomial and spherical-trig hot spots are FMA-lowered (`Math.FusedMultiplyAdd`, applied across Meeus / `TargetGeometry` / `SkyBrightness`). Round-once FMA is *strictly more accurate* than separate `mul; add`, so epsilon asserts hold while a bit-exact assert would not — and would break again on any future FMA or vectorization pass. (→ `docs/2026-05-12-fma-benchmark-findings.md`.)
 
@@ -131,6 +155,25 @@ archived at `archive/2026-06-21-simd-investigation.md`; open directions ranked i
 gitignored `BenchmarkDotNet.Artifacts/`. Re-run from `Astronomy.Core.Benchmarks` (see the
 `dotnet run -c Release` invocations above).
 
+**Writing an honest benchmark.** A BenchmarkDotNet number is only real if the JIT could not fold the
+work away: **vary the input every iteration** (loop-invariant expressions get hoisted; literal
+constant call arguments get constant-folded — the pre-FMA `TargetGeometry_AltitudeAtHourAngle`
+"baseline" of 0.0036 ns/op was a constant-fold, not a measurement), treat any **sub-nanosecond
+per-op result as an artifact until proven**, and suspect the cross-iteration `sum +=` accumulator
+whenever twin benchmarks tie at a number close to a known pipe latency. (v1 of `FmaBenchmarks`
+shipped a false "FMA is slower" conclusion from exactly these artifacts; the v1-vs-v2 derivation is
+`archive/2026-06-21-simd-investigation.md` § *Microbench design*.)
+
 ## Cross-repo contract verification (constellation DRC)
 
 The portfolio-level design-rule check is `..\build-all.ps1` (one level up from this repo, at the `Astronomy\` constellation root). It compiles the downstream consumers against the current Library and runs the contract tests in `Astronomy.Contracts.Tests` — run it to confirm a Library change hasn't broken a consumer's pinned pinout. The consumer contract itself is documented in `CONSUMERS.md`.
+
+**The DRC's unit is each consumer's solution file** — the script builds the first `*.sln`/`*.slnx` at
+depth 1 in each consumer directory, nothing else. A consumer project deliberately kept *out* of its
+app's sln still ProjectReferences the Library while being invisible to the DRC: today that is XFM's
+`tools/CompressionBench` ("standalone tool — deliberately NOT a member of XisfFileManager.sln"),
+which pins `XisfImageReader.ReadImageAsync`, `XisfImageData`,
+`XisfBlockCompression.Compress/Decompress/Shuffle/Unshuffle`, and `XisfHeaderReader.ReadAsync` — none
+touched by any DRC-built project, so a breaking change to those members reads GREEN. Same blind-spot
+class as the XFM-unchecked-until-2026-08-10 incident the script's header records, closed at consumer
+granularity but not at sub-consumer granularity.

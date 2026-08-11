@@ -16,7 +16,7 @@ The PCL wrapper is a deep but **settled / parked** subsystem; its design records
 Latest three only. **Full shipped history: [`CHANGELOG.md`](CHANGELOG.md)** (append-only, dated, newest first).
 
 - **2026-08-11** — `DiagnosticsHotkey.Register` (Astronomy.Diagnostics.WinForms): shared app-level Ctrl+N message filter, hoisted from TP — WinForms consumers (TP, XFM) get menu-mode + modal-dialog hotkey coverage by construction; register-once, throws on double wiring. Same day: invoke-time capture shipped and reverted (user decision) — the uniform cross-consumer contract is **capture at OK time only**; transient-UI shots stay on the delayed-capture workflow.
-- **2026-08-10** — Diagnostics platform layering (`diagnostics-portable-core`): core retargeted to TFM-neutral `net10.0` (Android/Linux-referenceable; platform APIs now fail the build), `ScreenCapture` extracted to new `Astronomy.Diagnostics.Windows`, `ObservationSession.Begin` takes the platform `capture` delegate, `AppLogIdentity.VersionAssembly` fixes the plugin-host `build=` stamp (IS-in-NINA), and the WinUI Ctrl+N shell ported from TSM as new `Astronomy.Diagnostics.WinUI` (WindowsAppSDK lockstep → `CONSUMERS.md`). TSM/TP consumer window pending.
+- **2026-08-10** — Diagnostics platform layering (`diagnostics-portable-core`): core retargeted to TFM-neutral `net10.0` (Android/Linux-referenceable; platform APIs now fail the build), `ScreenCapture` extracted to new `Astronomy.Diagnostics.Windows`, `ObservationSession.Begin` takes the platform `capture` delegate, `AppLogIdentity.VersionAssembly` fixes the plugin-host `build=` stamp (IS-in-NINA), and the WinUI Ctrl+N shell ported from TSM as new `Astronomy.Diagnostics.WinUI` (WindowsAppSDK lockstep → `CONSUMERS.md`). Consumer windows landed 2026-08-10: TSM's dialog port + the TP/TSM/XFM TFM unification at `10.0.26100.0`.
 - **2026-08-07** — `XisfBlockRewriter.RewriteAsync`: surgical re-store of a monolithic XISF's primary block under a new codec (or `None`), XML header byte-preserved except `compression`/`checksum`/`location` + length field, temp + atomic replace, declared checksums verified before re-encoding. Consumers pick codec and target — first callers are XFM's browse hygiene and its solver temp-input path.
 
 ## Open: `WcsOrientation.FramingAngleDegrees` — queued for the second orientation consumer
@@ -46,30 +46,43 @@ module index — cleanest, most churn; (b) extract only the two heavyweights (Co
 small modules inline — least churn, asymmetric; (c) split Core's three subsections (conventions /
 thread-safety / code-organization) out as the API-conventions doc they effectively already are. Run it as
 its own adjudicated job **before** the next maintain sweep promotes into these sections, and land held
-promotions in the new homes.
+promotions in the new homes. **The 2026-08-11 maintain sweep is now holding 26 adjudicated promotions
+against this split** (claims + targets + dispositions recorded in
+`docs/2026-08-11-maintain-report.md` § *Held graduates*) — the doc grew to 53.7 KB without them, so
+the split is the gating job for the whole backlog.
 
 ## Open: consumer UI terminology has leaked into public XML docs
 
 `DOMAIN.md` § *Multi-consumer strategy* bans consumer **UI terminology** from the public surface and its
 `///` docs (app names like TP/TSM are fine — chart names, control names and per-app feature vocabulary are
-not). The 2026-07-24 docs audit recorded this axis as *report-only* and the sweep never ran, so ~9 sites
+not). The 2026-07-24 docs audit recorded this axis as *report-only* and the sweep never ran, so ~8 sites
 still carry it — TP chart names and a TP member name in `NightCache`, "chart-cache prepare loop" in
-`ObserverInfo`, the chart's "Symmetric" semantics in `BestSession`, and a consumer keybinding (`Ctrl+N`)
-in both `Log` and `ScreenCapture`. Full site list, verified line numbers, and suggested neutral wording:
+`ObserverInfo`, the chart's "Symmetric" semantics in `BestSession`, and "the framing badge" in
+`FramingCluster`. Full site list, verified line numbers, and suggested neutral wording:
 **`docs/2026-07-29-maintain-report.md`** § *Code bug*. Doc-only change to the library's XML comments; the
-same leak class as the "Optimal-chart series" catch in `CoarseVisibility.cs`.
+same leak class as the "Optimal-chart series" catch in `CoarseVisibility.cs`. *(The `Ctrl+N` clause —
+`Log` + `ScreenCapture`, two of the original ten sites — left this item 2026-08-11: the hotkey became
+Library surface at v1.5.0/v1.7.0/v1.8.0 (`DiagnosticsDialog` / `DiagnosticsWindow` /
+`DiagnosticsHotkey.Register` publish Ctrl+N as the wiring's own documented contract), so those two
+sites now reference the library's own convention, not per-app vocabulary. `ScreenCapture` also moved
+to `Astronomy.Diagnostics.Windows/ScreenCapture.cs`.)*
 
-## Open: pin two unnumbered contract facts
+## Open: pin the unnumbered contract facts
 
-Two behaviours consumers already depend on are documented in `CONSUMERS.md` § *Contract facts not yet
+*(Retitled 2026-08-11 — was "pin **two** unnumbered contract facts"; XFM's arrival added two more.)*
+Behaviours consumers already depend on are documented in `CONSUMERS.md` § *Contract facts not yet
 numbered* but not pinned as numbered assumptions, because numbering them requires a bench test or a
-`NotCleanlyTestableAssumptions.cs` registry entry (the covered-or-registered rule), which the docs sweep
+`NotCleanlyTestableAssumptions.cs` registry entry (the covered-or-registered rule), which the docs sweeps
 that found them could not make: **(a)** Catalog cancellation throws and never returns a partial
 graph/report — compiler-invisible if it regresses, since every token parameter is optional (today only
 `Resolve_ObservesCancellation` in `Astronomy.Catalog.Tests` guards it); **(b)** write-back's four-part
 join key `(target, filter, purpose, whole-second exposure)` — a silent-wrong-result surface, since a
-duration mismatch writes `DiskCount = 0` to a live TS plan. Give each a bench test (preferred) or a
-registry entry, then promote both to numbered assumptions.
+duration mismatch writes `DiskCount = 0` to a live TS plan; **(c)** the XISF codec-layer semantics XFM
+bakes in (checksums over stored bytes; LZ4 raw block format; tolerant-parse/strict-use) and **(d)** the
+`WcsOrientation` conventions (N-toward-E PA, determinant-sign parity) — both added 2026-08-11 when the
+sweep found the third consumer had arrived without its pins (normative specs exist:
+`openspec/specs/xisf-block-compression/`, `wcs-orientation/`). Give each a bench test (preferred) or a
+registry entry, then promote to numbered assumptions.
 
 ## Open: parked PCL wrapper-extension plan — premise needs re-checking
 
@@ -93,7 +106,7 @@ design.** (Moved here from `CHANGELOG.md` on 2026-07-24: forward scope belongs i
 `Astronomy.XISF.csproj` already pointed here.)
 
 - **Tier 2** — metadata write-back. Modify image metadata in place, preserving the image-attachment block. **Design direction (2026-08-06): property-first.** PixInsight is migrating from FITS keywords toward typed, namespaced XISF properties; NINA already writes both. Tier 2 should model XISF properties as the primary surface with FITS keywords as a compatibility projection — not a generalized keyword bag — so AL absorbs PixInsight's evolution without consumer rewrites. Target consumer: replacing XFM's two-stage custom keyword pipeline (high-level programmatic interface over a low-level name/value/comment writer — the high level is the migration choke point); also a future TSM-side grade-state write. *(The ASTAP plate-solve write-back home was decided 2026-08-06: XFM's existing writer — it does NOT wait on Tier 2.)*
-- **Tier 3** — **SHIPPED 2026-08-06** (`xisf-codecs-and-image-read`): symmetric block-codec layer (zlib/lz4/lz4hc/zstd ±shuffle, all five spec checksum algorithms) + `XisfImageReader.ReadImageAsync` (locate attachment → verify checksum → decompress → verified pixel buffer + geometry/sample metadata). NINA's `XISFData` used as strategy reference only; codecs wired via managed-only `K4os.Compression.LZ4` + `ZstdSharp.Port`. Consumers queued: TSM-side ASTAP pipeline (read), XFM `adopt-al-xisf-compression` (encode — retires XFM's vendored codec duplicate).
+- **Tier 3** — **SHIPPED 2026-08-06** (`xisf-codecs-and-image-read`): symmetric block-codec layer (zlib/lz4/lz4hc/zstd ±shuffle, all five spec checksum algorithms) + `XisfImageReader.ReadImageAsync` (locate attachment → verify checksum → decompress → verified pixel buffer + geometry/sample metadata). NINA's `XISFData` used as strategy reference only; codecs wired via managed-only `K4os.Compression.LZ4` + `ZstdSharp.Port`. Consumers: XFM's encode-side adoption (`adopt-al-xisf-compression`) **landed at its v2.4.0** — vendored codec duplicate retired; the TSM-side ASTAP pipeline (read) is still genuinely queued. **Cheap hardening step, unadopted** (the change's archived open question): codec interop is proven only against fixtures encoded with NINA's exact calls (same package, levels, attribute strings) — reading a genuine NINA- or PixInsight-written compressed field file (a user-supplied small crop) can land any time, no design work.
 - **Tier 4** — full image write. Image data composition + compression + checksum (SHA-256). Required for XFM's writes and any future image-save pipeline.
 
 When XFM eventually migrates to Astronomy.XISF as its sole reader, the additional `KeywordList` accessors (FocalLength, Camera, EGAIN, MasterFrame metadata, weight keywords, etc.) port over alongside Tier 2.
@@ -140,6 +153,11 @@ here would just be rebuilt when IS lands.
 `CONSUMERS.md`: this is a forward-looking commitment, and it was the only library-level record of the
 IS plan — invisible to anyone following the router's "forward-looking → ROADMAP" rule.)*
 
+**Standing counter-case (2026-05-27, `FilterKind` deletion):** per-instance metadata no production
+code branches on is **deleted, not retained** — `FilterKind` was stored on every `Filter`, read only
+by tests, and TP's own filter type never had it. The retention rule protects *callable API ahead of a
+planned consumer*, not state that rides on every instance and can drift or lie.
+
 ## Open: SIMD / FMA deep dive
 
 Captured 2026-05-12. The FMA hygiene pass landed in `b83a0d8` (Meeus +
@@ -174,6 +192,12 @@ The four open directions in summary:
    logarithmically with length.
 4. **Explicit `System.Runtime.Intrinsics.X86.{Fma,Avx2,Avx512F}`
    intrinsics.** Reserve for cases `Vector<T>` doesn't express. Niche.
+5. **Target-independent per-night moon-ephemeris grid** (~5 µs/sample,
+   amortized across targets) — the structural, non-SIMD alternative for
+   the same hot path direction 2 attacks. Deferred 2026-07-24
+   (`ks-dmag-moon-gate` § D3) only because the per-target loop was
+   already paid and the gate's delta was ~10%; revisit if a consumer's
+   per-target parallel sweep profiles hot.
 
 Not gating any active work — recorded here so the investigation isn't
 re-derived next time.
@@ -183,120 +207,47 @@ re-derived next time.
 The 2026-05-18 library review and its re-check both fully closed — every actionable item landed (full record archived at `archive/2026-05-18-library-review*.md`). These are the only items that remained genuinely open after closure, lifted here so they don't get lost in the archive:
 
 - **F5.7 Phase 3 — NINA-as-oracle parity.** The parity baseline currently freezes the Library's *own* post-CoordinateSharp output as a self-snapshot (catches drift, but not an independent-implementation check). Promoting it to "Library matches NINA within tolerance" needs a small `tools/NinaParityExtract` exe referencing `NINA.Astrometry` (with `NOVAS31.dll` co-located), calling `AstroUtil` directly to dodge `IProfileService`, emitting `ParityFixtures.BaselineSnapshot` initializers for a NINA-sourced sibling of the existing `ParityFixtures.Baselines` dictionary. ~30–60 min, native-DLL co-location the likeliest stumble. Lower-fidelity alternative: NOAA/USNO web baselines for the 9 fixtures. Full integration scope in the archived follow-ups doc.
-- **Docstring drift — resolved (2026-07-07 audit).** Both cited sites were in fact fixed the same day as the review (`0e777de`), and `AltAzCalculator.Of` was later deleted outright (`b3fc182`) — nothing remains to do. Kept only for the standing warning: the review's other residuals — single-value hemisphere extensions and the `360.985647` Meeus citation literal — were deliberately left as-is; do not "fix" them.
-- **Two further findings were considered and declined** (from `archive/2026-05-18-library-review-followups.md` § *Intentional non-actions*), both the kind a later reviewer re-raises. **C2:** do *not* unify `MoonSeparation.IntervalsAboveDeg` with `BestSession.MoonClearIntersect` behind a shared generic `IntervalSweep` — the predicates differ in observation arity and the type gymnastics outweigh the readability win. **D1:** `TargetGeometry.HourAngleAtAltitude`'s `(latDeg, decDeg, altDeg)` parameter order differing from its siblings' `(haHours, latDeg, decDeg)` is intentional, governed by the "input drives the signature" rule. *(That doc's fourth non-action, C4 — `LunarAge.DaysAt` throwing as the lone exception to a lenient rule — is now obsolete: the 2026-07-24 UTC gate made throwing library-wide.)*
+- **Standing do-not-"fix" warning** *(retitled 2026-08-11 — was "Docstring drift — resolved", a closed item narrating its own closure; the commits stay recoverable via the archived recheck)*: the review's deliberately-left residuals — single-value hemisphere extensions and the `360.985647` Meeus citation literal — stay as-is; do not "fix" them.
+- **The review's deliberately-declined findings are a roster of live do-not-"fix" decisions** (from `archive/2026-05-18-library-review-followups.md` § *Intentional non-actions* + `archive/2026-05-18-library-review.md` § *Counterpoints*, all the kind a later reviewer re-raises). **C2:** do *not* unify `MoonSeparation.IntervalsAboveDeg` with `BestSession.MoonClearIntersect` behind a shared generic `IntervalSweep` — the predicates differ in observation arity and the type gymnastics outweigh the readability win. **D1:** `TargetGeometry.HourAngleAtAltitude`'s `(latDeg, decDeg, altDeg)` parameter order differing from its siblings' `(haHours, latDeg, decDeg)` is intentional, governed by the "input drives the signature" rule. **E2:** `XisfFile`'s `Dispose`/finalizer bodies stay duplicated rather than collapsing into a `CloseNative()` (cosmetic only). **`MoonPosition`'s 60-term tables stay `private static readonly int[]`** — JIT-friendly indexing; `ImmutableArray<int>` adds an indirection the hot loop doesn't need and `ReadOnlySpan<int>` can't be a static field — squarely in the path of SIMD direction 2 below, so a future SIMD session must not "modernize" them first. **`MeeusUtility.HorizonDipDeg` stays in the Meeus namespace** (the citation surface belongs together). **The `(DateTime Start, DateTime End)` tuple element type across five public session APIs** was declined on a "defer to a v2-API window" premise that is now **stale** — the library evolves in place, no v2 windows — so that one item is pending re-adjudication under evolve-in-place, not settled. *(The fourth non-action, C4 — `LunarAge.DaysAt` throwing as the lone exception to a lenient rule — is obsolete: the 2026-07-24 UTC gate made throwing library-wide.)*
 
-## Open: publish to GitHub
+## Publish to GitHub — CLOSED 2026-08-02 (executed; one residual re-opened below)
 
-Captured 2026-05-08. The library currently lives only on disk; sibling
-TargetPlanner consumes it via local `ProjectReference`. At some point the user
-wants the astronomy code in the open. Not gating any active work — recorded
-here so it doesn't drift out of memory.
+The 2026-05-08 publish plan (scope Options A/B/C, prep checklist, TP downstream analysis) was
+**executed 2026-08-02** as `publish-astronomy-library`: whole Library public at
+github.com/Apoplectic1/Astronomy-Library with dev staying local (effectively Option B's scope on
+Option C's workflow), MIT license, MinVer tag-derived versions, history published whole after a
+288-file audit. Mechanics now live in `RELEASING.md`; the normative contract is
+`openspec/specs/github-distribution/`. The checklist's **CI and NuGet** steps were explicit
+Non-Goals of that change — **declined, not deferred**. The old section's full text stays recoverable
+in git history (last present at the 2026-08-11 maintain commit's parent).
 
-### Three scope options
+## Open: personal data in the public mirror
 
-- **Option A — Core only, public** *(recommended, but see the blocker)*. Spin out `Astronomy.Core`
-  + `Astronomy.Core.Tests` + `Astronomy.Core.Benchmarks` into its own public repo. Leave
-  `Astronomy.PCL` / `Astronomy.PCL.Native` in the existing private layout (or
-  a separate private sibling). Smallest scope, no PCL-license entanglement,
-  gets the pure-Meeus astronomy code into the open. Estimated 1–2 sessions.
+The one prep-checklist step that never executed — the **personal-data scrub** — is now a *live
+exposure*, not prep: `git ls-tree origin/main` confirms `Astronomy.Core.Tests` publishes Penns Park
+lat/lon `40.282835`/`74.997369` today (`Tests/Astrometry/ParityFixtures.cs` named test cases,
+`LocationTests.cs`, `TestLocations.cs`, `AstroUtilMoonTests.cs`, `SessionSolversTests.cs` among ~40
+"Penns Park" lines across 17 files spanning **three** test projects), and `ROADMAP.md` /
+`VERIFICATION.md` carry the coordinates and absolute `E:\` personal paths onto the mirror as well.
+Two unresolved scope traps from the 2026-07-24 audit carry forward: **(a)** a name-grep misses
+coordinate-only files (`LocationTests.cs` has the numbers with zero name mentions — 19 coordinate
+lines across 4 files); **(b)** the "move into `TestLocations.PennsPark`" remedy is circular — that
+fixture itself hardcodes name + coordinates. Re-scope before executing; history publishes whole, so
+a real scrub of *committed history* means `git filter-repo` (a rewrite + force-push decision), while
+a forward-only scrub just stops the bleeding at the next tag.
 
-  > **Blocker found 2026-07-24 — Option A cannot ship `Astronomy.Core.Tests` as-is.**
-  > That project holds a hard `ProjectReference` to `Astronomy.PCL` (for the round-trip tests under
-  > `Tests/PCL/`), which drags `Astronomy.PCL.Native.vcxproj` into its build graph, and it links a
-  > PCL-tree asset (`..\PCL\src\utils\xisf\TestData\test.xisf`). So the "no PCL entanglement / no
-  > native build" premise doesn't hold: the public repo would either fail to build or need a prior
-  > step carving `Tests/PCL/` out into a separate private test project. Add that step (and re-do the
-  > 1–2 session estimate), or ship Core + Benchmarks only and leave the Core tests private —
-  > which weakens the "here's the code, it's tested" story the spin-out is for.
-  >
-  > **Second blocker (audit 2026-07-24):** none of the three Option-A csproj declares
-  > `TargetFramework` or `LangVersion` — both inherit from the repo-root `Directory.Build.props`.
-  > A spin-out that copies only the csproj files fails restore; the new repo needs its own
-  > `Directory.Build.props` (or the properties inlined per-project).
-- **Option B — whole Library, public**. One public repo with all fourteen
-  projects (scope/effort estimate needs revisiting at this count). PCL adds friction: third-party SDK dependency, build docs,
-  license-compatibility check (PCL Open License vs. whichever license is
-  picked in step 1). Estimated 2–4 sessions.
-- **Option C — public mirror, dev stays private**. Keep working in the
-  current `E:\…\Astronomy\Library\` and publish a periodic snapshot to a
-  public repo (e.g. `git push public main`). Lowest one-time cost; ongoing
-  maintenance burden of remembering to push.
+## Open: silent (0,0) coordinate fallback in the scanner — flagged code bug (2026-08-11 maintain)
 
-### Prep checklist (applies to A or B)
-
-1. **License.** Pick one and add a `LICENSE` file at the repo root. Typical
-   for libraries: MIT, Apache 2.0, BSD-3. For Option B, verify chosen
-   license is compatible with PCL Open License (see `PCL/COPYING.md`).
-   *Mostly answered already:* the PixInsight Class Library License is
-   **permissive, BSD-style** — redistribution allowed, attribution required,
-   and `LICENSE.txt` must be bundled with any redistributed binaries
-   (characterization in `archive/PCL-InterOp.md` § *License note*). Confirm
-   against the current upstream text before committing to Option B.
-2. **Personal-data scrub.** Same kind of pass as TargetPlanner's
-   2026-05-08 scrub:
-   - `Astronomy.Core.Tests/Tests/Astrometry/ParityFixtures.cs` has inline
-     Penns Park lat/lon (`40.282835`, `74.997369`) in named test cases
-     (`PennsParkSpring`, `PennsParkDstFall`, `PennsParkDstSpring`,
-     `PennsParkSummerSolstice` — the middle two are the DST regressions). Parameterize them: rename to neutral
-     names (e.g. `MidLatNorthSpring`) or move the personal coordinates
-     into the test's `TestLocations.PennsPark` fixture (which already
-     exists for the rest of the suite as of 2026-05-08).
-   - **40 lines across 17 files** mention "Penns Park" (re-counted 2026-07-24 twice; the
-     earlier "~14 test comments" understated it ~3×) — keep them or rephrase as
-     "the 40°N test fixture"; either is defensible. **Note the scope trap:** they
-     span *three* test projects, not one — 36 lines / 15 files in `Astronomy.Core.Tests`, plus
-     `Astronomy.Catalog.Tests\Tests\CatalogTests.cs` (2) and
-     `Astronomy.NINA.Tests\Persistence\NamedSiteTests.cs` (2). The latter two fall
-     outside Option A's spin-out set, so a scrub scoped to Option A leaves them
-     untouched under any option. Heaviest single files: `SessionSolversTests.cs` (5),
-     `ParityFixtures.cs` / `SunEventsTests.cs` / `VisibilityWindowsTests.cs` (4 each).
-     **Scrub-scope caveats (audit 2026-07-24, unresolved):** (a) the name-grep misses
-     coordinate-only files — `LocationTests.cs` carries `40.282835`/`74.997369` with zero
-     "Penns Park" mentions (19 coordinate lines across 4 files total); (b) the "move into
-     `TestLocations.PennsPark`" remedy is circular — that fixture itself hardcodes the name
-     and coordinates, and isn't on the checklist. Re-scope the scrub before executing.
-   - Audit `CLAUDE.md` — **and `ROADMAP.md` / `VERIFICATION.md`, which currently carry the
-     coordinates and absolute `E:\` personal paths themselves** — for personal paths, machine
-     names, or Windows-user specifics that won't make sense to a public reader. Also note the
-     public XML docs name portfolio apps (TP, TSM, XFM — fine locally per the parent glossary,
-     decided 2026-07-24, but public readers lack the glossary; decide keep-or-scrub at publish).
-3. **README.** New `README.md` at repo root: one-paragraph "what this is"
-   (pure-managed Meeus + closed-form session placement + K-S sky brightness
-   + optional XISF read via PCL P/Invoke), build/test instructions, link
-   to existing CLAUDE.md as the deeper reference. ~80 lines.
-4. **Build prerequisites.** Document MSBuild + VS2026 (build 18.x) for the C++/C#
-   mixed solution; `dotnet build` for `Astronomy.Core` alone. For Option B,
-   document where to drop the PCL SDK
-   (`Library\PCL\` snapshot from `PCL-master.zip`, pinned 2025-02-22) so
-   `Astronomy.PCL.Native.vcxproj` can find its static libs.
-5. **Git history.** `git log -p` against the lib's history for personal
-   paths in commit diffs. The library was extracted from TargetPlanner
-   (2026-04-23), so the surface area to audit is small.
-   `git filter-repo` if anything sensitive turns up.
-6. **CI** *(optional, defer for v1)*. GitHub Actions workflow that runs
-   `dotnet test Astronomy.Core.Tests` on push. Skippable if Option A
-   ships without `Astronomy.PCL` / `Astronomy.PCL.Native` (no native
-   build needed → trivial CI).
-7. **NuGet** *(optional, defer for v1)*. `Astronomy.Core` could become a
-   published NuGet for downstream consumption. Adds versioning discipline;
-   skippable for an initial public-source release.
-
-### TargetPlanner downstream impact
-
-The user's workflow treats local disk as source of truth and GitHub as a
-distribution mirror, so publishing the Library doesn't change anything
-about *the user's* dev experience — TP keeps consuming the local sibling
-checkout exactly as it does today. The question is what *public TP
-consumers* would do, since they don't have the user's local layout. Two
-paths:
-
-- Keep the `ProjectReference` and document "clone the Library repo next
-  to TargetPlanner" in `TargetPlanner/CLAUDE.md` (already partially
-  there). Public TP consumers clone two repos.
-- Switch TP to a `PackageReference` against a published NuGet (requires
-  step 7 above). Public TP consumers clone one repo; NuGet handles the
-  rest. Cleaner long-term; no work needed if Option A skips NuGet for v1.
+`ImageLibraryScanner` places a target whose frames carry **no RA/DEC at all** at RA 0h / Dec 0° — a
+real sky position — instead of aborting: the "caller can sanity-check downstream" comment at
+`Astronomy.Catalog/Scan/ImageLibraryScanner.cs:468-471` has no checking caller, and the value flows
+into `TargetResolver` coordinate matching and the reconcile join. This contradicts the documented
+contract (RA/DEC are "required-for-aggregation keywords", CHANGELOG § 2026-05-18 Phase A;
+`ARCHITECTURE.md` names `SkippedFiles` as the *one* deliberate fail-fast exception) and the
+portfolio fail-fast rule. Report-only per MAINTAIN; full evidence in
+`docs/2026-08-11-maintain-report.md` § *Code bug*. Fix direction is the user's call — likely
+abort-with-named-file, or route the target into `SkippedFiles`-style reporting rather than inventing
+coordinates.
 
 ## Open: K-S unphysical extinction-overdrive at low altitudes (urban regime)
 

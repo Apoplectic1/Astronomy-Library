@@ -3,6 +3,9 @@
 > **Charter:** the rules for pushes to the public GitHub mirror. **The local repo is ground
 > truth; GitHub is the public face** — a distribution channel, never the canonical location.
 > Nothing here changes how development works; it only governs what the public sees and when.
+> **Normative contract: `openspec/specs/github-distribution/`** — branch/tag policy, tag-derived
+> versioning, PCL-never-publishes, the README promise, the PCL-binary attribution obligation, and
+> license scope are single-sourced there; this file is the operational procedure.
 
 ## The mirror
 
@@ -39,7 +42,8 @@ PixInsight tree (see Content rules).
 A library has no installer: **publish *is* the push.** No release script, no GitHub Releases
 page, no uploaded assets — a Releases page with nothing to download would only mislead.
 Binary distribution happens downstream: the compiled `Astronomy.*` DLLs ship inside the
-TargetPlanner and TargetSchedulerManager installers, built locally in those repos.
+TargetPlanner, TargetSchedulerManager, and XisfFileManager installers, built locally in those
+repos (XFM since its v2.4.0 AL adoption).
 
 - **Versions come from the tag** via MinVer (`Directory.Build.props`:
   `<MinVerTagPrefix>v</MinVerTagPrefix>`, same as TSM/TP/XFM) — every managed assembly is
@@ -47,12 +51,23 @@ TargetPlanner and TargetSchedulerManager installers, built locally in those repo
   Untagged commits shape as `-alpha` prereleases. The C++ `Astronomy.PCL.Native.dll` is not
   MinVer-stamped (native project); its provenance rides its managed wrapper.
 
-- **Consumer coordination — AL releases first.** TP/TSM installers embed this library's
+- **Consumer coordination — AL releases first.** TP/TSM/XFM installers embed this library's
   *working tree* at their pack time, unpinned; the MinVer stamp on the embedded DLLs is the
   only linkage. Whenever AL has moved since its last published tag (or its tree is dirty),
   publish here **before** cutting a consumer release, so consumer payloads carry clean
   `X.Y.Z` stamps that exist on this mirror. Consumer `release.ps1` scripts enforce this with
-  an abort gate (dirty Library tree, or `-alpha` in the embedded stamp).
+  an abort gate (dirty Library tree, or `-alpha` in the embedded stamp; XFM's gate armed at
+  its v2.4.0 adoption).
+  **Ripple edits are separate per-repo commits** (decided 2026-08-02, `publish-astronomy-library`
+  § D5; re-enacted by `diagnostics-portable-core` § D6): consumer-repo fallout from an AL change
+  (doc corrections, TFM raises, shell ports) lands as its own commits on each sibling repo's `dev`
+  and publishes on that repo's schedule — never inside AL's commit; AL's commits stay single-repo.
+  **When an AL change breaks a consumer's build, the first task after the break is a dated
+  migration note committed into that consumer's repo** (what changed library-side, the new type
+  shapes, the call sites and UI surfaces to touch, the operational steps, plus a one-line pointer
+  from the consumer's own CLAUDE.md) — so a future session opening the consumer to a red build
+  finds its map in-repo instead of reconstructing it from AL's history (decided 2026-07-24,
+  `ks-dmag-moon-gate` § D6; one fully-executed instance so far).
 
 Latest published tag: **`v1.8.0`** (`DiagnosticsHotkey.Register` — shared app-level Ctrl+N
 message filter for WinForms consumers, hoisted from TP: menu-mode + modal-dialog hotkey

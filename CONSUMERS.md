@@ -5,17 +5,31 @@ depends on (the "pinned pinout"), the semantic assumptions beyond signatures, an
 graph. Treat this as the **stable interface** — change it *deliberately* (a pinout revision = update
 consumers + tests in the same breath); the implementation behind it can churn freely. Derived from
 grep-verified real usage (2026-06-28; refreshed 2026-07-07, re-audited 2026-07-24); keep current as the contract evolves.
+**The surface evolves in place** — a shape change replaces the old signature/name/type outright (no
+kept overloads, no `[Obsolete]` grace period, no migration shims), with consumers updated in the same
+or a paired commit and rebuilt from scratch (recurring precedent: the 2026-05-27/28 `FilterKind`
+deletion and `AltitudeCurve.Sample` reshape, each with its paired consumer commit) — so this pinout
+describes *current* behavior, never a compatibility promise.
 
 **How this is validated** (docs *describe* the contract; these *verify* it):
 - **Structural — free:** every consumer `ProjectReference`s the Library (source), so a breaking API
   change is a **consumer build break**. The cross-repo constellation build is that check — see
-  `VERIFICATION.md` § *Cross-repo contract verification*.
+  `VERIFICATION.md` § *Cross-repo contract verification*. Its unit is each consumer's **solution
+  file**, so a consumer project deliberately kept out of its app's sln (today XFM's
+  `tools/CompressionBench`) pins Library surface the DRC never compiles — detail in that section.
 - **Semantic — pinned by `Astronomy.Contracts.Tests`:** the compiler can't see the assumptions in
   the *Semantic assumptions* section, so the contract bench pins them. **Covered-or-registered
   rule:** every numbered assumption is either covered by a citing test or registered with a reason
   in `NotCleanlyTestableAssumptions.cs`; retired assumptions keep their numbers (normative spec:
-  `openspec/specs/contract-assumption-pinning/`). The bench covers all five managed assemblies
-  (NINA added 2026-07-24 — `NamedSitePersistenceContractTests` pins #2's serialization shape).
+  `openspec/specs/contract-assumption-pinning/`). The bench references **six of the nine shipped
+  managed assemblies** — Core, XISF, Catalog, Diagnostics, Diagnostics.Windows, NINA (NINA added
+  2026-07-24 — `NamedSitePersistenceContractTests` pins #2's serialization shape). **The boundary
+  is deliberate: the bench stops at the platform capture backend.** It wires `ObservationSession`
+  exactly as consumers do (core + `.Windows`) and never references the `.WinForms`/`.WinUI` shells —
+  their entry points (`DiagnosticsDialog.ShowOrFocus`, `DiagnosticsWindow.ShowOrFocus`,
+  `DiagnosticsHotkey.Register`) are unit-test-free by the packaged-host decision (a WinUI test
+  project would force a packaged MSTest host), so shell surface is covered only structurally, by the
+  consumer builds in `..\build-all.ps1` — never semantically.
 - **The bench pins *current behavior* — it does not legislate.** When a contract test exposes a
   behavior-vs-doc mismatch, the mismatch is **surfaced for adjudication, never silently patched**, and
   production code is not changed merely to make a pin pass. The rule has paid off twice: #19/#20's
@@ -31,22 +45,20 @@ grep-verified real usage (2026-06-28; refreshed 2026-07-07, re-audited 2026-07-2
 |---|---|---|---|
 | **TargetPlanner (TP)** | WinForms | Core, NINA, Diagnostics (+ `.WinForms` shell → `.Windows` transitively) | Core (broad), `NINA.Persistence`, XISF (assembly flows transitively via NINA; TP *code* calls 4 members directly — see the XISF row below), Diagnostics (`Log` + `DiagnosticsDialog`). **Catalog present transitively but unused.** PCL deliberately *not* referenced (avoids `unsafe` in the WinForms host). |
 | **TargetSchedulerManager (TSM)** | WinUI | Catalog, Diagnostics (+ `.WinUI` shell → `.Windows` transitively, since 2026-08-10), **Core** | Catalog (broad), Diagnostics (`Log` + `DiagnosticsWindow`), Core (narrow — `Locations`, `Horizons`, `Night`, `Session`, `Targets`; added 2026-07-23, commit `a48b2fa`). XISF only *inside* Catalog's scanner. **NINA / PCL not referenced.** |
-| **XisfFileManager (XFM)** | WinForms | XISF, Core, Diagnostics (+ `.WinForms` shell → `.Windows` transitively) | XISF (reader/codecs/`XisfBlockRewriter` — adopted v2.4.0, 2026-08; the checksum-alias and block-rewrite work shipped for it), Core (`Astrometry` — plate-solve support), Diagnostics (`Log` + `DiagnosticsDialog`). **Catalog / NINA / PCL not referenced.** *(Added to this table 2026-08-10 — XFM had adopted AL without the datasheet, the DRC, or the parent map recording it.)* |
+| **XisfFileManager (XFM)** | WinForms | XISF, Core, Diagnostics (+ `.WinForms` shell → `.Windows` transitively) | XISF (header reader, codecs, `XisfBlockRewriter`, `XisfChecksumVerifier` — adopted v2.4.0, 2026-08; the checksum-alias and block-rewrite work shipped for it), Core (`Astrometry.WcsOrientation` — plate-solve support), Diagnostics (`Log` + `DiagnosticsDialog`). **Catalog / NINA / PCL not referenced.** *(Added to this table 2026-08-10 — XFM had adopted AL without the datasheet, the DRC, or the parent map recording it.)* |
 
 All three consume **by `ProjectReference` (source) — no DLL, no NuGet.** That's the free continuity check.
 
 **Not consumers** (despite portfolio proximity — important to be honest about):
-- **XisfFileManager** — has its own independent XISF/SQLite stack; *migration to Library is
-  aspirational, not done.* Zero Library references today.
 - **IntervalScheduler (IS)** — design docs only, no project, zero references (planned consumer).
 - **IntervalSchedulerManager (ISM)** — stub repo only (CLAUDE.md + ROADMAP.md; no project, no Library
   reference).
 - NINA plugin/source + other Astronomy projects — no Library reference.
+- *(XisfFileManager left this list 2026-08-10 — it adopted AL at its v2.4.0 and is the third
+  consumer in the table above.)*
 
-So the live constellation is a **3-node graph** (Library → TP, TSM), not the 5-consumer web the docs imply.
-Three nodes, but **seven edges** as of 2026-07-29 — TSM's Core adoption added one on 2026-07-23, and
-Catalog took its own direct Core dependency on 2026-07-29 (framing pricing calls `FieldFootprint`); see the
-graph below.
+So the live constellation is a **4-node graph** (Library → TP, TSM, XFM — XFM added 2026-08-10); see
+the graph below for the edges.
 
 ## Dependency graph
 
@@ -60,7 +72,7 @@ TP  → Core, NINA, Diagnostics (+.WinForms)   (XISF + Catalog transitive via NI
 TSM → Catalog, Diagnostics (+.WinUI), Core   (XISF transitive via Catalog)
 XFM → XISF, Core, Diagnostics (+.WinForms)
 ```
-No consumer→consumer references. Note: **Catalog does NOT depend on Core** (its `Schema.Target` is its own POCO).
+No consumer→consumer references. Note: `Catalog.Schema.Target` is Catalog's **own POCO**, not Core's `Targets.Target` — the Catalog→Core edge (2026-07-29) exists for `FieldFootprint`, not the target type.
 
 ## The contract — what's actually depended on (the pinned surface)
 
@@ -90,6 +102,11 @@ No consumer→consumer references. Note: **Catalog does NOT depend on Core** (it
   (currently **2.3.1**, TFM floor `net10.0-windows10.0.19041.0`); WinUI consumers (TSM, ISM) must
   reference a WindowsAppSDK **≥ the pin** — NuGet unifies upward at app build, so drift fails as a
   restore warning, not silent breakage. Upgrade the pin alongside the first consumer that moves.
+  The TFM half is harder-edged: referencing `.WinUI` obliges the **consumer's own TFM** to carry a
+  Windows SDK version at or above the satellite's `net10.0-windows10.0.19041.0` floor — an app on
+  plain `net10.0-windows` cannot reference it at all (a reference incompatibility, not a restore
+  warning). All three consumers unified at `net10.0-windows10.0.26100.0` on 2026-08-10; AL's central
+  TFM stays deliberately OS-version-less (→ `VERIFICATION.md`).
   **When wiring a new AL project into a consumer, also add it to that consumer's sln/slnx** — the
   apps list cross-repo AL projects explicitly, and a `ProjectReference` alone builds green while
   Solution Explorer silently omits the project (bit both apps 2026-08-10; the trap is documented in
@@ -140,6 +157,10 @@ No consumer→consumer references. Note: **Catalog does NOT depend on Core** (it
   `Horizons.ScalarHorizonProfile`, `Night.{NightCalculator.ComputeNight, NightWindow}`,
   `Session.CoarseVisibility`, `Targets.Target`. (No `BestSession`, no `IHorizonProfile` — TP is the
   reason those stay pinned, not TSM.)
+  — *XFM* (since v2.4.0): exactly `Astrometry.WcsOrientation.FromCdMatrix` and the returned record's
+  `PositionAngleDegrees` / `Flipped` / per-axis arcsec-px scales, consumed in its ASTAP solve step and
+  written to `OBJCTROT` — live consumer surface (never read it into the dead-surface list); a
+  signature change there is an XFM build break.
 - **Astronomy.XISF** — *TP call sites* (the assembly itself flows transitively via NINA — no direct
   ProjectReference): `XisfHeaderReader.ReadAsync` + `XisfHeader.{RaDegrees, DecDegrees,
   ObjectName, ImageType}`. Catalog's scanner (TSM's path) uses a **subset** of the typed accessors:
@@ -150,6 +171,22 @@ No consumer→consumer references. Note: **Catalog does NOT depend on Core** (it
   surface; TP additionally reads `ImageType`, and the rest have no caller anywhere (see dead
   surface). *(`OffsetNormalized` was deleted 2026-07-27 — XFM never divided, so offset is raw on
   both planes.)*
+  — *XFM* (since v2.4.0, 2026-08): `XisfHeaderReader.ReadAsync` + `XisfHeader` (ASTAP solve hints);
+  `XisfBlockRewriter.RewriteAsync` in **both shapes** — `BlockCodec.None` to a temp path (the
+  uncompressed input ASTAP needs) and `BlockCodec.Zstd` with an explicit level in place (browse
+  hygiene) — plus the returned `XisfBlockRewriteResult.{AttachmentOffset, AttachmentSize,
+  Compression}`, written straight back into XFM's cached geometry (the members exist *because* the
+  caller holds cached geometry); `XisfChecksumVerifier.VerifyAsync` with **all three
+  `XisfChecksumVerdict` arms** surfaced in its UI plus `XisfChecksumResult.Detail` (collapsing
+  `NoChecksum` into a failure would be a silent behavior change that compiles); and
+  `XisfBlockCompression.Compress/Decompress/VerifyChecksum` +
+  `BlockCodec`/`BlockCompressionInfo.{CodecName, HasChecksum, ItemSize}` (its vendored
+  `Files\Compression\` duplicate is retired).
+  **The keyword surface stays a demand-driven subset** — `Astronomy.XISF` grows an accessor only when
+  a consumer needs it, rather than mirroring XFM's `Keyword/KeywordList.cs`; as of v2.4.0 the two
+  surfaces coexist in one process (XFM still carries its own ~50-member `KeywordList`), so keyword
+  convergence is an open cross-repo coordination item, not a completed migration (its port is queued
+  with XISF Tier 2 — see `ROADMAP.md` § *Open: Astronomy.XISF Tiers 2 & 4*).
 - **Astronomy.NINA** — *TP, only `Persistence`*: `NamedSite`, `PlanningPreferencesDto`. (The root
   namespace + `ReportToTargetAdapter` have no external consumer — see dead surface.)
 
@@ -157,6 +194,10 @@ No consumer→consumer references. Note: **Catalog does NOT depend on Core** (it
 
 Compiler-invisible expectations consumers bake in. Each is either covered by a citing contract test
 or registered in `NotCleanlyTestableAssumptions.cs` with the reason (see *How this is validated*).
+**Admission rule** (decided 2026-07-07, `contracts-tests-refresh` § D1): what earns a number is a
+*single* compiler-invisible semantic — a change that compiles cleanly on both sides yet silently
+changes results — one semantic per number; umbrella entries covering a family of behaviours were
+explicitly rejected because the list's value is one assumption per line with one independent test.
 
 **Units / encoding (silent-wrong-result risk — highest value):**
 1. `XisfHeader.RaDegrees` is **degrees** (TP ÷15 for hours).
@@ -208,9 +249,9 @@ or registered in `NotCleanlyTestableAssumptions.cs` with the reason (see *How th
 
 ### Contract facts not yet numbered
 
-Two behaviours consumers already depend on, documented here but **not yet pinned as numbered
+Behaviours consumers already depend on, documented here but **not yet pinned as numbered
 assumptions** — numbering them requires a bench test or a registry entry, which is a code change (see
-`ROADMAP.md` § *Open: pin two unnumbered contract facts*):
+`ROADMAP.md` § *Open: pin the unnumbered contract facts*):
 
 - **Cancellation throws; no partial result is ever returned.** Every long-running Catalog entry point
   takes an optional `CancellationToken` and genuinely observes it: `TargetSchedulerReader.ReadPlanData`
@@ -231,6 +272,16 @@ assumptions** — numbering them requires a bench test or a registry entry, whic
   folded into a neighbouring plan; and no pairing frames at the plan's spec is a real `DiskCount = 0`
   write ("spec unmet"), not a skip. This is a silent-wrong-result surface — a duration or configuration
   mismatch writes 0 to a live TS plan.
+- **The XISF codec-layer semantics XFM bakes in** (added 2026-08-11 — the third consumer arrived at
+  v2.4.0 without its pins): checksums cover the **stored/post-compression** bytes; LZ4 is the **raw**
+  block format, so decode is impossible without the declared uncompressed size; and
+  `BlockCompressionInfo.Parse` is tolerant on an unknown token (returns `BlockCodec.Other` so
+  inspect-only reads keep working) while `Decompress`/`Format` throw naming it — the
+  tolerant-parse/strict-use split is the contract, not an oversight. Normative:
+  `openspec/specs/xisf-block-compression/` (do not restate it here).
+- **The `WcsOrientation` conventions XFM bakes in**: position angle is North-toward-East `[0,360)`,
+  parity comes from the CD-matrix determinant sign, and a both-axes mirror is indistinguishable from
+  a 180° rotation by construction. Normative: `openspec/specs/wcs-orientation/`.
 
 ## Fragility flags
 - **Three public `Target` types** — `Core.Targets.Target` (class), `NINA.Target` (class), `Catalog.Schema.Target` (record). Naming-overload hazard; consumers alias around it.
@@ -255,8 +306,8 @@ many **Core statics**
 (`Sun.*` beyond `SunPosition` — `SunEvents`, `SunPower`, `SunTracking`, `SunSeparation`,
 `SunHeliographic`; `Night.TwilightCalculator` **and** `Brightness.Twilight` — two distinct types,
 both uncalled; and in `Session` exactly
-**`VisibilityWindows`, `IntegratedQuality`, `QualitySamples`, `RiseSet`**) · **XISF `Compression`**
-+ the `XisfHeader` members with no caller anywhere (the weight/quality block, optics/pointing, the
+**`VisibilityWindows`, `IntegratedQuality`, `QualitySamples`, `RiseSet`**) ·
+the `XisfHeader` members with no caller anywhere (the weight/quality block, optics/pointing, the
 unused focuser accessors, `CcdTempC`, `InstrumentDescription`, `Filter`, `KeywordNames`) ·
 `Core.Horizons.ObstructionTableHorizonProfile` (the fourth `IHorizonProfile` implementation — its
 three siblings are all live TP surface) · `Catalog.TargetScheduler.SingleTargetPlanner` (the

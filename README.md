@@ -6,8 +6,9 @@ support, shared diagnostics, and a native wrapper over the PixInsight Class Libr
 
 This is the shared foundation of a personal astrophotography software suite. It is developed
 locally and mirrored here; the compiled `Astronomy.*` assemblies ship inside the installers of
-its consumer apps — [TargetPlanner](https://github.com/Apoplectic1/TargetPlanner) and
-[TargetSchedulerManager](https://github.com/Apoplectic1/TargetSchedulerManager). There are no
+its consumer apps — [TargetPlanner](https://github.com/Apoplectic1/TargetPlanner),
+[TargetSchedulerManager](https://github.com/Apoplectic1/TargetSchedulerManager), and
+[XisfFileManager](https://github.com/Apoplectic1/XisfFileManager). There are no
 standalone binary releases of the library itself: tags mark versioned source snapshots.
 
 ## Projects
@@ -15,10 +16,10 @@ standalone binary releases of the library itself: tags mark versioned source sna
 | Project | What it is |
 |---|---|
 | `Astronomy.Core` | Astronomy & coordinate math (Meeus-based algorithms: positions, rise/transit/set, twilight, moon) |
-| `Astronomy.XISF` | XISF (PixInsight image format) header read support |
+| `Astronomy.XISF` | XISF (PixInsight image format) support: header read, block codecs (zlib/lz4/zstd ± shuffle) with checksums, verified image read, and surgical block re-store |
 | `Astronomy.Catalog` | Imaging-library scan + catalog reconciliation store |
 | `Astronomy.NINA` | NINA (Nighttime Imaging 'N' Astronomy) planning integration |
-| `Astronomy.Diagnostics` | Shared logging / observation-capture contract for the consumer apps |
+| `Astronomy.Diagnostics` (+ `.Windows`, `.WinForms`, `.WinUI`) | Layered logging / observation-capture stack: a platform-neutral core, the Windows capture backend, and per-framework diagnostic-dialog shells |
 | `Astronomy.PCL` + `Astronomy.PCL.Native` | Managed P/Invoke wrapper + native C++ shim over the PixInsight Class Library (pixel-level XISF I/O) |
 | `*.Tests`, `Astronomy.Contracts.Tests`, `Astronomy.Core.Benchmarks` | xUnit v3 test projects, the consumer-contract harness, and BenchmarkDotNet benchmarks |
 
