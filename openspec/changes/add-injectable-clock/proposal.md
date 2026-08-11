@@ -34,7 +34,10 @@ so it needs one AL home rather than two per-app definitions.
 
 - **Code**: `Astronomy.Core/Time/IClock.cs` (+ `SystemClock` in the same file),
   `Time/ObservationMoment.cs` (one overload), small test additions.
-- **Consumers**: none today; IS's container and ISM's precompute are the intended consumers.
+- **Consumers**: none today; IS's container and ISM's precompute are the first intended
+  consumers, and per user directive (2026-08-11) this is the **portfolio-wide single clock
+  source** — TP/TSM/XFM migrate their ambient reads opportunistically (user-owned;
+  inventory: TP 0, XFM 0, TSM 2 — recorded in `CONSUMERS.md`).
   The thread-safety audit note ("zero ambient-clock reads outside `ObservationMoment.Now`")
   is unchanged — `SystemClock` wraps that same single sanctioned read pattern.
 - **Docs**: `docs/architecture/core.md` Time row + CHANGELOG ride the code commit; IS ROADMAP

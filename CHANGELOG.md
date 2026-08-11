@@ -17,8 +17,10 @@ The third IS-motivated change (IS ROADMAP "AL gaps to close for IS" item 3; open
 conversion) + stateless `SystemClock.Instance`, and an `ObservationMoment.Now(zone, clock)`
 overload so clock-driven consumers never touch the ambient path. Test fakes deliberately stay
 consumer-side. The thread-safety census's ambient-clock exception widens from one sanctioned
-site to two (`ObservationMoment.Now(zone)` + `SystemClock.UtcNow`). Verified: 533 Core tests
-green (3 new).
+site to two (`ObservationMoment.Now(zone)` + `SystemClock.UtcNow`). Same-day scope widening
+(user directive): this is the **portfolio-wide single clock source**, not an IS/ISM-only seam —
+existing app ambient reads (TP 0, XFM 0, TSM 2) migrate opportunistically, user-owned; the
+standing convention lives in `CONSUMERS.md`. Verified: 533 Core tests green (3 new).
 
 ## 2026-08-11 — meridian primitives: `Meridian` + `MeridianSide` (IS gap 2)
 

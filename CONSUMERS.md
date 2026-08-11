@@ -49,6 +49,13 @@ describes *current* behavior, never a compatibility promise.
 
 All three consume **by `ProjectReference` (source) — no DLL, no NuGet.** That's the free continuity check.
 
+**Clock convention (user directive 2026-08-11):** `Core.Time.IClock` / `SystemClock` is the
+portfolio's **single clock source**. New consumer code takes an `IClock` (or an explicit
+`DateTime utc` parameter, the Core convention) instead of reading `DateTime.UtcNow` /
+`DateTime.Now`; existing app-side ambient reads migrate opportunistically (owner: the user).
+Inventory at declaration time: TP 0, XFM 0, TSM 2 (`MainViewModel.Reports.cs:116` — local-time
+report filename; `:214` — a planning-input `UtcNow`, the one that matters).
+
 **Not consumers** (despite portfolio proximity — important to be honest about):
 - **IntervalScheduler (IS)** — design docs only, no project, zero references (planned consumer).
 - **IntervalSchedulerManager (ISM)** — stub repo only (CLAUDE.md + ROADMAP.md; no project, no Library
