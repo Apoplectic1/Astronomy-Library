@@ -153,7 +153,11 @@ No consumer→consumer references. Note: `Catalog.Schema.Target` is Catalog's **
 - **Astronomy.Core** — *TP* (broad): `Targets.Target`, `Locations.Location`, `Night.*`,
   `Session.{BestSession, SessionAltitude, TransitTime, CoarseVisibility, AltitudeCurve, AltAzSample}`
   (`AltAzSample` is the declared element type of `AltitudeCurve.Sample`'s return, frozen into TP's
-  cache-entry API),
+  cache-entry API; `Time.UtcInterval` is likewise pinned since 2026-08-11 as the element type of
+  `BestSession.ResolveCandidates`' candidate-window list — TP reads `.Start`/`.End` across its chart
+  caches, and the tuple→`UtcInterval` reshape compiled TP unmigrated *only because* the member names
+  match the old `(DateTime Start, DateTime End)` tuple, so a member rename there is a TP build break
+  even though the type swap wasn't),
   `Session.SessionSolvers.{LongestDuration, LowestHorizon}` + `Session.TargetOrdering.{ByTransit, ByRise}`
   (TP's four sort modes — a signature change here is a TP build break),
   `AltAzCalculator`/`AltAz`, `Astrometry.{ObserverInfo, AstroUtil, Refraction, RiseAndSetEvent}`
