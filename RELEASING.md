@@ -54,7 +54,18 @@ TargetPlanner and TargetSchedulerManager installers, built locally in those repo
   `X.Y.Z` stamps that exist on this mirror. Consumer `release.ps1` scripts enforce this with
   an abort gate (dirty Library tree, or `-alpha` in the embedded stamp).
 
-Latest published tag: **`v1.6.1`** (docs-only: v1.6.0 release bookkeeping; library code
+Latest published tag: **`v1.8.0`** (`DiagnosticsHotkey.Register` — shared app-level Ctrl+N
+message filter for WinForms consumers, hoisted from TP: menu-mode + modal-dialog hotkey
+coverage by construction, register-once. The same day's invoke-time-capture ship-and-revert is
+recorded in CHANGELOG — the uniform cross-consumer contract stays capture-at-OK-time. First
+consumers: TP + XFM swapped same day). Prior:
+`v1.7.1` (docs-only: `CONSUMERS.md` records XFM as the third consumer; library code unchanged
+from v1.7.0 — tagged so all three app payloads realign on one stamp);
+`v1.7.0` (diagnostics platform layering, `diagnostics-portable-core` — TFM-neutral
+`Astronomy.Diagnostics` core, `ScreenCapture` extracted to new `Astronomy.Diagnostics.Windows`,
+`ObservationSession.Begin` takes the platform capture delegate, `AppLogIdentity.VersionAssembly`
+for plugin-hosted consumers, new `Astronomy.Diagnostics.WinUI` shell);
+`v1.6.1` (docs-only: v1.6.0 release bookkeeping; library code
 unchanged from v1.6.0 — tagged so consumer payloads stamp clean while XFM v2.4.1 packs. This
 tag rides *on* the bookkeeping commit, adopting fold-bookkeeping-into-the-released-commit so
 post-release height-1 states stop forcing docs-only tags). Prior:
