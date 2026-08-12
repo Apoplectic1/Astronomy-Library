@@ -9,6 +9,19 @@ backstop — this is the human-legible layer above it.
 **Entry format:** `## YYYY-MM-DD — <what landed>` (a month-only `YYYY-MM` is fine when the exact day
 wasn't recorded). Newest first; add new entries directly below this charter, never at the bottom.
 
+## 2026-08-12 — TS editable schema: `target.name` joins the whitelist (the rename verb)
+
+`TsEditableSchema` gains one row — `target.name` (Text, `Guarded`) — retiring the resolver-era
+blanket exclusion of identity columns; pointing identity (`ra`/`dec`/`epochcode`) stays excluded.
+Guarded because acquisition software may derive future file/directory naming from the target name
+(a mid-project rename splits on-disk naming; coordinate-based matching keeps both generations
+resolving to the same target — consumer-neutral wording, the note travels with the field). The
+editor whitelist, availability validation, and any schema-driven consumer UI pick it up with no
+further change (the schema *is* the whitelist). Driven by TSM's `add-target-rename` change
+(rename verb + pull-observed feed emission — TSM CHANGELOG 2026-08-12 has the app side).
+Verified: Catalog suite 317 green (2 new — name editable/guarded/cadence-safe, editor name write
+round-trip; canonical non-whitelisted-column fixtures moved to `ra`).
+
 ## 2026-08-12 — intent store: write/lookup surface + migration 0002 (first live table-rebuild)
 
 The consumer-agnostic write surface the intent store was missing (openspec change

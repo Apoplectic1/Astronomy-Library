@@ -115,6 +115,21 @@ public sealed class TargetSchedulerEditorTests
     }
 
     [Fact]
+    public void SetTargetField_Name_UpdatesAndVerifies()
+    {
+        // The rename verb (2026-08-12): target.name is on the whitelist like any editable text column.
+        string db = NewFullDb();
+        try
+        {
+            using TargetSchedulerEditor editor = new(db);
+            FieldEditResult r = editor.SetField(TsTable.Target, "tg-1", "name", "CygnusLoop P9");
+            Assert.True(r.Succeeded);
+            Assert.Equal("CygnusLoop P9", ReadScalar(db, "SELECT name FROM target WHERE guid='tg-1'"));
+        }
+        finally { TestSupport.Cleanup(db); }
+    }
+
+    [Fact]
     public void SetPlanField_Desired_UpdatesAndVerifies()
     {
         string db = NewFullDb();
@@ -147,7 +162,7 @@ public sealed class TargetSchedulerEditorTests
         try
         {
             using TargetSchedulerEditor editor = new(db);
-            Assert.Throws<ArgumentException>(() => editor.SetField(TsTable.Target, "tg-1", "name", "hax"));
+            Assert.Throws<ArgumentException>(() => editor.SetField(TsTable.Target, "tg-1", "ra", 12.5));
         }
         finally { TestSupport.Cleanup(db); }
     }
@@ -189,7 +204,8 @@ public sealed class TargetSchedulerEditorTests
             using TargetSchedulerEditor editor = new(db);
             Assert.True(editor.IsFieldAvailable(TsTable.Project, "minimumaltitude"));        // editable + present
             Assert.False(editor.IsFieldAvailable(TsTable.Project, "filterswitchfrequency")); // editable but absent here
-            Assert.False(editor.IsFieldAvailable(TsTable.Target, "name"));                   // present but not editable
+            Assert.True(editor.IsFieldAvailable(TsTable.Target, "name"));                    // editable + present (rename verb)
+            Assert.False(editor.IsFieldAvailable(TsTable.Target, "ra"));                     // present but not editable
         }
         finally { TestSupport.Cleanup(db); }
     }

@@ -17,9 +17,22 @@ public sealed class TsEditableSchemaTests
     [Fact]
     public void Find_OmittedOrStatColumn_ReturnsNull()
     {
-        Assert.Null(TsEditableSchema.Find(TsTable.Target, "name"));        // deliberately omitted (matcher round-trip)
+        Assert.Null(TsEditableSchema.Find(TsTable.Target, "ra"));          // pointing identity stays excluded
+        Assert.Null(TsEditableSchema.Find(TsTable.Target, "dec"));
+        Assert.Null(TsEditableSchema.Find(TsTable.Target, "epochcode"));
         Assert.Null(TsEditableSchema.Find(TsTable.ExposurePlan, "acquired")); // a stat, not user-editable
         Assert.Null(TsEditableSchema.Find(TsTable.Project, "no_such_column"));
+    }
+
+    [Fact]
+    public void TargetName_IsEditableGuardedAndCadenceSafe()
+    {
+        // The rename verb (2026-08-12): name is on the whitelist, arm-gated, and clears no cadence rows.
+        TsField? name = TsEditableSchema.Find(TsTable.Target, "name");
+        Assert.NotNull(name);
+        Assert.Equal(TsFieldType.Text, name.Type);
+        Assert.True(name.Guarded);
+        Assert.Equal(TsCadenceClear.None, name.Clears);
     }
 
     [Fact]
@@ -122,11 +135,12 @@ public sealed class TsEditableSchemaTests
     }
 
     [Fact]
-    public void Guarded_FlagsRotationOnly()
+    public void Guarded_FlagsRotationAndNameOnly()
     {
         Assert.True(TsEditableSchema.Find(TsTable.Target, "rotation")!.Guarded);
+        Assert.True(TsEditableSchema.Find(TsTable.Target, "name")!.Guarded);
         Assert.All(
-            TsEditableSchema.Fields.Where(f => f is not { Table: TsTable.Target, Column: "rotation" }),
+            TsEditableSchema.Fields.Where(f => f is not { Table: TsTable.Target, Column: "rotation" or "name" }),
             f => Assert.False(f.Guarded));
     }
 

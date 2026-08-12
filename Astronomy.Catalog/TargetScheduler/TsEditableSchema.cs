@@ -110,8 +110,8 @@ public sealed record TsEnumValue(int Code, string Label);
 /// catching TS schema drift.
 /// <para>
 /// Intentionally practical, not exhaustive: the fields a user tunes on an existing plan. Deliberately omitted —
-/// identity/match-bearing columns (<c>target.name</c>/<c>ra</c>/<c>dec</c>/<c>epochcode</c>, which must round-trip
-/// the resolver) and stat/key columns (<c>acquired</c>/<c>accepted</c>/<c>guid</c>/FKs). Add a field by adding one
+/// pointing-identity columns (<c>target.ra</c>/<c>dec</c>/<c>epochcode</c>) and stat/key columns
+/// (<c>acquired</c>/<c>accepted</c>/<c>guid</c>/FKs). Add a field by adding one
 /// row here; the editor and any reference-driven UI pick it up with no further change.
 /// </para>
 /// </summary>
@@ -148,6 +148,10 @@ public static class TsEditableSchema
             Notes: "Resets the filter rotation of every target in the project (cleared atomically with the write; TS regenerates)."),
 
         // ---- target -----------------------------------------------------------------------------------------
+        new(TsTable.Target, "name", "Name", TsFieldType.Text,
+            Guarded: true, Notes: "Guarded: acquisition software may derive future file/directory naming from the "
+                + "target name, so a rename splits the on-disk naming mid-project. Coordinate-based matching keeps "
+                + "both naming generations resolving to the same target."),
         new(TsTable.Target, "active", "Enabled", TsFieldType.Bool),
         new(TsTable.Target, "priority", "Priority", TsFieldType.Enum, EnumName: "TargetPriority"),
         new(TsTable.Target, "rotation", "Rotation", TsFieldType.Real, Min: 0, Max: 360, Unit: "°",
