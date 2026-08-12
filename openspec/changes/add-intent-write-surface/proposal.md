@@ -42,9 +42,19 @@ impossible-by-API, not caught-by-test.
 ### Modified Capabilities
 
 - `intent-store`: gains the write/lookup surface requirements (upsert semantics, provenance
-  lookup, caller-transaction composition) and the 0002 migration behavior. *(Refine at spec
-  time — AL sessions decide whether this is a delta to `intent-store` or a sibling capability
-  per AL's spec organization.)*
+  lookup, caller-transaction composition). **0002's spec-side home is a scenario on the
+  migration framework's existing contract** (pending-scripts-apply-in-order), not a new
+  capability — it is the first consumer of `IntentMigrations`, which is exactly the field
+  record the endorsement wanted (program review 2026-08-12). ISM's schema doc is authority the
+  way `add-intent-store` treated it.
+
+### Spec-time notes (program review 2026-08-12)
+
+- One test SHALL verify the write surface's upserts and `TsIntentImporter`'s rows are
+  compatible — same `GuidBlob` encoding, same `imported_from_ts_guid` provenance conventions.
+  Two write paths into one schema share their invariants by test, not by discipline.
+- 0002 relaxes a `NOT NULL` — SQLite has no ALTER COLUMN, so the script is an R10 table-rebuild
+  (new table, copy, drop, rename, recreate indexes), transactional like every migration.
 
 ## Impact
 
