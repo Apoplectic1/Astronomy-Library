@@ -2,6 +2,16 @@
 
 **Charter.** Running **lab notebook** — small, dated, chronological empirical findings captured while doing the work (a measurement, a surprising behavior, a tried-and-rejected approach). Substantial standalone records (a design, a review, a decision) belong in `docs/YYYY-MM-DD-<slug>.md` instead; standing truths graduate up into the reference set (`ARCHITECTURE.md` / `ROADMAP.md` / `DOMAIN.md` / `VERIFICATION.md` / `CONSUMERS.md`).
 
+## 2026-08-12 — checkpoint-on-close needs `Pooling=false`, or Dispose doesn't close the file
+
+Found implementing the intent store's sync-safe-at-rest contract: `Microsoft.Data.Sqlite` pools
+connections by default, so `SqliteConnection.Dispose()` returns the handle to the pool and the
+database file (and its `-wal`) **stays open**. A "closed" store would then not be one consistent
+file at rest — exactly what the WAL `checkpoint(TRUNCATE)`-on-close exists to guarantee for the
+file-sync backup posture. `IntentStore` sets `Pooling=false` for this reason (comment in code);
+the test suite's existing `Pooling=false` habit turns out to be the same fix for temp-file
+cleanup. Any future store type with close-time file-state guarantees needs the same flag.
+
 ## 2026-08-01 — SafeEpoch raw-casts TS epochcodes whose 0/1 mean the opposite of ours (latent)
 
 Found by the IS-repo docs audit (round 4), reported here as a code finding — not fixed. NINA's

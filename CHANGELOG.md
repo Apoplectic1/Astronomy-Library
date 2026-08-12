@@ -9,7 +9,26 @@ backstop — this is the human-legible layer above it.
 **Entry format:** `## YYYY-MM-DD — <what landed>` (a month-only `YYYY-MM` is fine when the exact day
 wasn't recorded). Newest first; add new entries directly below this charter, never at the bottom.
 
-## 2026-08-11 — injectable clock: `IClock` + `SystemClock` (IS gap 3)
+## 2026-08-12 — intent store: schema + migration framework + store API + TS lift
+
+The TS-replacement program's AL critical path (openspec change `add-intent-store`, seeded by ISM's
+`add-catalog-db-schema`; schema authority ISM `docs\design\catalog-db-schema.md`, behavior mirrored
+as AL specs `intent-store` / `intent-store-ts-import`). New `Astronomy.Catalog` `Intent/` area —
+the authored intent store, distinct from the derived catalog: baseline DDL as migration
+`0001_initial.sql` (enum lookups + companion CHECKs, all FKs indexed `ix_`-style, minimal plan
+plane), `IntentMigrations` (the portfolio's **first migration framework** — the store is migrated,
+never rebuilt: transactional `NNNN_name.sql` scripts, `schema_migration` log + `user_version`
+sync, newer-than-library abort, rollback-intact on failure), `IntentStore` (local-path guard
+refuses UNC/network before file creation; WAL `checkpoint(TRUNCATE)` + `Pooling=false` on close so
+a closed store is one consistent, sync-safe file; loud busy failure), and the one-time TS lift
+(`TsImport/`: own full-scope read layer — shipped reader untouched; R13 maps with the pinned
+NINA→AL epoch swap, abort-on-unmapped; sentinel→NULL; empty-store precondition; all-or-nothing
+transaction; per-row `imported_from_ts_guid` provenance; mosaic parents synthesized). Operational
+lift runs via the env-gated `TsImportDriver` test-host (ISM D4) — ISM's group 3 unblocks on this
+shipping. Deliberately no actuals surface (progress = fresh disk scan). Verified: Catalog suite
+306 green incl. snapshot round-trip against the real TS working db; all managed suites 1,101
+green; DRC GREEN (TP/TSM/XFM + contract bench); derived-catalog surface untouched (csproj
+embedded-resource line is the only shipped-file diff).
 
 The third IS-motivated change (IS ROADMAP "AL gaps to close for IS" item 3; openspec change
 `add-injectable-clock`), giving the IS dossier's injectable-clock decision its one AL home:

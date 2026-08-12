@@ -1,9 +1,10 @@
 # Astronomy Library — Roadmap
 
-> **2026-08-12:** AL holds the **critical path** of the TS-replacement program — openspec change
-> `add-intent-store` (seeded proposal-only: Catalog.db DDL, migration framework, store API, TS
-> importer; schema authority = ISM `docs\design\catalog-db-schema.md`). Program view: umbrella
-> `..\ROADMAP.md` § TS-replacement program.
+> **2026-08-12:** The TS-replacement program's AL critical path **shipped** — openspec change
+> `add-intent-store` implemented (Catalog.db DDL + migration framework + store API + TS lift;
+> schema authority = ISM `docs\design\catalog-db-schema.md`). The operational import (ISM's
+> group 3) now unblocks on AL publishing. Program view: umbrella `..\ROADMAP.md`
+> § TS-replacement program.
 
 **Charter.** Forward-looking design for the `Astronomy` library — *where the library is going*, plus a
 three-line digest of what just landed. How current modules work lives in `ARCHITECTURE.md`; the full
@@ -20,9 +21,9 @@ The PCL wrapper is a deep but **settled / parked** subsystem; its design records
 
 Latest three only. **Full shipped history: [`CHANGELOG.md`](CHANGELOG.md)** (append-only, dated, newest first).
 
+- **2026-08-12** — **Intent store** (openspec `add-intent-store`, the TS-replacement critical path): `Astronomy.Catalog` `Intent/` area — baseline DDL as migration 0001 (enum CHECKs, all-FKs-indexed), `IntentMigrations` (portfolio-first migration framework: transactional scripts + `schema_migration` log + newer-aborts), `IntentStore` (local-only guard, checkpoint-on-close + `Pooling=false` sync-safety), one-time TS lift (R13 maps incl. pinned epoch swap, sentinel→NULL, all-or-nothing, per-row provenance, synthesized mosaic parents) + env-gated `TsImportDriver`. DRC GREEN; derived catalog untouched; first consumer ISM.
 - **2026-08-11** — Injectable clock (`IClock` + `SystemClock`, IS gap 3): `Time/IClock.UtcNow` (always `Kind=Utc`) + stateless `SystemClock.Instance` + `ObservationMoment.Now(zone, clock)`; widened same day by user directive to the **portfolio-wide single clock source** (convention in `CONSUMERS.md`; all three apps at zero ambient reads same day). Test fakes stay consumer-side.
 - **2026-08-11** — Meridian primitives (`Meridian` + `MeridianSide`, IS gap 2): signed hour angle, sky-side East/West (ASCOM pier-side vocabulary deliberately out), transit enumeration, `FlipTimeIn` with shifted search, `SplitAtFlip` with 1 s sliver suppression. Relaxed the interval-algebra canonical-list contract to ordered + disjoint, **touching legal** (`Union` output alone stays merged).
-- **2026-08-11** — Contract assumptions **#26–#29** pinned (+ **#15** reconciled): the "not yet numbered" facts each gained a citing bench test and a number; #15's stale registry note adjudicated (code is the contract). Bench 61 → 83 passing, skips 6 → 5. Same day, post-reconciliation **DRC run: GREEN** — TP/TSM/XFM all compile against current AL (TP unmigrated survives the `UtcInterval` reshape via member-name compatibility — now pinned in `CONSUMERS.md`) and the bench passes.
 
 ## Open: `WcsOrientation.FramingAngleDegrees` — queued for the second orientation consumer
 

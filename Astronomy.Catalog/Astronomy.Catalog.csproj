@@ -43,6 +43,7 @@
 
   <ItemGroup>
     <EmbeddedResource Include="Schema\schema.sql" />
+    <EmbeddedResource Include="Intent\Migrations\*.sql" />
   </ItemGroup>
 
   <!-- Pure managed (Microsoft.Data.Sqlite + Astronomy.XISF for the scanner); no native deps.
