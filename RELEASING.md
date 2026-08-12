@@ -69,14 +69,23 @@ repos (XFM since its v2.4.0 AL adoption).
   finds its map in-repo instead of reconstructing it from AL's history (decided 2026-07-24,
   `ks-dmag-moon-gate` § D6; one fully-executed instance so far).
 
-Latest published tag: **`v1.9.0`** (the 2026-08-11 batch: the three IS-motivated Core additions —
+Latest published tag: **`v1.10.0`** (2026-08-12: the **intent store** — openspec
+`add-intent-store`, the TS-replacement program's AL critical path. New `Astronomy.Catalog`
+`Intent/` area: baseline DDL as migration 0001, `IntentMigrations` (the portfolio's first
+migration framework — the store is migrated, never rebuilt), `IntentStore` (local-only guard,
+checkpoint-on-close sync-safety), and the one-time TS lift with pinned R13 translation maps,
+per-row provenance, and the env-gated `TsImportDriver` operational test-host. Specs
+`intent-store` / `intent-store-ts-import` promoted at archive. First consumer: ISM (its group-3
+operational import unblocks on this publish). DRC GREEN at publish; derived-catalog surface
+untouched). Prior:
+`v1.9.0` (the 2026-08-11 batch: the three IS-motivated Core additions —
 interval algebra `Time.UtcInterval` + `Intervals` with the session/moon/sun producers converged
 onto it (**BREAKING**, consumers survived via member-name compatibility — pinned in
 `CONSUMERS.md`), `Session.Meridian` + `MeridianSide`, and the injectable clock `IClock` +
 `SystemClock` (portfolio-wide single clock source) — plus the scanner's fail-fast on
 coordinate-less units (the (0,0) fallback removed), contract assumptions #26–#29 pinned +
 #15 reconciled (bench 83), the ARCHITECTURE per-module split, and the XML-doc neutrality sweep.
-DRC GREEN at publish). Prior:
+DRC GREEN at publish);
 `v1.8.0` (`DiagnosticsHotkey.Register` — shared app-level Ctrl+N
 message filter for WinForms consumers, hoisted from TP: menu-mode + modal-dialog hotkey
 coverage by construction, register-once. The same day's invoke-time-capture ship-and-revert is
