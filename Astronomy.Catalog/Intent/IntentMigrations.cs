@@ -87,36 +87,70 @@ public static partial class IntentMigrations
 
         EnsureMigrationLog(connection);
 
-        foreach (MigrationScript script in scripts)
+        // Table-rebuild scripts (R10) drop and recreate tables that other tables reference — impossible
+        // with foreign-key enforcement on, and PRAGMA foreign_keys is a no-op inside a transaction, so
+        // the framework owns the posture, not the scripts (SQLite's documented rebuild procedure):
+        // suspend enforcement around the apply loop and gate every script's commit on a whole-store
+        // foreign_key_check — any violation rolls the script back, so net integrity is stronger than
+        // per-statement enforcement, not weaker.
+        Execute(connection, transaction: null, "PRAGMA foreign_keys = OFF;");
+        try
         {
-            if (script.Version <= currentVersion) continue;
-
-            using SqliteTransaction transaction = connection.BeginTransaction();
-            try
+            foreach (MigrationScript script in scripts)
             {
-                Execute(connection, transaction, script.ReadSql());
+                if (script.Version <= currentVersion) continue;
 
-                using (SqliteCommand log = connection.CreateCommand())
+                using SqliteTransaction transaction = connection.BeginTransaction();
+                try
                 {
-                    log.Transaction = transaction;
-                    log.CommandText = "INSERT INTO schema_migration (version, name, applied_at) VALUES ($version, $name, unixepoch());";
-                    log.Parameters.AddWithValue("$version", script.Version);
-                    log.Parameters.AddWithValue("$name", script.Name);
-                    log.ExecuteNonQuery();
-                }
+                    Execute(connection, transaction, script.ReadSql());
 
-                // PRAGMA user_version lives in the database header and participates in the transaction.
-                Execute(connection, transaction, $"PRAGMA user_version = {script.Version};");
-                transaction.Commit();
-            }
-            catch (Exception ex) when (ex is not IntentStoreException)
-            {
-                transaction.Rollback();
-                throw new IntentStoreException(
-                    $"Intent-store migration {script.Version:0000}_{script.Name} failed and was rolled back; " +
-                    $"the store remains at schema version {script.Version - 1}. {ex.Message}", ex);
+                    using (SqliteCommand log = connection.CreateCommand())
+                    {
+                        log.Transaction = transaction;
+                        log.CommandText = "INSERT INTO schema_migration (version, name, applied_at) VALUES ($version, $name, unixepoch());";
+                        log.Parameters.AddWithValue("$version", script.Version);
+                        log.Parameters.AddWithValue("$name", script.Name);
+                        log.ExecuteNonQuery();
+                    }
+
+                    // PRAGMA user_version lives in the database header and participates in the transaction.
+                    Execute(connection, transaction, $"PRAGMA user_version = {script.Version};");
+                    RequireForeignKeyIntegrity(connection, transaction);
+                    transaction.Commit();
+                }
+                catch (Exception ex) when (ex is not IntentStoreException)
+                {
+                    transaction.Rollback();
+                    throw new IntentStoreException(
+                        $"Intent-store migration {script.Version:0000}_{script.Name} failed and was rolled back; " +
+                        $"the store remains at schema version {script.Version - 1}. {ex.Message}", ex);
+                }
             }
         }
+        finally
+        {
+            Execute(connection, transaction: null, "PRAGMA foreign_keys = ON;");
+        }
+    }
+
+    /// <summary>
+    /// The pre-commit integrity gate: with enforcement suspended for the script, the whole store must
+    /// still pass <c>PRAGMA foreign_key_check</c> before its transaction may commit.
+    /// </summary>
+    private static void RequireForeignKeyIntegrity(SqliteConnection connection, SqliteTransaction transaction)
+    {
+        using SqliteCommand check = connection.CreateCommand();
+        check.Transaction = transaction;
+        check.CommandText = "PRAGMA foreign_key_check;";
+        using SqliteDataReader reader = check.ExecuteReader();
+        if (!reader.Read())
+            return;
+
+        string table = reader.GetString(0);
+        string parent = reader.GetString(2);
+        throw new InvalidOperationException(
+            $"PRAGMA foreign_key_check failed: table '{table}' holds at least one reference to a missing '{parent}' row.");
     }
 
     /// <summary>Reads the store's current schema version (<c>PRAGMA user_version</c>).</summary>

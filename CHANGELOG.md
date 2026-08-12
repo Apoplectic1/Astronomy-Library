@@ -9,6 +9,27 @@ backstop — this is the human-legible layer above it.
 **Entry format:** `## YYYY-MM-DD — <what landed>` (a month-only `YYYY-MM` is fine when the exact day
 wasn't recorded). Newest first; add new entries directly below this charter, never at the bottom.
 
+## 2026-08-12 — intent store: write/lookup surface + migration 0002 (first live table-rebuild)
+
+The consumer-agnostic write surface the intent store was missing (openspec change
+`add-intent-write-surface`, seeded by ISM's `add-ism-scaffold-ingest` D1/D5): new
+`Astronomy.Catalog.Intent.IntentWriter` over an open `IntentStore` — full-value
+`ON CONFLICT(id)` upserts for the four intent-plane entities (`ProjectIntent` / `TargetIntent` /
+`ExposureTemplateIntent` / `ExposurePlanIntent` schema-mirror records; `created_at`
+caller-supplied on create and excluded from the update set; NULL means unset, never coalesced —
+R3) plus per-entity provenance lookups (`Find<Entity>Id(importedFromTsGuid)` — no match → null,
+duplicate → loud `IntentStoreException`), every operation composing with a caller-owned
+`SqliteTransaction`. Migration `0002_minimum_time_nullable.sql` relaxes
+`project.minimum_time_minutes` to nullable (NULL = no minimum) via the R10 table-rebuild — and
+`IntentMigrations` gained the posture that makes rebuilds executable: FK enforcement suspended
+around the apply loop (`PRAGMA foreign_keys` is a transaction no-op, so the framework owns it)
+with a whole-store `PRAGMA foreign_key_check` gate before every commit (violation → rollback,
+loud). Compatibility pinned by test: importer-lifted rows resolve and update through the writer
+(shared `GuidBlob` encoding + `imported_from_ts_guid` conventions). Verified: Catalog suite 315
+green (9 new — writer round-trips/NULL/transaction/lookups, populated-v1 in-place 0002
+migration, FK-gate rollback); zero warnings. Existing importer untouched; ISM's ingest task
+group unblocks on this shipping.
+
 ## 2026-08-12 — intent store: schema + migration framework + store API + TS lift
 
 The TS-replacement program's AL critical path (openspec change `add-intent-store`, seeded by ISM's

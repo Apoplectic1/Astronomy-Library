@@ -65,6 +65,28 @@ public sealed class IntentMigrationsTests
     }
 
     [Fact]
+    public void ScriptBreakingReferentialIntegrity_FailsAndRollsBack()
+    {
+        // The framework suspends FK enforcement around scripts (R10 rebuilds need it) but gates
+        // every commit on a whole-store foreign_key_check — a dangling reference must roll back.
+        using SqliteConnection db = NewDb();
+        IntentMigrations.MigrationScript v1 = new(1, "a",
+            () => "CREATE TABLE p (id INTEGER PRIMARY KEY); CREATE TABLE c (pid INTEGER REFERENCES p(id)); " +
+                  "INSERT INTO p VALUES (1); INSERT INTO c VALUES (1);");
+        IntentMigrations.Apply(db, [v1]);
+
+        IntentStoreException ex = Assert.Throws<IntentStoreException>(() => IntentMigrations.Apply(db, [
+            v1,
+            new IntentMigrations.MigrationScript(2, "dangle", () => "DELETE FROM p;"),
+        ]));
+
+        Assert.Contains("foreign_key_check", ex.Message);
+        Assert.Equal(1L, IntentMigrations.ReadUserVersion(db));
+        Assert.Equal(1L, Scalar(db, "SELECT count(*) FROM p;"));    // rolled back — the parent row is restored
+        Assert.Equal(0L, Scalar(db, "SELECT count(*) FROM schema_migration WHERE version = 2;"));
+    }
+
+    [Fact]
     public void NewerStore_AbortsBeforeAnyWrite()
     {
         using SqliteConnection db = NewDb();
