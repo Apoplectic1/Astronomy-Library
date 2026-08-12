@@ -1,5 +1,10 @@
 # Astronomy Library — Roadmap
 
+> **2026-08-12:** AL holds the **critical path** of the TS-replacement program — openspec change
+> `add-intent-store` (seeded proposal-only: Catalog.db DDL, migration framework, store API, TS
+> importer; schema authority = ISM `docs\design\catalog-db-schema.md`). Program view: umbrella
+> `..\ROADMAP.md` § TS-replacement program.
+
 **Charter.** Forward-looking design for the `Astronomy` library — *where the library is going*, plus a
 three-line digest of what just landed. How current modules work lives in `ARCHITECTURE.md`; the full
 shipped history lives in `CHANGELOG.md` (this file never accumulates it). (The PCL wrapper's design
