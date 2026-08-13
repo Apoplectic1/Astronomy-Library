@@ -4,7 +4,8 @@
 > `add-intent-store` implemented (Catalog.db DDL + migration framework + store API + TS lift;
 > schema authority = ISM `docs\design\catalog-db-schema.md`), followed same day by
 > `add-intent-write-surface` (`IntentWriter` upsert/lookup surface + migration 0002 + the
-> framework's rebuild posture). The operational import and ISM's ingest mutations now unblock
+> framework's rebuild posture; verified 317 green + archived 2026-08-13, spec `intent-store`
+> updated). The operational import and ISM's ingest mutations now unblock
 > on AL publishing. Program view: umbrella `..\ROADMAP.md` § TS-replacement program.
 
 **Charter.** Forward-looking design for the `Astronomy` library — *where the library is going*, plus a
