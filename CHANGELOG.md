@@ -9,6 +9,19 @@ backstop — this is the human-legible layer above it.
 **Entry format:** `## YYYY-MM-DD — <what landed>` (a month-only `YYYY-MM` is fine when the exact day
 wasn't recorded). Newest first; add new entries directly below this charter, never at the bottom.
 
+## 2026-08-13 — Plan-plane write surface (`PlanWriter`)
+
+Openspec `add-plan-write-surface`, seeded by ISM's `add-planner-surface` (D6): the plan tables
+shipped in migration 0001 but nothing could write them. `PlanWriter` over an open `IntentStore`,
+sibling to `IntentWriter` (separate class — the plan plane's access shapes differ):
+`UpsertPlan` (full-value, `created_at` create-only — the intent-plane contract exactly),
+`ReplaceIntervals` (whole-set delete + ordered insert; an interval naming a different plan throws
+before any write), `FindCurrentPlan` (the profile+night's single non-superseded plan; duplicate
+live plans throw — never disambiguated silently), `ReadIntervals` (sequence order). Schema-mirror
+records `PlanIntent` / `PlanIntervalIntent` join `IntentEntities`. Every operation composes with
+a caller-owned transaction. No migration. First consumer: ISM's stage-0 planner (draft
+persistence). Catalog suite 323 green, zero warnings.
+
 ## 2026-08-12 — TS editable schema: `target.name` joins the whitelist (the rename verb)
 
 `TsEditableSchema` gains one row — `target.name` (Text, `Guarded`) — retiring the resolver-era

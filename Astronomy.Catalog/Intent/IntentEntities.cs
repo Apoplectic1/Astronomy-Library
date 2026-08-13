@@ -84,3 +84,29 @@ public sealed record ExposurePlanIntent
     public bool Enabled { get; init; } = true;
     public string? ImportedFromTsGuid { get; init; }
 }
+
+/// <summary>A <c>plan</c> row for <see cref="PlanWriter.UpsertPlan"/> (full-value; see file header).</summary>
+public sealed record PlanIntent
+{
+    public required Guid Id { get; init; }
+    public required Guid ProfileId { get; init; }
+    public required string NightOf { get; init; }   // ISO-8601 local date (yyyy-MM-dd)
+    public int StateId { get; init; }               // DDL default: Draft (0)
+    public required int AuthoredById { get; init; }
+    public bool SwitchImmediately { get; init; }
+    public required long CreatedAt { get; init; }
+    public long? BlessedAt { get; init; }
+}
+
+/// <summary>A <c>plan_interval</c> row for <see cref="PlanWriter.ReplaceIntervals"/>.</summary>
+public sealed record PlanIntervalIntent
+{
+    public required Guid Id { get; init; }
+    public required Guid PlanId { get; init; }
+    public required long SequenceNumber { get; init; }
+    public required Guid TargetId { get; init; }
+    public required Guid ExposurePlanId { get; init; }
+    public required long StartAt { get; init; }
+    public required long EndAt { get; init; }       // authored ends carry the half-exposure margin in stage 0
+    public bool AmendedByUser { get; init; }
+}
