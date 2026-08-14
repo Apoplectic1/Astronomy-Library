@@ -433,8 +433,10 @@ public static class TargetResolver
 
     // ---- Matching helpers -----------------------------------------------------------------------------------
 
-    /// <summary>Great-circle angular separation in degrees (haversine; RA inputs are decimal hours).</summary>
-    internal static double SeparationDegrees(double raHours1, double dec1, double raHours2, double dec2)
+    /// <summary>Great-circle angular separation in degrees (haversine; RA inputs are decimal hours).
+    /// Public since 2026-08-13: consumers matching scan centroids to their own authored coordinates
+    /// (ISM's planner progress pass) share the resolver's one separation definition.</summary>
+    public static double SeparationDegrees(double raHours1, double dec1, double raHours2, double dec2)
     {
         double ra1 = raHours1 * 15.0 * RadPerDeg;
         double ra2 = raHours2 * 15.0 * RadPerDeg;
