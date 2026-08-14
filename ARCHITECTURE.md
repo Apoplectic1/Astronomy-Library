@@ -8,14 +8,14 @@ still helped; split per `ROADMAP.md`'s adjudicated job). A reference elsewhere t
 `ROADMAP.md`; build/test/benchmark in `VERIFICATION.md`; the consumer contract in `CONSUMERS.md`;
 domain rationale routes through `DOMAIN.md`.
 
-**Cross-cutting facts worth knowing before any module:** x64 is the only fully-wired build config
-(AnyCPU/x86 sln entries are unmaintained aliases — census in *Solution overview*); the sln is a
+**Cross-cutting facts worth knowing before any module:** x64 is the only build config the sln
+declares (the old AnyCPU/x86 alias entries were removed 2026-08-13 — *Solution overview*); the sln is a
 mixed C++/C# graph (build with `MSBuild.exe`, never `dotnet build Astronomy.sln`); every test
 project is xUnit v3.
 
 | Module file | What it covers |
 |---|---|
-| [Solution overview](docs/architecture/solution.md) | `Astronomy.sln` config census: seventeen buildable projects (twelve Any CPU + five x64), the view-only PCL solution folder, why only x64 is real. |
+| [Solution overview](docs/architecture/solution.md) | `Astronomy.sln` config census: seventeen buildable projects, x64-only sln configs, the view-only PCL solution folder. |
 | [Astronomy.Core](docs/architecture/core.md) | The dependency-free base: Meeus math, targets/locations/night/session/moon/sun/brightness. **Architectural conventions** (units, hemisphere/angle rules, immutability), **thread safety** (permitted static state + audit recipe), **code organization** (the folder map), and `Astronomy.Core.Tests` / `.Benchmarks`. |
 | [Astronomy.XISF](docs/architecture/xisf.md) | XISF read + block re-store: header/keyword reader, `<Image geometry>` handling, the Tier-3 codec layer (`XisfBlockCompression`, `XisfImageReader`, `XisfChecksumVerifier`, `XisfBlockRewriter`), and `Astronomy.XISF.Tests`. |
 | [Astronomy.Diagnostics](docs/architecture/diagnostics.md) | The four-assembly layered stack: TFM-neutral core (`Log`, `ObservationSession`), `.Windows` capture backend, `.WinForms`/`.WinUI` Ctrl+N shells, `DiagnosticsHotkey`, and `Astronomy.Diagnostics.Tests`. |

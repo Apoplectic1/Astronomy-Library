@@ -9,6 +9,17 @@ backstop — this is the human-legible layer above it.
 **Entry format:** `## YYYY-MM-DD — <what landed>` (a month-only `YYYY-MM` is fine when the exact day
 wasn't recorded). Newest first; add new entries directly below this charter, never at the bottom.
 
+## 2026-08-13 — Sln sheds the AnyCPU/x86 alias configs (x64-only for real)
+
+VS 18.5's solution-config checker flagged four projects (Core.Tests, NINA.Tests, PCL, XISF.Tests —
+all pinned `<Platforms>x64</Platforms>`) whose AnyCPU/x86 sln rows mapped to project configurations
+that don't exist. Rather than repoint four mappings, the entire unmaintained AnyCPU/x86 solution-config
+surface was removed (204 lines): Debug/Release × x64 are now the only configs `Astronomy.sln` declares.
+Also gone as a side effect: the eight vendored PCL projects' dead x86→`Win32` rows and their stray
+Any CPU `Build.0` entries (x64 stays deliberately ActiveCfg-only, so sln builds still skip PCL).
+Full x64 Debug solution build verified green. Docs updated in step (CLAUDE gotcha, ARCHITECTURE
+index, README, `docs/architecture/solution.md` + `pcl.md`).
+
 ## 2026-08-13 — Plan-plane write surface (`PlanWriter`)
 
 Openspec `add-plan-write-surface`, seeded by ISM's `add-planner-surface` (D6): the plan tables

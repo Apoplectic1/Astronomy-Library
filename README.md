@@ -38,7 +38,7 @@ dotnet build Astronomy.Core -c Release    # any managed project builds this way
 
 Note: `dotnet build Astronomy.sln` will **not** work — the solution is a mixed C++/C# graph
 and the .NET CLI cannot load the C++ project. Build the full solution with Visual Studio (or
-`MSBuild.exe`), **x64 only** — AnyCPU/x86 solution entries are unmaintained aliases.
+`MSBuild.exe`), **x64 only** — the solution declares no other configuration.
 
 **Native tier (`Astronomy.PCL.Native`).** Requires the PixInsight Class Library, which is
 deliberately not part of this repo. It lives in its own mirror —
