@@ -256,13 +256,14 @@ public sealed class TargetResolverTests
     [Fact]
     public void Resolve_Mosaic_ProjectNameWithAltitudeClause_StillMatchesAndScopesPanels()
     {
-        // The authoring convention appends " - Above N" to project names; the capture directory stays
+        // The authoring convention appends " - N" to project names (the definitional clause, tightened
+        // 2026-08-16 — the retired legacy "Above N" form no longer strips); the capture directory stays
         // bare. The match AND the panel scope keys must both strip the clause — a raw-name scope would
         // pass the parent match yet leave every panel planned-only (field failure 2026-08-06, obs ff07).
         TargetReport[] disk = [DiskMosaic("Mosaic - Cygnus Loop",
             ("Panel 01of03", 20.5, 30.5), ("Panel 02of03", 20.7, 30.7), ("Panel 03of03", 20.9, 30.9))];
         TsPlanData ts = new(
-            [new TsProject(20, "profile-1", "Mosaic - Cygnus Loop - Above 25", 1, 1, null, 1, "g-mosaic")],
+            [new TsProject(20, "profile-1", "Mosaic - Cygnus Loop - 25", 1, 1, null, 1, "g-mosaic")],
             [TsT(1, "CygnusLoop P1", 20.5, 30.5, project: 20, guid: "g-p1"),
              TsT(2, "CygnusLoop P2", 20.7, 30.7, project: 20, guid: "g-p2"),
              TsT(3, "CygnusLoop P3", 20.9, 30.9, project: 20, guid: "g-p3")],
