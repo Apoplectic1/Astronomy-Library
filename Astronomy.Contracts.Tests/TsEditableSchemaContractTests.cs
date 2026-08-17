@@ -77,8 +77,10 @@ public sealed class TsEditableSchemaContractTests
     [Fact]
     public void Find_NonEditableColumn_ReturnsNull()
     {
-        // Identity/stat columns are deliberately outside the editable surface.
-        Assert.Null(TsEditableSchema.Find(TsTable.Target, "name"));
+        // Identity/stat columns are deliberately outside the editable surface. (target.name LEFT this
+        // set 2026-08-12 — the rename verb made it a Guarded editable; ra/dec/epoch stay excluded so no
+        // edit can re-open the coordinate matcher.)
+        Assert.Null(TsEditableSchema.Find(TsTable.Target, "ra"));
         Assert.Null(TsEditableSchema.Find(TsTable.ExposurePlan, "acquired"));
         Assert.Null(TsEditableSchema.Find(TsTable.Target, "guid"));
     }
